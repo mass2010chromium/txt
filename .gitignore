@@ -1,3 +1,6 @@
+Makefile
+*.swp
+
 # Prerequisites
 *.d
 
