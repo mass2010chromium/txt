@@ -28,8 +28,14 @@ void inplace_make_EditorAction(EditorAction* act, size_t start, size_t size,
 
 void EditorAction_add_child(EditorAction* parent, EditorAction* child) {
     child->parent = parent;
-    child->index_in_parent = parent->nested.size;
-    Vector_push(&parent->nested, child);
+    size_t insert_idx = 0;
+    for(; insert_idx < parent->nested.size; ++insert_idx) {
+        EditorAction* act = parent->nested.elements[insert_idx];
+        if (act->start_idx >= child->start_idx) break;
+    }
+    child->index_in_parent = insert_idx;
+    Vector_insert(&parent->nested, insert_idx, child);
+    //TODO MERGING...
 }
 
 void EditorAction_destroy(EditorAction* this) {
@@ -48,7 +54,7 @@ void inplace_make_Buffer(Buffer* buf, char* filename) {
     if (filename == NULL) {
         filename = "__tmp__";
         inplace_make_EditorAction(&buf->root, 0, 0, ED_INSERT);
-        buf->root.buf = "";
+        buf->root.buf = strdup("");
         buf->file = NULL;
         Vector_push(&buf->lines, buf->root.buf);
     }
@@ -80,6 +86,7 @@ void inplace_make_Buffer(Buffer* buf, char* filename) {
     buf->natural_col = 1;
     buf->top_left_file_pos = 0;
     buf->last_pos = 0;
+    buf->active_edit = NULL;
 }
     
 void Buffer_destroy(Buffer* buf) {

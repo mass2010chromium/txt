@@ -25,6 +25,9 @@ Buffer* current_buffer;
 
 Vector/*Buffer* */ buffers;
 Vector/*char*/ command_buffer;
+EditorAction* active_insert = NULL;
+size_t insert_y = (size_t) -1;
+size_t insert_x = (size_t) -1;
 
 void clear_line() {
     write(STDOUT_FILENO, "\033[0K", 4);
@@ -33,43 +36,18 @@ void clear_line() {
 void clear_screen() {
     write(STDOUT_FILENO, "\033[2J", 4);
 }
-    
-void editor_init(char* filename) {
-    inplace_make_Vector(&command_buffer, 10);
-    inplace_make_Vector(&buffers, 10);
-    current_buffer = make_Buffer(filename);
-    Vector_push(&buffers, current_buffer);
-}
-
-size_t screen_pos_to_file_pos(int y, int x, size_t* line_start) {
-    size_t start = current_buffer->top_left_file_pos;
-    for (int r = 0; r < y-1; ++r) {
-        start += strlen(current_buffer->lines.elements[r]);
-    }
-    *line_start = start;
-    start += (x - 1);
-    return start;
-}
-
-void begin_insert() {
-    int x, y;
-    get_cursor_pos(y, x);
-    size_t line_start;
-    size_t cursor_pos = screen_pos_to_file_pos(y, x, &line_start);
-}
 
 /**
  * Adapted from https://stackoverflow.com/questions/50884685/how-to-get-cursor-position-in-c-using-ansi-code
  * See: https://en.wikipedia.org/wiki/ANSI_escape_code (Device Status Report)
  */
-int get_cursor_pos(int *y, int *x) {
+int get_cursor_pos(size_t *y, size_t *x) {
     char buf[30] = {0};
-    int ret, i, pow;
+    int ret, i;
+    size_t pow;
     char ch;
     *y = 0;
     *x = 0;
-   
-    struct termios term, restore;
    
     write(STDOUT_FILENO, "\033[6n", 4);
    
@@ -92,12 +70,68 @@ int get_cursor_pos(int *y, int *x) {
     return 0;
 }
 
-void move_cursor(int y, int x) {
+void move_cursor(size_t y, size_t x) {
     printf("\033[%d;%dH", y, x);
+}
+    
+void editor_init(char* filename) {
+    inplace_make_Vector(&command_buffer, 10);
+    inplace_make_Vector(&buffers, 10);
+    current_buffer = make_Buffer(filename);
+    Vector_push(&buffers, current_buffer);
+}
+
+size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start) {
+    size_t start = current_buffer->top_left_file_pos;
+    for (size_t r = 0; r < y-1; ++r) {
+        start += strlen(current_buffer->lines.elements[r]);
+    }
+    *line_start = start;
+    start += (x - 1);
+    return start;
+}
+
+void begin_insert() {
+    size_t x, y;
+    get_cursor_pos(&y, &x);
+    size_t line_start;
+    size_t cursor_pos = screen_pos_to_file_pos(y, x, &line_start);
+    char* line = current_buffer->lines.elements[y-1];
+    size_t line_len = strlen(line);
+    EditorContext ctx;
+    resolve_index(&current_buffer->root, line_start, &ctx);
+    EditorAction* remove_line = make_EditorAction(ctx.index, line_len, ED_DELETE);
+    EditorAction* insert_line = make_EditorAction(ctx.index, line_len, ED_INSERT);
+    EditorAction_add_child(ctx.action, remove_line);
+    EditorAction_add_child(ctx.action, insert_line);
+    remove_line->buf = strdup(line);
+    insert_line->buf = line;
+    active_insert = insert_line;
+    insert_y = y-1;
+    insert_x = x-1;
+}
+
+int del_chr() {
+    if (insert_x == 0) return 0;
+    char* line = current_buffer->lines.elements[insert_y];
+    size_t line_len = strlen(line);
+    size_t rest = line_len - insert_x;
+    memmove(line + insert_x - 1, line + insert_x, rest+1);
+    insert_x -= 1;
+    current_buffer->cursor_col = insert_x+1;
+    current_buffer->natural_col = insert_x+1;
+    move_cursor(insert_y+1, insert_x+1);
+    clear_line();
+    write(STDOUT_FILENO, line+insert_x, rest);
+    return 1;
+}
+
+void add_chr() {
+
 }
 
 void display_bottom_bar(char* left, char* right) {
-    int x, y;
+    size_t x, y;
     get_cursor_pos(&y, &x);
     move_cursor(window_size.ws_row, 0);
     write(STDOUT_FILENO, left, strlen(left));
@@ -106,13 +140,14 @@ void display_bottom_bar(char* left, char* right) {
 
     }
     print("Displayed bottom bar [%s]\n", left);
+    clear_line();
     move_cursor(y, x);
 }
 
 void display_current_buffer() {
     //TODO handle line overruns
     //TODO only redraw changes
-    for (int i = 1; i < window_size.ws_row && i <= current_buffer->lines.size; ++i) {
+    for (size_t i = 1; i < window_size.ws_row && i <= current_buffer->lines.size; ++i) {
         move_cursor(i, 1);
         clear_line();
         write(STDOUT_FILENO, current_buffer->lines.elements[i-1],

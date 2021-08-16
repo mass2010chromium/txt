@@ -39,6 +39,7 @@ struct Buffer {
     int cursor_row;
     int cursor_col;
     int natural_col;
+    EditorAction* active_edit;
     Vector/*char* */ lines; //TODO: Cache/load buffered
 };
 typedef struct Buffer Buffer;

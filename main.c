@@ -52,21 +52,28 @@ void process_input(char input, int control) {
         else if (control == BYTE_LEFTARROW) {
             if (current_buffer->cursor_col > 1) {
                 current_buffer->cursor_col -= 1;
+                if (active_insert != NULL) insert_x -= 1;
             }
         }
         else if (control == BYTE_RIGHTARROW) {
             if (current_buffer->cursor_col < window_size.ws_col) {
                 current_buffer->cursor_col += 1;
+                if (active_insert != NULL) insert_x += 1;
             }
         }
         else {
             current_mode = EM_NORMAL;
             // TODO update data structures
-            return;
+            display_bottom_bar("-- NORMAL --", NULL);
         }
+        move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+        return;
     }
     if (current_mode == EM_INSERT) {
-        
+        if (input == BYTE_BACKSPACE) {
+            del_chr();
+        }
+        move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
     }
     else if (current_mode == EM_NORMAL) {
         char** rows_raw = current_buffer->lines.elements;
@@ -103,6 +110,7 @@ void process_input(char input, int control) {
         }
         else if (input == 'i') {
             current_mode = EM_INSERT;
+            begin_insert();
         }
         move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
     }
@@ -137,6 +145,9 @@ void process_input(char input, int control) {
     if (current_mode == EM_INSERT) {
         display_bottom_bar("-- INSERT --", NULL);
     }
+    else if (current_mode == EM_NORMAL) {
+        display_bottom_bar("-- NORMAL --", NULL);
+    }
 }
 
 int main() {
@@ -168,6 +179,7 @@ int main() {
     char buf[30];
     buf[1] = '\0';
     display_current_buffer();
+    process_input(BYTE_ESC, 0);
     while (true) {
         ssize_t result = read(STDIN_FILENO, buf, 1);
         if (result > 0) {
@@ -190,7 +202,7 @@ int main() {
                     }
                 }
             }
-            display_current_buffer();
+            //display_current_buffer();
             buf[result] = 0;
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
