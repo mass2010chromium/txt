@@ -31,6 +31,13 @@ Vector/*char*/ command_buffer;
 EditorAction* active_insert;
 size_t insert_y;
 size_t insert_x;
+size_t undo_index;
+size_t editor_top;
+size_t editor_bottom;
+
+void editor_window_size_change();
+
+void new_action();
 
 void clear_line();
 void clear_screen();
@@ -55,3 +62,8 @@ void add_chr(char c);
 void display_bottom_bar(char* left, char* right);
 
 void display_current_buffer();
+
+void editor_move_up();
+void editor_move_down();
+void editor_move_left();
+void editor_move_right();

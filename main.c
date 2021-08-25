@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define DEBUG 1
 #include "debugging.h"
 #include "buffer.h"
 #include "editor.h"
@@ -22,7 +21,7 @@ void signal_handler(int signum) {
         return;
     }
     else if (signum == SIGWINCH) {
-        ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
+        editor_window_size_change();
         return;
     }
 }
@@ -35,40 +34,24 @@ void process_command(char* command) {
         current_mode = EM_QUIT;
         return;
     }
+    if (strcmp(command, ":w") == 0) {
+        Buffer_save(current_buffer);
+        display_bottom_bar("-- File saved --", NULL);
+        return;
+    }
+    else {
+
+    }
 }
 
 void process_input(char input, int control) {
     if (input == BYTE_ESC) {
-        if (control == BYTE_UPARROW) {
-            if (current_buffer->cursor_row > 1) {
-                current_buffer->cursor_row -= 1;
-            }
-        }
-        else if (control == BYTE_DOWNARROW) {
-            if (current_buffer->cursor_row < window_size.ws_row - 1) {
-                current_buffer->cursor_row += 1;
-            }
-        }
-        else if (control == BYTE_LEFTARROW) {
-            if (current_buffer->cursor_col > 1) {
-                current_buffer->cursor_col -= 1;
-                if (active_insert != NULL) insert_x -= 1;
-            }
-        }
-        else if (control == BYTE_RIGHTARROW) {
-            int insert_offset = 0;
-            if (active_insert != NULL) insert_offset += 1;
-            if (current_buffer->cursor_col < window_size.ws_col
-                    && current_buffer->cursor_col < insert_offset
-                        + strlen(*get_line_in_buffer(current_buffer->cursor_row-1))-1) {
-                current_buffer->cursor_col += 1;
-                if (active_insert != NULL) insert_x += 1;
-            }
-        }
+        if (control == BYTE_UPARROW) { editor_move_up(); }
+        else if (control == BYTE_DOWNARROW) { editor_move_down(); }
+        else if (control == BYTE_LEFTARROW) { editor_move_left(); }
+        else if (control == BYTE_RIGHTARROW) { editor_move_right(); }
         else {
-            if (current_mode == EM_INSERT) {
-                end_insert();
-            }
+            if (current_mode == EM_INSERT) { end_insert(); }
             current_mode = EM_NORMAL;
             // TODO update data structures
             display_bottom_bar("-- NORMAL --", NULL);
@@ -77,12 +60,8 @@ void process_input(char input, int control) {
         return;
     }
     if (current_mode == EM_INSERT) {
-        if (input == BYTE_BACKSPACE) {
-            del_chr();
-        }
-        else {
-            add_chr(input);
-        }
+        if (input == BYTE_BACKSPACE) { del_chr(); }
+        else { add_chr(input); }
         move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
     }
     else if (current_mode == EM_NORMAL) {
@@ -94,32 +73,13 @@ void process_input(char input, int control) {
             move_cursor(window_size.ws_row, 2);
             return;
         }
-        else if (input == 'h') {
-            if (current_buffer->cursor_col > 1) current_buffer->cursor_col -= 1;
-            current_buffer->natural_col = current_buffer->cursor_col;
-        }
-        else if (input == 'j') {
-            if (current_buffer->cursor_row < window_size.ws_row - 1) current_buffer->cursor_row += 1;
-            size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
-            if (col > current_buffer->natural_col) col = current_buffer->natural_col;
-            current_buffer->cursor_col = col;
-        }
-        else if (input == 'k') {
-            if (current_buffer->cursor_row > 1) current_buffer->cursor_row -= 1;
-            size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
-            if (col > current_buffer->natural_col) col = current_buffer->natural_col;
-            current_buffer->cursor_col = col;
-        }
-        else if (input == 'l') {
-            if (current_buffer->cursor_col < window_size.ws_col
-                    && current_buffer->cursor_col <
-                        strlen(*get_line_in_buffer(current_buffer->cursor_row-1))-1) {
-                current_buffer->cursor_col += 1;
-            }
-            current_buffer->natural_col = current_buffer->cursor_col;
-        }
+        else if (input == 'h') { editor_move_left(); }
+        else if (input == 'j') { editor_move_down(); }
+        else if (input == 'k') { editor_move_up(); }
+        else if (input == 'l') { editor_move_right(); }
         else if (input == 'i') {
             current_mode = EM_INSERT;
+            new_action();
             begin_insert();
         }
         move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
@@ -170,12 +130,11 @@ int main() {
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {
         return 1;
     }
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
     fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    editor_init("editor.h");
+    editor_init("dummy");
 
     struct sigaction sa = {0};
     sa.sa_handler = signal_handler;

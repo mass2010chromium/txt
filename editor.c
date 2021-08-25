@@ -33,6 +33,18 @@ Vector/*char*/ command_buffer = {0};
 EditorAction* active_insert = NULL;
 size_t insert_y = (size_t) -1;
 size_t insert_x = (size_t) -1;
+size_t undo_index = 0;
+size_t editor_top;
+size_t editor_bottom;
+
+void editor_window_size_change() {
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
+    editor_bottom = window_size.ws_row - 1;
+}
+
+void new_action() {
+    undo_index += 1;
+}
 
 void clear_line() {
     write(STDOUT_FILENO, "\033[0K", 4);
@@ -86,7 +98,9 @@ int get_cursor_pos(size_t *y, size_t *x) {
 }
 
 void move_cursor(size_t y, size_t x) {
-    printf("\033[%lu;%luH", y, x);
+    char buf[60] = {0};
+    sprintf(buf, "\033[%lu;%luH", y, x);
+    write(STDOUT_FILENO, buf, strlen(buf));
 }
     
 void editor_init(char* filename) {
@@ -95,6 +109,8 @@ void editor_init(char* filename) {
     inplace_make_Vector(&buffers, 10);
     current_buffer = make_Buffer(filename);
     Vector_push(&buffers, current_buffer);
+    editor_top = 1;
+    editor_window_size_change();
 }
 
 char** get_line_in_buffer(size_t y) {
@@ -116,15 +132,14 @@ size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start) {
 }
 
 void begin_insert() {
-    size_t x, y;
-    get_cursor_pos(&y, &x);
     size_t line_start;
-    size_t cursor_pos = screen_pos_to_file_pos(y, x, &line_start);
-    char* line = current_buffer->lines.elements[y-1];
+    size_t cursor_pos = screen_pos_to_file_pos(current_buffer->cursor_row,
+                                                current_buffer->cursor_col, &line_start);
+    char* line = *get_line_in_buffer(current_buffer->cursor_row - 1);
     size_t line_len = strlen(line);
-    active_insert = make_EditorAction(line_start, line);
-    insert_y = y-1;
-    insert_x = x-1;
+    active_insert = make_EditorAction(undo_index, line_start, line);
+    insert_y = current_buffer->cursor_row-1;
+    insert_x = current_buffer->cursor_col-1;
 }
 void end_insert() {
     char** line_p = get_line_in_buffer(insert_y);
@@ -182,11 +197,67 @@ void display_bottom_bar(char* left, char* right) {
 void display_current_buffer() {
     //TODO handle line overruns
     //TODO only redraw changes
-    for (size_t i = 1; i < window_size.ws_row && i <= current_buffer->lines.size; ++i) {
+    for (size_t i = editor_top; i <= editor_bottom; ++i) {
         move_cursor(i, 1);
         clear_line();
-        write(STDOUT_FILENO, current_buffer->lines.elements[i-1],
-                        strlen(current_buffer->lines.elements[i-1]) - 1);
+        char* str = *get_line_in_buffer(i-1);
+        write(STDOUT_FILENO, str, strlen(str) - 1);
     }
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+}
+
+void editor_move_up() {
+    bool insert = false;
+    if (active_insert != NULL) {
+        insert = true;
+        end_insert();
+    }
+    if (current_buffer->cursor_row > editor_top) { current_buffer->cursor_row -= 1; }
+    else {
+        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -1);
+        display_current_buffer();
+    }
+    size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
+    if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
+    current_buffer->cursor_col = col;
+    if (insert) {
+        begin_insert();
+    }
+}
+void editor_move_down() {
+    bool insert = false;
+    if (active_insert != NULL) {
+        insert = true;
+        end_insert();
+    }
+    if (current_buffer->cursor_row < editor_bottom) { current_buffer->cursor_row += 1; }
+    else {
+        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, 1);
+        display_current_buffer();
+        print("buffer top row %lu\n", current_buffer->top_row);
+    }
+    size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
+    if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
+    current_buffer->cursor_col = col;
+    if (insert) {
+        begin_insert();
+    }
+}
+void editor_move_left() {
+    if (current_buffer->cursor_col > 1) {
+        current_buffer->cursor_col -= 1;
+        if (active_insert != NULL) insert_x -= 1;
+    }
+    current_buffer->natural_col = current_buffer->cursor_col;
+}
+void editor_move_right() {
+    int insert_offset = 0;
+    if (active_insert != NULL) insert_offset += 1;
+    if (current_buffer->cursor_col < window_size.ws_col
+            && current_buffer->cursor_col < insert_offset
+                + strlen(*get_line_in_buffer(current_buffer->cursor_row-1))-1) {
+        current_buffer->cursor_col += 1;
+        if (active_insert != NULL) insert_x += 1;
+    }
+    current_buffer->natural_col = current_buffer->cursor_col;
 }

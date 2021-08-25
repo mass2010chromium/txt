@@ -11,8 +11,8 @@ struct EditorAction {
 };
 typedef struct EditorAction EditorAction;
 
-EditorAction* make_EditorAction(size_t start, char* old_content);
-void inplace_make_EditorAction(EditorAction*, size_t, char*);
+EditorAction* make_EditorAction(size_t undo, size_t start, char* old_content);
+void inplace_make_EditorAction(EditorAction*, size_t, size_t, char*);
 void EditorAction_destroy(EditorAction*);
 
 struct Buffer {
@@ -20,7 +20,7 @@ struct Buffer {
     FILE* file;
     FILE* swapfile;
     Deque /*EditorAction* ?*/ undo_buffer;
-    size_t top_row;
+    ssize_t top_row;
     size_t top_left_file_pos;
     size_t last_pos;
     int cursor_row;
@@ -30,11 +30,20 @@ struct Buffer {
 };
 typedef struct Buffer Buffer;
 
-Buffer* make_Buffer(char* filename);
-void inplace_make_Buffer(Buffer*, char*);
+Buffer* make_Buffer(const char* filename);
+void inplace_make_Buffer(Buffer*, const char*);
 void Buffer_destroy(Buffer*);
 
+/**
+ * Scroll by up to `amount` (signed). Positive is down.
+ * Return: The actual amount scrolled
+ */
+ssize_t Buffer_scroll(Buffer* buf, size_t window_height, ssize_t amount);
+
+size_t Buffer_get_line_index(Buffer* buf, size_t y);
 char** Buffer_get_line(Buffer* buf, size_t y);
+
+int Buffer_save(Buffer* buf);
 
 size_t read_file_break_lines(Vector* ret, FILE* infile);
 

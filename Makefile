@@ -1,5 +1,5 @@
-CC="gcc"
-CFLAGS="-ggdb"
+CC=gcc
+CFLAGS=-ggdb -Wall
 
 all: main.o buffer.o utils.o editor.o debugging.o
 	gcc main.o buffer.o utils.o editor.o debugging.o -o main
