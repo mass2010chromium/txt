@@ -3,6 +3,8 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <string.h>
 
 #define DEBUG 1
 #include "debugging.h"
@@ -13,8 +15,6 @@ extern struct winsize window_size;
 extern Buffer* current_buffer;
 extern Vector/*char*/ command_buffer;
 extern Vector/*Buffer* */ buffers;
-
-EditorMode current_mode = EM_NORMAL;
 
 void signal_handler(int signum) {
     if (signum == SIGINT) {
@@ -56,12 +56,19 @@ void process_input(char input, int control) {
             }
         }
         else if (control == BYTE_RIGHTARROW) {
-            if (current_buffer->cursor_col < window_size.ws_col) {
+            int insert_offset = 0;
+            if (active_insert != NULL) insert_offset += 1;
+            if (current_buffer->cursor_col < window_size.ws_col
+                    && current_buffer->cursor_col < insert_offset
+                        + strlen(*get_line_in_buffer(current_buffer->cursor_row-1))-1) {
                 current_buffer->cursor_col += 1;
                 if (active_insert != NULL) insert_x += 1;
             }
         }
         else {
+            if (current_mode == EM_INSERT) {
+                end_insert();
+            }
             current_mode = EM_NORMAL;
             // TODO update data structures
             display_bottom_bar("-- NORMAL --", NULL);
@@ -73,10 +80,12 @@ void process_input(char input, int control) {
         if (input == BYTE_BACKSPACE) {
             del_chr();
         }
+        else {
+            add_chr(input);
+        }
         move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
     }
     else if (current_mode == EM_NORMAL) {
-        char** rows_raw = current_buffer->lines.elements;
         if (input == ':') {
             current_mode = EM_COMMAND;
             Vector_clear(&command_buffer, 10);
@@ -91,19 +100,20 @@ void process_input(char input, int control) {
         }
         else if (input == 'j') {
             if (current_buffer->cursor_row < window_size.ws_row - 1) current_buffer->cursor_row += 1;
-            size_t col = strlen(rows_raw[current_buffer->cursor_row-1]) - 1;
+            size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
             if (col > current_buffer->natural_col) col = current_buffer->natural_col;
             current_buffer->cursor_col = col;
         }
         else if (input == 'k') {
             if (current_buffer->cursor_row > 1) current_buffer->cursor_row -= 1;
-            size_t col = strlen(rows_raw[current_buffer->cursor_row-1]) - 1;
+            size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
             if (col > current_buffer->natural_col) col = current_buffer->natural_col;
             current_buffer->cursor_col = col;
         }
         else if (input == 'l') {
             if (current_buffer->cursor_col < window_size.ws_col
-                    && current_buffer->cursor_col < strlen(rows_raw[current_buffer->cursor_row-1])-1) {
+                    && current_buffer->cursor_col <
+                        strlen(*get_line_in_buffer(current_buffer->cursor_row-1))-1) {
                 current_buffer->cursor_col += 1;
             }
             current_buffer->natural_col = current_buffer->cursor_col;
@@ -121,11 +131,14 @@ void process_input(char input, int control) {
         }
         if (input == BYTE_ENTER) {
             buf[command_buffer.size] = 0;
+            move_cursor(window_size.ws_row, 1);
+            clear_line();
+            current_mode = EM_NORMAL;
+            display_bottom_bar("-- NORMAL --", NULL);
+            move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
             process_command(buf);
             Vector_clear(&command_buffer, 10);
             free(buf);
-            move_cursor(window_size.ws_row, 1);
-            clear_line();
             return;
         }
         else if (input == BYTE_BACKSPACE) {
@@ -154,13 +167,15 @@ int main() {
 #ifdef DEBUG
     __debug_init();
 #endif
-    editor_init("editor.h");
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {
         return 1;
     }
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
+
+    editor_init("editor.h");
 
     struct sigaction sa = {0};
     sa.sa_handler = signal_handler;

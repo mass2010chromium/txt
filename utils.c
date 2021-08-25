@@ -229,3 +229,12 @@ size_t fcopy(FILE* dest, FILE* src, size_t bytes) {
     }
     return total_copied;
 }
+
+char* string_insert_c(char* head, size_t index, char c) {
+    size_t len = strlen(head);
+    char* new = realloc(head, len+2);
+    size_t tail = len - index;
+    memmove(new+index+1, new+index, tail+1);
+    *(new+index) = c;
+    return new;
+}
