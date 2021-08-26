@@ -12,6 +12,7 @@ String* make_String(const char* data) {
 
 String* alloc_String(size_t maxlen) {
     String* ret = malloc(sizeof(String) + maxlen + 1);
+    ret->data[0] = 0;
     ret->length = 0;
     ret->max_length = maxlen;
     return ret;
@@ -48,7 +49,7 @@ void String_push(String** _s, char c) {
         ++s->length;
     }
     else {
-        String* new = realloc_String(s, s->max_length + 1);
+        String* new = realloc_String(s, s->max_length * 2);
         String_push(&new, c);
         *_s = new;
     }

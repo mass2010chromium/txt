@@ -67,8 +67,16 @@ void display_buffer_rows(size_t start, size_t end);
 
 void display_current_buffer();
 
+void left_align_tab(char* line);
+void right_align_tab(char* line);
+
 void editor_move_up();
 void editor_move_down();
+/**
+ * Only works in not insert mode.
+ */
+void editor_move_EOL();
 void editor_move_left();
 void editor_move_right();
 void editor_fix_view();
+void editor_align_tab();

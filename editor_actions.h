@@ -1,19 +1,12 @@
 #pragma once
-
 #include <stddef.h>
 
-#include "buffer.h"
+#include "common.h"
 
-struct EditorContext {
-    size_t jump_row;
-    size_t jump_col;
-    size_t start_row;
-    size_t start_col;
-    int action;
-    Buffer* buffer;
-};
-
-typedef struct EditorContext EditorContext;
+//typedef int ActionType;
+//const ActionType AT_NONE   = 0;
+//const ActionType AT_MOVE   = 1;
+//const ActionType AT_DELETE = 2;
 
 struct EditorAction {
     union {

@@ -65,6 +65,7 @@ void process_input(char input, int control) {
             if (current_mode == EM_NORMAL) {
                 // Match vim behavior when exiting insert mode.
                 editor_move_left();
+                editor_align_tab();
                 move_to_current();
             }
             return;
@@ -106,6 +107,10 @@ void process_input(char input, int control) {
             current_mode = EM_INSERT;
             editor_new_action();
             begin_insert();
+            editor_align_tab();
+        }
+        else if (input == '$') {
+            editor_move_EOL();
         }
         else if (input == 'o') {
             display_bottom_bar("-- INSERT --", NULL);

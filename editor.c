@@ -122,27 +122,83 @@ void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
-char screen_pos_char(size_t y, size_t x) {
-    char* curr = *get_line_in_buffer(y);
+size_t line_pos_ptr(char* buf, char* ptr) {
     size_t pos_x = 0;
-    char prev = 0;
-    while (curr != NULL) {
-        if (pos_x == x) {
-            return *curr;
-        }
-        else if (pos_x > x) {
-            return prev;
-        }
-        if (*curr == BYTE_TAB) {
+    for (; buf != ptr; ++buf) {
+        if (*buf == BYTE_TAB) {
             pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
         }
         else {
             ++pos_x;
         }
-        prev = *curr;
-        ++curr;
     }
-    return 0;
+    return pos_x;
+}
+
+char* line_pos(char* buf, ssize_t x) {
+    ssize_t pos_x = 0;
+    char* prev = NULL;
+    for (; *buf; ++buf) {
+        if (pos_x == x) {
+            return buf;
+        }
+        else if (pos_x > x) {
+            // Case of tab?
+            return prev;
+        }
+        if (*buf == BYTE_TAB) {
+            pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
+        }
+        else {
+            ++pos_x;
+        }
+        prev = buf;
+    }
+    return buf;
+}
+
+char line_pos_char(char* buf, size_t x) {
+    char* pos_ptr = line_pos(buf, x);
+    if (pos_ptr == NULL) {
+        return 0;
+    }
+    return *pos_ptr;
+}
+
+char screen_pos_char(size_t y, size_t x) {
+    return line_pos_char(*get_line_in_buffer(y), x);
+}
+
+char current_screen_pos_char() {
+    return screen_pos_char(current_buffer->cursor_row, current_buffer->cursor_col);
+}
+
+size_t strlen_tab(char* buf) {
+    size_t ret = 0;
+    for (; *buf; ++buf) {
+        if (*buf == BYTE_TAB) {
+            ret = ((ret / TAB_WIDTH) + 1) * TAB_WIDTH;
+            continue;
+        }
+        ++ret;
+    }
+    return ret;
+}
+
+void write_respect_tabspace(char* buf, size_t start, size_t count) {
+    String* out = alloc_String(count);
+    for (size_t i = 0; i < count; ++i) {
+        if (buf[i] == BYTE_TAB) {
+            size_t x = Strlen(out) + start;
+            for (int j = x; j < ((x / TAB_WIDTH) + 1) * TAB_WIDTH; ++j) {
+                String_push(&out, ' ');
+            }
+            continue;
+        }
+        String_push(&out, buf[i]);
+    }
+    write(STDOUT_FILENO, out->data, Strlen(out));
+    free(out);
 }
     
 void editor_init(char* filename) {
@@ -205,13 +261,20 @@ int del_chr() {
     }
     Edit* delete_action = make_Edit(undo_index, 
                         Buffer_get_line_index(current_buffer, y_pos), 0, line);
-    size_t rest = Strlen(delete_action->new_content) - x_pos;
-    String_delete(delete_action->new_content, x_pos);
+    char* current_ptr = line_pos(delete_action->new_content->data, x_pos);
+    size_t rest = Strlen(delete_action->new_content)
+                    - (current_ptr - delete_action->new_content->data);
+    String_delete(delete_action->new_content, current_ptr - delete_action->new_content->data);
     clear_line();
-    write(STDOUT_FILENO, delete_action->new_content->data + x_pos, rest);
+    write_respect_tabspace(current_ptr, x_pos, rest);
     free(line);
     *lineptr = strdup(delete_action->new_content->data);
     Buffer_push_undo(current_buffer, delete_action);
+    char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
+    while (hover_ch == 0 || hover_ch == '\n') {
+        editor_move_left();
+        hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
+    }
     return 1;
 }
 
@@ -228,13 +291,13 @@ int editor_backspace() {
             char* prev_line = *get_line_in_buffer(y_pos-1);
             Edit* new_action = make_Edit(undo_index, 
                         line_num-1, 0, prev_line);
-            new_action->new_content->length -= 1; // Remove trailing character, it got de-yeeted
-            current_buffer->cursor_col = new_action->new_content->length;
+            String_pop(new_action->new_content); // Remove trailing character, it got de-yeeted
+            current_buffer->cursor_col = strlen_tab(new_action->new_content->data);
             current_buffer->natural_col = current_buffer->cursor_col;
             --current_buffer->cursor_row;
             move_to_current();
             //clear_line();
-            write(STDOUT_FILENO, active_insert->new_content->data, 
+            write_respect_tabspace(active_insert->new_content->data, current_buffer->cursor_col,
                                     active_insert->new_content->length);
             //printf("%d\n", new_action->new_content->length);
             Strcat(&new_action->new_content, active_insert->new_content);
@@ -251,24 +314,27 @@ int editor_backspace() {
         }
         return 0;
     }
-    size_t rest = Strlen(active_insert->new_content) - current_buffer->cursor_col;
-    String_delete(active_insert->new_content, current_buffer->cursor_col - 1);
-    --current_buffer->cursor_col;
+    char* current_ptr = line_pos(active_insert->new_content->data, current_buffer->cursor_col-1);
+    size_t rest = Strlen(active_insert->new_content)
+                    - (current_ptr - active_insert->new_content->data);
+    String_delete(active_insert->new_content, current_ptr - active_insert->new_content->data);
+    current_buffer->cursor_col = line_pos_ptr(active_insert->new_content->data, current_ptr);
     current_buffer->natural_col = current_buffer->cursor_col;
     move_to_current();
     clear_line();
-    write(STDOUT_FILENO, active_insert->new_content->data+current_buffer->cursor_col, rest);
+    write_respect_tabspace(current_ptr, current_buffer->cursor_col, rest+1);
     return 1;
 }
 
 void add_chr(char c) {
     if (c == BYTE_ENTER) {
         char** line_p = get_line_in_buffer(current_buffer->cursor_row);
-        char* rest = active_insert->new_content->data + current_buffer->cursor_col;
+        char* rest = line_pos(active_insert->new_content->data, current_buffer->cursor_col);
         Edit* save_insert = active_insert;
         size_t save_col = current_buffer->cursor_col;
         editor_newline(1, rest);
-        write(STDOUT_FILENO, active_insert->new_content->data, active_insert->new_content->length);
+        write_respect_tabspace(active_insert->new_content->data, 0, 
+                                active_insert->new_content->length);
         save_insert->new_content->length = save_col;
         String_push(&save_insert->new_content, '\n');
         //save_insert->new_content->data[save_col+1] = 0;
@@ -280,11 +346,16 @@ void add_chr(char c) {
         move_to_current();
         return;
     }
-    size_t rest = Strlen(active_insert->new_content) - (current_buffer->cursor_col);
-    String_insert(&active_insert->new_content, current_buffer->cursor_col, c);
+    String_insert(&active_insert->new_content,
+                    line_pos(active_insert->new_content->data, current_buffer->cursor_col)
+                    - active_insert->new_content->data, c);
     clear_line();
-    write(STDOUT_FILENO, active_insert->new_content->data+current_buffer->cursor_col, rest+1);
-    ++current_buffer->cursor_col;
+    // Refresh, insert might realloc
+    char* current_ptr = line_pos(active_insert->new_content->data, current_buffer->cursor_col);
+    size_t rest = Strlen(active_insert->new_content)
+                    - (current_ptr - active_insert->new_content->data);
+    write_respect_tabspace(current_ptr, current_buffer->cursor_col, rest+1);
+    current_buffer->cursor_col = line_pos_ptr(active_insert->new_content->data, current_ptr+1);
     current_buffer->natural_col = current_buffer->cursor_col;
     move_to_current();
 }
@@ -299,7 +370,6 @@ void editor_newline(int side, char* initial) {
     size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
     current_buffer->cursor_row += 1;
     Vector_insert(&current_buffer->lines, line_num, strdup("\n"));
-    //size_t line_len = strlen(line);
     active_insert = make_Insert(undo_index, line_num, 0, initial);
     current_buffer->cursor_col = 0;
     current_buffer->natural_col = 0;
@@ -329,7 +399,7 @@ void display_buffer_rows(size_t start, size_t end) {
         if (Buffer_get_line_index(current_buffer, i-1) < current_buffer->lines.size) {
             char* str = *get_line_in_buffer(i-1);
             if (strlen(str) != 0) {
-                write(STDOUT_FILENO, str, strlen(str));
+                write_respect_tabspace(str, 0, strlen(str));
             }
 
         }
@@ -341,6 +411,26 @@ void display_current_buffer() {
     display_buffer_rows(editor_top, editor_bottom);
 }
 
+void left_align_tab(char* line) {
+    if (line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB) {
+        do {
+            --current_buffer->cursor_col;
+        } while (current_buffer->cursor_col % TAB_WIDTH != 3
+                    && line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB);
+        ++current_buffer->cursor_col;
+    }
+}
+
+void right_align_tab(char* line) {
+    if (line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB) {
+        do {
+            ++current_buffer->cursor_col;
+        } while (current_buffer->cursor_col % TAB_WIDTH
+                    && line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB);
+        --current_buffer->cursor_col;
+    }
+}
+
 void editor_move_up() {
     bool insert = false;
     if (active_insert != NULL) {
@@ -350,10 +440,12 @@ void editor_move_up() {
     current_buffer->cursor_row -= 1;
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
-    size_t col = strlen(line);
+    size_t col = strlen_tab(line);
+    if (!insert && col > 0) --col;
     if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
+    editor_align_tab();
     if (insert) {
         begin_insert();
     }
@@ -366,40 +458,88 @@ void editor_move_down() {
     }
     current_buffer->cursor_row += 1;
     editor_fix_view();
-    //printf("%d %d %d\n", current_buffer->lines.size, current_buffer->cursor_row, current_buffer->top_row);
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
-    size_t col = strlen(line);
+    size_t col = strlen_tab(line);
+    if (!insert && col > 0) --col;
     if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
+    editor_align_tab();
     if (insert) {
         begin_insert();
     }
 }
-void editor_move_left() {
-    if (current_buffer->cursor_col > 0) {
-        current_buffer->cursor_col -= 1;
+
+void editor_move_EOL() {
+    char* line = *get_line_in_buffer(current_buffer->cursor_row);
+    int max_char = strlen(line) - 1;
+    // Save newlines, but don't count them towards line length for cursor purposes.
+    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') {
+        max_char -= 1;
+    }
+    while (line_pos(line, current_buffer->cursor_col) - line < max_char) {
+        if (active_insert != NULL) {
+            if (line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB) {
+                right_align_tab(line);
+            }
+            ++current_buffer->cursor_col;
+        }
+        else {
+            ++current_buffer->cursor_col;
+            right_align_tab(line);
+        }
     }
     current_buffer->natural_col = current_buffer->cursor_col;
 }
-void editor_move_right() {
-    int max_x;
+
+void editor_move_left() {
     char* line;
     if (active_insert != NULL) {
-        max_x = Strlen(active_insert->new_content);
         line = active_insert->new_content->data;
     }
     else {
         line = *get_line_in_buffer(current_buffer->cursor_row);
-        max_x = strlen(line) - 1;
     }
+    if (line_pos(line, current_buffer->cursor_col) != line) {
+        if (active_insert == NULL) {
+            if (line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB) {
+                left_align_tab(line);
+            }
+            --current_buffer->cursor_col;
+        }
+        else {
+            --current_buffer->cursor_col;
+            left_align_tab(line);
+        }
+    }
+    current_buffer->natural_col = current_buffer->cursor_col;
+}
+void editor_move_right() {
+    int max_char = -1;
+    char* line;
+    if (active_insert != NULL) {
+        line = active_insert->new_content->data;
+        max_char = 0;
+    }
+    else {
+        line = *get_line_in_buffer(current_buffer->cursor_row);
+    }
+    max_char += strlen(line);
     // Save newlines, but don't count them towards line length for cursor purposes.
     if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') {
-        max_x -= 1;
+        max_char -= 1;
     }
-    if (current_buffer->cursor_col < window_size.ws_col
-            && current_buffer->cursor_col < max_x) {
-        current_buffer->cursor_col += 1;
+    if (line_pos(line, current_buffer->cursor_col) - line < max_char) {
+        if (active_insert != NULL) {
+            if (line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB) {
+                right_align_tab(line);
+            }
+            ++current_buffer->cursor_col;
+        }
+        else {
+            ++current_buffer->cursor_col;
+            right_align_tab(line);
+        }
     }
     current_buffer->natural_col = current_buffer->cursor_col;
 }
@@ -416,5 +556,16 @@ void editor_fix_view() {
         current_buffer->cursor_row += 1;
         Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -1);
         display_current_buffer();
+    }
+}
+
+void editor_align_tab() {
+    if (active_insert != NULL) {
+        // Left align in insert mode.
+        left_align_tab(active_insert->new_content->data);
+    }
+    else {
+        // Right align in normal mode.
+        right_align_tab(*get_line_in_buffer(current_buffer->cursor_row));
     }
 }

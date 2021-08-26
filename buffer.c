@@ -225,7 +225,38 @@ int Buffer_undo(Buffer* buf, size_t undo_index) {
     }
 }
 
+//TODO implement
 int Buffer_redo(Buffer*, size_t undo_index);
+
+/**
+ * Find a string in this buffer.
+ * Starts from the position given in the EditorContext struct (row, col)
+ * Search forward if direction is true, else backwards
+ * Search in more than the current line if cross_lines is true
+ * If found, returns the row, col in the EditorContext struct
+ *
+ * Return: 0 = OK, 1 = NOT_FOUND, -1 = error
+ */
+int Buffer_find_str(Buffer* this, char* str, bool cross_lines, bool direction, EditorContext* ret) {
+    //TODO: direction false
+
+    char* line = this->lines.elements[ret->start_row];
+    char* search = line + ret->start_col;
+    char* result = strstr(search, str);
+    if (result == NULL) {
+        if (!cross_lines) {
+            return 1;
+        }
+    }
+    else {
+        ret->jump_row = ret->start_row;
+        ret->jump_col = result - line;
+        return 0;
+    }
+
+    size_t start_row = ret->start_row;
+    return -1;  // TODO
+}
 
 /**
  * Read a file into a vector. One entry in the vector for each line in the file.
