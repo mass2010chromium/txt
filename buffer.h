@@ -3,32 +3,32 @@
 
 #include "utils.h"
 
-struct EditorAction {
+struct Edit {
     size_t undo_index;
     size_t start_row;
     size_t start_col;
     char* old_content;
     String* new_content;
 };
-typedef struct EditorAction EditorAction;
+typedef struct Edit Edit;
 
-EditorAction* make_InsertAction(size_t undo, size_t start_row, size_t start_col, char* new_content);
-EditorAction* make_DeleteAction(size_t undo, size_t start_row, size_t start_col, char* old_content);
-EditorAction* make_EditorAction(size_t undo, size_t start_row, size_t start_col, char* old_content);
-void inplace_make_EditorAction(EditorAction*, size_t, size_t, size_t, char*);
-void EditorAction_destroy(EditorAction*);
+Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content);
+Edit* make_Delete(size_t undo, size_t start_row, size_t start_col, char* old_content);
+Edit* make_Edit(size_t undo, size_t start_row, size_t start_col, char* old_content);
+void inplace_make_Edit(Edit*, size_t, size_t, size_t, char*);
+void Edit_destroy(Edit*);
 
 struct Buffer {
     char* name;
     FILE* file;
     FILE* swapfile;
-    Deque /*EditorAction* ?*/ undo_buffer;
-    Vector /*EditorAction* ?*/ redo_buffer;
+    Deque /*Edit* ?*/ undo_buffer;
+    Vector /*Edit* ?*/ redo_buffer;
     ssize_t top_row;            // Index into lines array corresponding to the top corner
     size_t top_left_file_pos;   // TODO: update this...
     size_t last_pos;            // TODO: update this...
-    int cursor_row;         // 1-indexed Y coordinate on screen
-    int cursor_col;         // 1-indexed X coordinate on screen
+    int cursor_row;         // 0-indexed Y coordinate on screen
+    int cursor_col;         // 0-indexed X coordinate on screen
     int natural_col;
     Vector/*char* */ lines; //TODO: Cache/load buffered
 };
@@ -49,7 +49,7 @@ char** Buffer_get_line(Buffer* buf, size_t y);
 
 int Buffer_save(Buffer* buf);
 
-void Buffer_push_undo(Buffer*, EditorAction*);
+void Buffer_push_undo(Buffer*, Edit*);
 int Buffer_undo(Buffer*, size_t undo_index);
 int Buffer_redo(Buffer*, size_t undo_index);
 

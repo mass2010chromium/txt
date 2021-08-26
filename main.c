@@ -54,7 +54,7 @@ void process_esc(int control) {
         // TODO update data structures
         display_bottom_bar("-- NORMAL --", NULL);
     }
-    move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+    move_to_current();
 }
 
 void process_input(char input, int control) {
@@ -84,7 +84,7 @@ void process_input(char input, int control) {
             String_clear(command_buffer);
             String_push(&command_buffer, input);
             display_bottom_bar(":", NULL);
-            move_cursor(window_size.ws_row, 2);
+            move_cursor(window_size.ws_row-1, 1);
             return;
         }
         else if (input == 'h') { editor_move_left(); }
@@ -113,7 +113,7 @@ void process_input(char input, int control) {
             editor_new_action();
             editor_newline(1, "\n");
         }
-        move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+        move_to_current();
     }
     else if (current_mode == EM_COMMAND) {
         if (input == BYTE_ESC) {
@@ -121,11 +121,11 @@ void process_input(char input, int control) {
             return;
         }
         if (input == BYTE_ENTER) {
-            move_cursor(window_size.ws_row, 1);
+            move_cursor(window_size.ws_row-1, 1);
             clear_line();
             current_mode = EM_NORMAL;
             display_bottom_bar("-- NORMAL --", NULL);
-            move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+            move_to_current();
             process_command(command_buffer->data);
             String_clear(command_buffer);
             return;
@@ -137,7 +137,7 @@ void process_input(char input, int control) {
             String_push(&command_buffer, input);
         }
         display_bottom_bar(command_buffer->data, NULL);
-        move_cursor(window_size.ws_row, command_buffer->length+1);
+        move_cursor(window_size.ws_row-1, command_buffer->length);
         return;
     }
 }

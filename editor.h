@@ -28,7 +28,7 @@ Buffer* current_buffer;
 
 Vector/*Buffer* */ buffers;
 String* command_buffer;
-EditorAction* active_insert;
+Edit* active_insert;
 size_t undo_index;
 size_t editor_top;
 size_t editor_bottom;
@@ -50,8 +50,6 @@ void move_cursor(size_t y, size_t x);
 void editor_init(char* filename);
 
 char** get_line_in_buffer(size_t y);
-
-size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start);
 
 void begin_insert();
 void end_insert();

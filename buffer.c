@@ -6,8 +6,8 @@
 #include "buffer.h"
 #include "utils.h"
 
-EditorAction* make_InsertAction(size_t undo, size_t start_row, size_t start_col, char* new_content) {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
+    Edit* ret = malloc(sizeof(Edit));
     ret->undo_index = undo;
     ret->start_row = start_row;
     ret->start_col = start_col;
@@ -16,8 +16,8 @@ EditorAction* make_InsertAction(size_t undo, size_t start_row, size_t start_col,
     return ret;
 }
 
-EditorAction* make_DeleteAction(size_t undo, size_t start_row, size_t start_col, char* old_content) {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+Edit* make_Delete(size_t undo, size_t start_row, size_t start_col, char* old_content) {
+    Edit* ret = malloc(sizeof(Edit));
     ret->undo_index = undo;
     ret->start_row = start_row;
     ret->start_col = start_col;
@@ -26,13 +26,13 @@ EditorAction* make_DeleteAction(size_t undo, size_t start_row, size_t start_col,
     return ret;
 }
 
-EditorAction* make_EditorAction(size_t undo, size_t start_row, size_t start_col, char* old_content) {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    inplace_make_EditorAction(ret, undo, start_row, start_col, old_content);
+Edit* make_Edit(size_t undo, size_t start_row, size_t start_col, char* old_content) {
+    Edit* ret = malloc(sizeof(Edit));
+    inplace_make_Edit(ret, undo, start_row, start_col, old_content);
     return ret;
 }
 
-void inplace_make_EditorAction(EditorAction* ed, size_t undo,
+void inplace_make_Edit(Edit* ed, size_t undo,
                                 size_t start_row, size_t start_col, char* old_content) {
     ed->undo_index = undo;
     ed->start_row = start_row;
@@ -41,7 +41,7 @@ void inplace_make_EditorAction(EditorAction* ed, size_t undo,
     ed->new_content = make_String(old_content);
 }
 
-void EditorAction_destroy(EditorAction* ed) {
+void Edit_destroy(Edit* ed) {
     free(ed->old_content);
     free(ed->new_content);
 }
@@ -88,9 +88,9 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     }
     buf->swapfile = NULL;
     buf->name = strdup(filename);
-    buf->cursor_row = 1;
-    buf->cursor_col = 1;
-    buf->natural_col = 1;
+    buf->cursor_row = 0;
+    buf->cursor_col = 0;
+    buf->natural_col = 0;
     buf->top_row = 0;
     buf->top_left_file_pos = 0;
     buf->last_pos = 0;
@@ -174,22 +174,22 @@ int Buffer_save(Buffer* buf) {
     return 0;
 }
 
-void Buffer_push_undo(Buffer* buf, EditorAction* ed) {
+void Buffer_push_undo(Buffer* buf, Edit* ed) {
     if (ed->old_content == NULL && ed->new_content == NULL) {
-        EditorAction_destroy(ed);
+        Edit_destroy(ed);
         free(ed);
         return;
     }
     if (Deque_full(&buf->undo_buffer)) {
-        EditorAction* ed_old = Deque_pop(&buf->undo_buffer);
-        EditorAction_destroy(ed_old);
+        Edit* ed_old = Deque_pop(&buf->undo_buffer);
+        Edit_destroy(ed_old);
         free(ed_old);
     }
     Deque_push(&buf->undo_buffer, ed);
     Vector_clear(&buf->redo_buffer, 100);
 }
 
-void Buffer_undo_EditorAction(Buffer* buf, EditorAction* ed) {
+void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
     size_t index = ed->start_row;
     if (ed->old_content == NULL) {
         // Insert action. Undo by deleting.
@@ -214,12 +214,12 @@ int Buffer_undo(Buffer* buf, size_t undo_index) {
         if (Deque_empty(&buf->undo_buffer)) {
             return num_undo;
         }
-        EditorAction* ed = Deque_peek_r(&buf->undo_buffer);
+        Edit* ed = Deque_peek_r(&buf->undo_buffer);
         if (ed->undo_index < undo_index) {
             return num_undo;
         }
         num_undo += 1;
-        Buffer_undo_EditorAction(buf, ed);
+        Buffer_undo_Edit(buf, ed);
         Deque_pop_r(&buf->undo_buffer);
         Vector_push(&buf->redo_buffer, ed);
     }
