@@ -11,7 +11,9 @@ struct EditorContext {
     size_t start_col;
     int action;
     Buffer* buffer;
-}
+};
+
+typedef struct EditorContext EditorContext;
 
 struct EditorAction {
     union {

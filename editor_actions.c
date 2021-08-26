@@ -1,9 +1,11 @@
 #include "editor_actions.h"
 
+#include <stdlib.h>
+
 int NumberAction_update(EditorAction* this, char input, int control) {
     int val = input - '0';
     if (val >= 0 && val < 10) {
-        ret->num_value = this->num_value * 10 + val;
+        this->num_value = this->num_value * 10 + val;
         return 1;
     }
     return 0;
