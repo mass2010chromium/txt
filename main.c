@@ -12,7 +12,6 @@
 
 extern struct winsize window_size;
 extern Buffer* current_buffer;
-extern Vector/*char*/ command_buffer;
 extern Vector/*Buffer* */ buffers;
 
 void signal_handler(int signum) {
@@ -44,89 +43,113 @@ void process_command(char* command) {
     }
 }
 
-void process_input(char input, int control) {
-    if (input == BYTE_ESC) {
-        if (control == BYTE_UPARROW) { editor_move_up(); }
-        else if (control == BYTE_DOWNARROW) { editor_move_down(); }
-        else if (control == BYTE_LEFTARROW) { editor_move_left(); }
-        else if (control == BYTE_RIGHTARROW) { editor_move_right(); }
-        else {
-            if (current_mode == EM_INSERT) { end_insert(); }
-            current_mode = EM_NORMAL;
-            // TODO update data structures
-            display_bottom_bar("-- NORMAL --", NULL);
-        }
-        move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
-        return;
+void process_esc(int control) {
+    if (control == BYTE_UPARROW) { editor_move_up(); }
+    else if (control == BYTE_DOWNARROW) { editor_move_down(); }
+    else if (control == BYTE_LEFTARROW) { editor_move_left(); }
+    else if (control == BYTE_RIGHTARROW) { editor_move_right(); }
+    else {
+        if (current_mode == EM_INSERT) { end_insert(); }
+        current_mode = EM_NORMAL;
+        // TODO update data structures
+        display_bottom_bar("-- NORMAL --", NULL);
     }
+    move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+}
+
+void process_input(char input, int control) {
     if (current_mode == EM_INSERT) {
-        if (input == BYTE_BACKSPACE) { del_chr(); }
+        display_bottom_bar("-- INSERT --", NULL);
+        if (input == BYTE_ESC) {
+            process_esc(control);
+            if (current_mode == EM_NORMAL) {
+                // Match vim behavior when exiting insert mode.
+                editor_move_left();
+                move_to_current();
+            }
+            return;
+        }
+        if (input == BYTE_BACKSPACE) { editor_backspace(); }
         else { add_chr(input); }
-        move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+        move_to_current();
     }
     else if (current_mode == EM_NORMAL) {
+        display_bottom_bar("-- NORMAL --", NULL);
+        if (input == BYTE_ESC) {
+            process_esc(control);
+            return;
+        }
         if (input == ':') {
             current_mode = EM_COMMAND;
-            Vector_clear(&command_buffer, 10);
-            Vector_push(&command_buffer, (void*) input);
+            String_clear(command_buffer);
+            String_push(&command_buffer, input);
             display_bottom_bar(":", NULL);
             move_cursor(window_size.ws_row, 2);
             return;
         }
         else if (input == 'h') { editor_move_left(); }
-        else if (input == 'j') { editor_move_down(); }
+        else if (input == 'j' || input == BYTE_ENTER) { editor_move_down(); }
         else if (input == 'k') { editor_move_up(); }
         else if (input == 'l') { editor_move_right(); }
+        else if (input == 'u') { 
+            int res = editor_undo();
+            if (res == 0) {
+                display_bottom_bar("-- Undo: Nothing to undo", NULL);
+            }
+        }
+        else if (input == 'x') {
+            editor_new_action();
+            del_chr();
+        }
         else if (input == 'i') {
+            display_bottom_bar("-- INSERT --", NULL);
             current_mode = EM_INSERT;
-            new_action();
+            editor_new_action();
             begin_insert();
+        }
+        else if (input == 'o') {
+            display_bottom_bar("-- INSERT --", NULL);
+            current_mode = EM_INSERT;
+            editor_new_action();
+            editor_newline(1, "\n");
         }
         move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
     }
     else if (current_mode == EM_COMMAND) {
-        char* buf = malloc(sizeof(char) * command_buffer.size + 2);
-        for (int i = 0; i < command_buffer.size; ++i) {
-            buf[i] = (char) command_buffer.elements[i];
+        if (input == BYTE_ESC) {
+            process_esc(control);
+            return;
         }
         if (input == BYTE_ENTER) {
-            buf[command_buffer.size] = 0;
             move_cursor(window_size.ws_row, 1);
             clear_line();
             current_mode = EM_NORMAL;
             display_bottom_bar("-- NORMAL --", NULL);
             move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
-            process_command(buf);
-            Vector_clear(&command_buffer, 10);
-            free(buf);
+            process_command(command_buffer->data);
+            String_clear(command_buffer);
             return;
         }
         else if (input == BYTE_BACKSPACE) {
-            command_buffer.size -= 1;
-            buf[command_buffer.size] = 0;
+            String_pop(command_buffer);
         }
         else {
-            buf[command_buffer.size] = input;
-            Vector_push(&command_buffer, (void*) input);
-            buf[command_buffer.size] = 0;
+            String_push(&command_buffer, input);
         }
-        display_bottom_bar(buf, NULL);
-        free(buf);
-        move_cursor(window_size.ws_row, command_buffer.size+1);
+        display_bottom_bar(command_buffer->data, NULL);
+        move_cursor(window_size.ws_row, command_buffer->length+1);
         return;
-    }
-    if (current_mode == EM_INSERT) {
-        display_bottom_bar("-- INSERT --", NULL);
-    }
-    else if (current_mode == EM_NORMAL) {
-        display_bottom_bar("-- NORMAL --", NULL);
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
 #ifdef DEBUG
     __debug_init();
 #endif
+    if (argc < 2) {
+        printf("Usage: %s <file>\n", argv[0]);
+        exit(1);
+    }
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {
         return 1;
     }
@@ -134,7 +157,7 @@ int main() {
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    editor_init("dummy");
+    editor_init(argv[1]);
 
     struct sigaction sa = {0};
     sa.sa_handler = signal_handler;
@@ -180,6 +203,7 @@ int main() {
             buf[result] = 0;
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
+            editor_fix_view();
         }
         print("current mode: %d\n", current_mode);
         if (current_mode == EM_QUIT) {

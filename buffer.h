@@ -5,14 +5,17 @@
 
 struct EditorAction {
     size_t undo_index;
-    size_t start_idx;
+    size_t start_row;
+    size_t start_col;
     char* old_content;
-    char* new_content;
+    String* new_content;
 };
 typedef struct EditorAction EditorAction;
 
-EditorAction* make_EditorAction(size_t undo, size_t start, char* old_content);
-void inplace_make_EditorAction(EditorAction*, size_t, size_t, char*);
+EditorAction* make_InsertAction(size_t undo, size_t start_row, size_t start_col, char* new_content);
+EditorAction* make_DeleteAction(size_t undo, size_t start_row, size_t start_col, char* old_content);
+EditorAction* make_EditorAction(size_t undo, size_t start_row, size_t start_col, char* old_content);
+void inplace_make_EditorAction(EditorAction*, size_t, size_t, size_t, char*);
 void EditorAction_destroy(EditorAction*);
 
 struct Buffer {
@@ -20,11 +23,12 @@ struct Buffer {
     FILE* file;
     FILE* swapfile;
     Deque /*EditorAction* ?*/ undo_buffer;
-    ssize_t top_row;
-    size_t top_left_file_pos;
-    size_t last_pos;
-    int cursor_row;
-    int cursor_col;
+    Vector /*EditorAction* ?*/ redo_buffer;
+    ssize_t top_row;            // Index into lines array corresponding to the top corner
+    size_t top_left_file_pos;   // TODO: update this...
+    size_t last_pos;            // TODO: update this...
+    int cursor_row;         // 1-indexed Y coordinate on screen
+    int cursor_col;         // 1-indexed X coordinate on screen
     int natural_col;
     Vector/*char* */ lines; //TODO: Cache/load buffered
 };
@@ -44,6 +48,10 @@ size_t Buffer_get_line_index(Buffer* buf, size_t y);
 char** Buffer_get_line(Buffer* buf, size_t y);
 
 int Buffer_save(Buffer* buf);
+
+void Buffer_push_undo(Buffer*, EditorAction*);
+int Buffer_undo(Buffer*, size_t undo_index);
+int Buffer_redo(Buffer*, size_t undo_index);
 
 size_t read_file_break_lines(Vector* ret, FILE* infile);
 

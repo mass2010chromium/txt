@@ -6,17 +6,39 @@
 #include "buffer.h"
 #include "utils.h"
 
-EditorAction* make_EditorAction(size_t undo, size_t start, char* old_content) {
+EditorAction* make_InsertAction(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     EditorAction* ret = malloc(sizeof(EditorAction));
-    inplace_make_EditorAction(ret, undo, start, old_content);
+    ret->undo_index = undo;
+    ret->start_row = start_row;
+    ret->start_col = start_col;
+    ret->old_content = NULL;
+    ret->new_content = make_String(new_content);
     return ret;
 }
 
-void inplace_make_EditorAction(EditorAction* ed, size_t undo, size_t start, char* old_content) {
+EditorAction* make_DeleteAction(size_t undo, size_t start_row, size_t start_col, char* old_content) {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->undo_index = undo;
+    ret->start_row = start_row;
+    ret->start_col = start_col;
+    ret->old_content = strdup(old_content);
+    ret->new_content = NULL;
+    return ret;
+}
+
+EditorAction* make_EditorAction(size_t undo, size_t start_row, size_t start_col, char* old_content) {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    inplace_make_EditorAction(ret, undo, start_row, start_col, old_content);
+    return ret;
+}
+
+void inplace_make_EditorAction(EditorAction* ed, size_t undo,
+                                size_t start_row, size_t start_col, char* old_content) {
     ed->undo_index = undo;
-    ed->start_idx = start;
+    ed->start_row = start_row;
+    ed->start_col = start_col;
     ed->old_content = strdup(old_content);
-    ed->new_content = strdup(old_content);
+    ed->new_content = make_String(old_content);
 }
 
 void EditorAction_destroy(EditorAction* ed) {
@@ -43,6 +65,7 @@ Buffer* make_Buffer(const char* filename) {
 
 void inplace_make_Buffer(Buffer* buf, const char* filename) {
     inplace_make_Deque(&buf->undo_buffer, 100);
+    inplace_make_Vector(&buf->redo_buffer, 100);
     inplace_make_Vector(&buf->lines, 100);
     buf->file = NULL;
     if (filename == NULL) {
@@ -55,13 +78,16 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
         if (infile != NULL)  {
             //TODO buffer/read not the whole file
             n_read = read_file_break_lines(&buf->lines, infile);
+            if (n_read == 0) {
+                Vector_push(&buf->lines, strdup(""));
+            }
         }
         else {
             n_read = 0;
         }
     }
     buf->swapfile = NULL;
-    buf->name = filename;
+    buf->name = strdup(filename);
     buf->cursor_row = 1;
     buf->cursor_col = 1;
     buf->natural_col = 1;
@@ -72,7 +98,9 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     
 void Buffer_destroy(Buffer* buf) {
     Deque_destroy(&buf->undo_buffer);
+    Vector_destroy(&buf->redo_buffer);
     Vector_destroy(&buf->lines);
+    free(buf->name);
     Buffer_close_files(buf);
 }
 
@@ -107,6 +135,7 @@ ssize_t Buffer_scroll(Buffer* buf, size_t window_height, ssize_t amount) {
         if (buf->top_row + window_height > buf->lines.size) {
             scroll_amount = buf->lines.size - window_height - save;
             buf->top_row = buf->lines.size - window_height;
+            if (buf->top_row < 0) buf->top_row = 0;
             return scroll_amount;
         }
         return amount;
@@ -145,6 +174,63 @@ int Buffer_save(Buffer* buf) {
     return 0;
 }
 
+void Buffer_push_undo(Buffer* buf, EditorAction* ed) {
+    if (ed->old_content == NULL && ed->new_content == NULL) {
+        EditorAction_destroy(ed);
+        free(ed);
+        return;
+    }
+    if (Deque_full(&buf->undo_buffer)) {
+        EditorAction* ed_old = Deque_pop(&buf->undo_buffer);
+        EditorAction_destroy(ed_old);
+        free(ed_old);
+    }
+    Deque_push(&buf->undo_buffer, ed);
+    Vector_clear(&buf->redo_buffer, 100);
+}
+
+void Buffer_undo_EditorAction(Buffer* buf, EditorAction* ed) {
+    size_t index = ed->start_row;
+    if (ed->old_content == NULL) {
+        // Insert action. Undo by deleting.
+        char* lineptr = buf->lines.elements[index];
+        Vector_delete(&buf->lines, index);
+        free(lineptr);
+        return;
+    }
+    if (ed->new_content == NULL) {
+        // Delete action. Undo by inserting.
+        Vector_insert(&buf->lines, index, strdup(ed->old_content));
+        return;
+    }
+    char** lineptr = (char**) &(buf->lines.elements[index]);
+    free(*lineptr);
+    *lineptr = strdup(ed->old_content);
+}
+
+int Buffer_undo(Buffer* buf, size_t undo_index) {
+    int num_undo = 0;
+    while (true) {
+        if (Deque_empty(&buf->undo_buffer)) {
+            return num_undo;
+        }
+        EditorAction* ed = Deque_peek_r(&buf->undo_buffer);
+        if (ed->undo_index < undo_index) {
+            return num_undo;
+        }
+        num_undo += 1;
+        Buffer_undo_EditorAction(buf, ed);
+        Deque_pop_r(&buf->undo_buffer);
+        Vector_push(&buf->redo_buffer, ed);
+    }
+}
+
+int Buffer_redo(Buffer*, size_t undo_index);
+
+/**
+ * Read a file into a vector. One entry in the vector for each line in the file.
+ * All strings in the return vector are malloc'd, and keep their trailing newlines (if they had them).
+ */
 size_t read_file_break_lines(Vector* ret, FILE* infile) {
     const size_t BLOCKSIZE = 4096;
     char read_buf[BLOCKSIZE+1];
@@ -197,4 +283,3 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
         total_copied += num_read;
     }
 }
-

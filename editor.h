@@ -27,23 +27,24 @@ struct winsize window_size;
 Buffer* current_buffer;
 
 Vector/*Buffer* */ buffers;
-Vector/*char*/ command_buffer;
+String* command_buffer;
 EditorAction* active_insert;
-size_t insert_y;
-size_t insert_x;
 size_t undo_index;
 size_t editor_top;
 size_t editor_bottom;
 
 void editor_window_size_change();
 
-void new_action();
+void editor_new_action();
+
+int editor_undo();
 
 void clear_line();
 void clear_screen();
 
 int get_cursor_pos(size_t *y, size_t *x);
 
+void move_to_current();
 void move_cursor(size_t y, size_t x);
 
 void editor_init(char* filename);
@@ -56,10 +57,15 @@ void begin_insert();
 void end_insert();
 
 int del_chr();
+int editor_backspace();
 
 void add_chr(char c);
 
+void editor_newline(int, char*);
+
 void display_bottom_bar(char* left, char* right);
+
+void display_buffer_rows(size_t start, size_t end);
 
 void display_current_buffer();
 
@@ -67,3 +73,4 @@ void editor_move_up();
 void editor_move_down();
 void editor_move_left();
 void editor_move_right();
+void editor_fix_view();

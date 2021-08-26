@@ -29,10 +29,8 @@ struct winsize window_size = {0};
 Buffer* current_buffer = NULL;
 
 Vector/*Buffer* */ buffers = {0};
-Vector/*char*/ command_buffer = {0};
+String* command_buffer = NULL;
 EditorAction* active_insert = NULL;
-size_t insert_y = (size_t) -1;
-size_t insert_x = (size_t) -1;
 size_t undo_index = 0;
 size_t editor_top;
 size_t editor_bottom;
@@ -42,8 +40,17 @@ void editor_window_size_change() {
     editor_bottom = window_size.ws_row - 1;
 }
 
-void new_action() {
+void editor_new_action() {
     undo_index += 1;
+}
+
+int editor_undo() {
+    int num_undo = Buffer_undo(current_buffer, undo_index);
+    if (num_undo > 0) {
+        undo_index -= 1;
+        display_current_buffer();
+    }
+    return num_undo;
 }
 
 void clear_line() {
@@ -102,10 +109,14 @@ void move_cursor(size_t y, size_t x) {
     sprintf(buf, "\033[%lu;%luH", y, x);
     write(STDOUT_FILENO, buf, strlen(buf));
 }
+
+void move_to_current() {
+    move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+}
     
 void editor_init(char* filename) {
     current_mode = EM_NORMAL;
-    inplace_make_Vector(&command_buffer, 10);
+    command_buffer = alloc_String(10);
     inplace_make_Vector(&buffers, 10);
     current_buffer = make_Buffer(filename);
     Vector_push(&buffers, current_buffer);
@@ -132,52 +143,139 @@ size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start) {
 }
 
 void begin_insert() {
-    size_t line_start;
-    size_t cursor_pos = screen_pos_to_file_pos(current_buffer->cursor_row,
-                                                current_buffer->cursor_col, &line_start);
+    //size_t line_start;
+    //size_t cursor_pos = screen_pos_to_file_pos(current_buffer->cursor_row,
+    //                                            current_buffer->cursor_col, &line_start);
     char* line = *get_line_in_buffer(current_buffer->cursor_row - 1);
-    size_t line_len = strlen(line);
-    active_insert = make_EditorAction(undo_index, line_start, line);
-    insert_y = current_buffer->cursor_row-1;
-    insert_x = current_buffer->cursor_col-1;
-}
-void end_insert() {
-    char** line_p = get_line_in_buffer(insert_y);
-    free(*line_p);
-    *line_p = strdup(active_insert->new_content);
-    Deque_push(&current_buffer->undo_buffer, active_insert);
-    active_insert = NULL;
-    insert_y = (size_t) -1;
-    insert_x = (size_t) -1;
+    //size_t line_len = strlen(line);
+    active_insert = make_EditorAction(undo_index, 
+                        Buffer_get_line_index(current_buffer, current_buffer->cursor_row - 1),
+                        0, line);
 }
 
+void end_insert() {
+    char** line_p = get_line_in_buffer(current_buffer->cursor_row-1);
+    free(*line_p);
+    *line_p = strdup(active_insert->new_content->data);
+    Buffer_push_undo(current_buffer, active_insert);
+    active_insert = NULL;
+}
+
+/**
+ * Delete a character under the cursor (except newlines).
+ */
 int del_chr() {
-    if (insert_x == 0) return 0;
-    char* line = active_insert->new_content;
-    size_t line_len = strlen(line);
-    size_t rest = line_len - insert_x;
-    memmove(line + insert_x - 1, line + insert_x, rest+1);
-    insert_x -= 1;
-    current_buffer->cursor_col = insert_x+1;
-    current_buffer->natural_col = insert_x+1;
-    move_cursor(insert_y+1, insert_x+1);
+    size_t y_pos = current_buffer->cursor_row-1;
+    size_t x_pos = current_buffer->cursor_col-1;
+    char** lineptr = (char**) get_line_in_buffer(y_pos);
+    char* line = *lineptr;
+    if (strlen(line) == 0) {
+        return 0;
+    }
+    else if (strlen(line) == 1 && line[0] == '\n') {
+        return 0;
+    }
+    EditorAction* delete_action = make_EditorAction(undo_index, 
+                        Buffer_get_line_index(current_buffer, y_pos), 0, line);
+    size_t rest = Strlen(delete_action->new_content) - x_pos;
+    String_delete(delete_action->new_content, x_pos);
     clear_line();
-    write(STDOUT_FILENO, line+insert_x, rest);
+    write(STDOUT_FILENO, delete_action->new_content->data + x_pos, rest);
+    free(line);
+    *lineptr = strdup(delete_action->new_content->data);
+    Buffer_push_undo(current_buffer, delete_action);
+    return 1;
+}
+
+int editor_backspace() {
+    int y_pos = current_buffer->cursor_row-1;
+    size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
+    //printf("BBB\n");
+    if (current_buffer->cursor_col == 1) {
+        //printf("AAAAAAAAAAA\n");
+        if (y_pos == 0) {
+
+        }
+        if (y_pos > 0) {
+            char* prev_line = *get_line_in_buffer(y_pos-1);
+            EditorAction* new_action = make_EditorAction(undo_index, 
+                        line_num-1, 0, prev_line);
+            new_action->new_content->length -= 1; // Remove trailing character, it got de-yeeted
+            current_buffer->cursor_col = 1 + new_action->new_content->length;
+            current_buffer->natural_col = current_buffer->cursor_col;
+            --current_buffer->cursor_row;
+            move_to_current();
+            //clear_line();
+            write(STDOUT_FILENO, active_insert->new_content->data, 
+                                    active_insert->new_content->length);
+            //printf("%d\n", new_action->new_content->length);
+            Strcat(&new_action->new_content, active_insert->new_content);
+
+            // Convert to a delete action
+            free(active_insert->new_content);
+            active_insert->new_content = NULL;
+            Buffer_push_undo(current_buffer, active_insert);
+            Vector_delete(&current_buffer->lines, line_num);
+
+            active_insert = new_action;
+            display_buffer_rows(y_pos+1, editor_bottom);
+            return 1;
+        }
+        return 0;
+    }
+    size_t rest = Strlen(active_insert->new_content) - (current_buffer->cursor_col - 1);
+    String_delete(active_insert->new_content, current_buffer->cursor_col - 2);
+    --current_buffer->cursor_col;
+    current_buffer->natural_col = current_buffer->cursor_col;
+    move_to_current();
+    clear_line();
+    write(STDOUT_FILENO, active_insert->new_content->data+(current_buffer->cursor_col - 1), rest);
     return 1;
 }
 
 void add_chr(char c) {
-    char* line = active_insert->new_content;
-    size_t line_len = strlen(line);
-    size_t rest = line_len - insert_x;
-    line = string_insert_c(line, insert_x, c);
-    active_insert->new_content = line;
+    if (c == BYTE_ENTER) {
+        char** line_p = get_line_in_buffer(current_buffer->cursor_row - 1);
+        char* rest = active_insert->new_content->data + current_buffer->cursor_col - 1;
+        EditorAction* save_insert = active_insert;
+        size_t save_col = current_buffer->cursor_col - 1;
+        editor_newline(1, rest);
+        write(STDOUT_FILENO, active_insert->new_content->data, active_insert->new_content->length);
+        save_insert->new_content->length = save_col;
+        String_push(&save_insert->new_content, '\n');
+        //save_insert->new_content->data[save_col+1] = 0;
+        free(*line_p);
+        *line_p = strdup(save_insert->new_content->data);
+        Buffer_push_undo(current_buffer, save_insert);
+        move_cursor(current_buffer->cursor_row - 1, save_col+1);
+        clear_line();
+        move_to_current();
+        return;
+    }
+    size_t rest = Strlen(active_insert->new_content) - (current_buffer->cursor_col - 1);
+    String_insert(&active_insert->new_content, current_buffer->cursor_col - 1, c);
     clear_line();
-    write(STDOUT_FILENO, line+insert_x, rest+1);
-    insert_x += 1;
-    current_buffer->cursor_col = insert_x+1;
-    current_buffer->natural_col = insert_x+1;
-    move_cursor(insert_y+1, insert_x+1);
+    write(STDOUT_FILENO, active_insert->new_content->data+(current_buffer->cursor_col - 1), rest+1);
+    ++current_buffer->cursor_col;
+    current_buffer->natural_col = current_buffer->cursor_col;
+    move_to_current();
+}
+
+/**
+ * "o" command in vim.
+ * TODO: make "O".
+ * Initial string doesn't need to be malloc'd or anything.
+ */
+void editor_newline(int side, char* initial) {
+    int y_pos = current_buffer->cursor_row;
+    size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
+    current_buffer->cursor_row += 1;
+    Vector_insert(&current_buffer->lines, line_num, strdup("\n"));
+    //size_t line_len = strlen(line);
+    active_insert = make_InsertAction(undo_index, line_num, 0, initial);
+    current_buffer->cursor_col = 1;
+    current_buffer->natural_col = 1;
+    display_buffer_rows(y_pos+1, editor_bottom);
 }
 
 void display_bottom_bar(char* left, char* right) {
@@ -194,16 +292,25 @@ void display_bottom_bar(char* left, char* right) {
     move_cursor(y, x);
 }
 
-void display_current_buffer() {
+void display_buffer_rows(size_t start, size_t end) {
     //TODO handle line overruns
     //TODO only redraw changes
-    for (size_t i = editor_top; i <= editor_bottom; ++i) {
+    for (size_t i = start; i <= end; ++i) {
         move_cursor(i, 1);
         clear_line();
-        char* str = *get_line_in_buffer(i-1);
-        write(STDOUT_FILENO, str, strlen(str) - 1);
+        if (Buffer_get_line_index(current_buffer, i-1) < current_buffer->lines.size) {
+            char* str = *get_line_in_buffer(i-1);
+            if (strlen(str) != 0) {
+                write(STDOUT_FILENO, str, strlen(str));
+            }
+
+        }
     }
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+}
+
+void display_current_buffer() {
+    display_buffer_rows(editor_top, editor_bottom);
 }
 
 void editor_move_up() {
@@ -212,13 +319,11 @@ void editor_move_up() {
         insert = true;
         end_insert();
     }
-    if (current_buffer->cursor_row > editor_top) { current_buffer->cursor_row -= 1; }
-    else {
-        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -1);
-        display_current_buffer();
-    }
+    current_buffer->cursor_row -= 1;
+    editor_fix_view();
     size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
+    if (col == 0) { col = 1; }
     current_buffer->cursor_col = col;
     if (insert) {
         begin_insert();
@@ -230,14 +335,12 @@ void editor_move_down() {
         insert = true;
         end_insert();
     }
-    if (current_buffer->cursor_row < editor_bottom) { current_buffer->cursor_row += 1; }
-    else {
-        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, 1);
-        display_current_buffer();
-        print("buffer top row %lu\n", current_buffer->top_row);
-    }
+    current_buffer->cursor_row += 1;
+    editor_fix_view();
+    //printf("%d %d %d\n", current_buffer->lines.size, current_buffer->cursor_row, current_buffer->top_row);
     size_t col = strlen(*get_line_in_buffer(current_buffer->cursor_row-1)) - 1;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
+    if (col == 0) { col = 1; }
     current_buffer->cursor_col = col;
     if (insert) {
         begin_insert();
@@ -246,18 +349,41 @@ void editor_move_down() {
 void editor_move_left() {
     if (current_buffer->cursor_col > 1) {
         current_buffer->cursor_col -= 1;
-        if (active_insert != NULL) insert_x -= 1;
     }
     current_buffer->natural_col = current_buffer->cursor_col;
 }
 void editor_move_right() {
-    int insert_offset = 0;
-    if (active_insert != NULL) insert_offset += 1;
+    int max_x;
+    char* line;
+    if (active_insert != NULL) {
+        max_x = Strlen(active_insert->new_content) + 1;
+        line = active_insert->new_content->data;
+    }
+    else {
+        max_x = strlen(*get_line_in_buffer(current_buffer->cursor_row-1));
+        line = *get_line_in_buffer(current_buffer->cursor_row - 1);
+    }
+    // Save newlines, but don't count them towards line length for cursor purposes.
+    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') {
+        max_x -= 1;
+    }
     if (current_buffer->cursor_col < window_size.ws_col
-            && current_buffer->cursor_col < insert_offset
-                + strlen(*get_line_in_buffer(current_buffer->cursor_row-1))-1) {
+            && current_buffer->cursor_col < max_x) {
         current_buffer->cursor_col += 1;
-        if (active_insert != NULL) insert_x += 1;
     }
     current_buffer->natural_col = current_buffer->cursor_col;
+}
+
+void editor_fix_view() {
+    if (current_buffer->cursor_row > editor_bottom
+            || current_buffer->cursor_row > current_buffer->lines.size) {
+        current_buffer->cursor_row -= 1;
+        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, 1);
+        display_current_buffer();
+    }
+    if (current_buffer->cursor_row < editor_top) {
+        current_buffer->cursor_row += 1;
+        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -1);
+        display_current_buffer();
+    }
 }
