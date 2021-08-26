@@ -112,6 +112,14 @@ void process_input(char input, int control) {
         else if (input == '$') {
             editor_move_EOL();
         }
+        else if (input == 'A') {
+            display_bottom_bar("-- INSERT --", NULL);
+            current_mode = EM_INSERT;
+            editor_move_EOL();
+            editor_new_action();
+            begin_insert();
+            editor_move_right();
+        }
         else if (input == 'o') {
             display_bottom_bar("-- INSERT --", NULL);
             current_mode = EM_INSERT;
@@ -167,6 +175,7 @@ int main(int argc, char** argv) {
     struct sigaction sa = {0};
     sa.sa_handler = signal_handler;
     sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGWINCH, &sa, NULL);
     
     tcgetattr(STDIN_FILENO, &save_settings);
     set_settings = save_settings;

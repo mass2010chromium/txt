@@ -3,10 +3,10 @@
 
 #include "common.h"
 
-//typedef int ActionType;
-//const ActionType AT_NONE   = 0;
-//const ActionType AT_MOVE   = 1;
-//const ActionType AT_DELETE = 2;
+typedef int ActionType;
+extern const ActionType AT_NONE;
+extern const ActionType AT_MOVE;
+extern const ActionType AT_DELETE;
 
 struct EditorAction {
     union {
@@ -25,14 +25,25 @@ struct EditorAction {
      * Override this to provide custom repeat logic (or optimized repeat logic).
      */
     void (*repeat) (struct EditorAction* this, size_t);
-    struct EditorAction* parent;
-    struct EditorAction* child;
 };
 
 typedef struct EditorAction EditorAction;
+
+EditorAction* (*action_jump_table[]) (void);
+Vector /*EditorAction* */ action_stack;
+
+void init_actions();
+
+/**
+ * Process a char (+ control) using the current action stack.
+ * 
+ */
+int process_action(char, int);
 
 /**
  * Try to make an EditorAction corresponding to "numbers" (repeat).
  * Returns null on failure (bad input).
  */
 EditorAction* make_NumberAction(char);
+
+EditorAction* make_j_Action();

@@ -185,20 +185,21 @@ size_t strlen_tab(char* buf) {
     return ret;
 }
 
+String* write_buffer = NULL;
 void write_respect_tabspace(char* buf, size_t start, size_t count) {
-    String* out = alloc_String(count);
+    if (write_buffer == NULL) write_buffer = alloc_String(count);
+    else String_clear(write_buffer);
     for (size_t i = 0; i < count; ++i) {
         if (buf[i] == BYTE_TAB) {
-            size_t x = Strlen(out) + start;
+            size_t x = Strlen(write_buffer) + start;
             for (int j = x; j < ((x / TAB_WIDTH) + 1) * TAB_WIDTH; ++j) {
-                String_push(&out, ' ');
+                String_push(&write_buffer, ' ');
             }
             continue;
         }
-        String_push(&out, buf[i]);
+        String_push(&write_buffer, buf[i]);
     }
-    write(STDOUT_FILENO, out->data, Strlen(out));
-    free(out);
+    write(STDOUT_FILENO, write_buffer->data, Strlen(write_buffer));
 }
     
 void editor_init(char* filename) {
@@ -270,10 +271,12 @@ int del_chr() {
     free(line);
     *lineptr = strdup(delete_action->new_content->data);
     Buffer_push_undo(current_buffer, delete_action);
-    char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-    while (hover_ch == 0 || hover_ch == '\n') {
-        editor_move_left();
-        hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
+    if (strlen(*lineptr) > 0) {
+        char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
+        while (hover_ch == 0 || hover_ch == '\n') {
+            editor_move_left();
+            hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
+        }
     }
     return 1;
 }
@@ -281,14 +284,9 @@ int del_chr() {
 int editor_backspace() {
     int y_pos = current_buffer->cursor_row;
     size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
-    //printf("BBB\n");
     if (current_buffer->cursor_col == 0) {
-        //printf("AAAAAAAAAAA\n");
-        if (y_pos == 0) {
-
-        }
-        if (y_pos > 0) {
-            char* prev_line = *get_line_in_buffer(y_pos-1);
+        if (line_num > 0) {
+            char* prev_line = current_buffer->lines.elements[line_num-1];
             Edit* new_action = make_Edit(undo_index, 
                         line_num-1, 0, prev_line);
             String_pop(new_action->new_content); // Remove trailing character, it got de-yeeted
@@ -296,10 +294,8 @@ int editor_backspace() {
             current_buffer->natural_col = current_buffer->cursor_col;
             --current_buffer->cursor_row;
             move_to_current();
-            //clear_line();
             write_respect_tabspace(active_insert->new_content->data, current_buffer->cursor_col,
                                     active_insert->new_content->length);
-            //printf("%d\n", new_action->new_content->length);
             Strcat(&new_action->new_content, active_insert->new_content);
 
             // Convert to a delete action
@@ -397,7 +393,13 @@ void display_buffer_rows(size_t start, size_t end) {
         move_cursor(i-1, 0);
         clear_line();
         if (Buffer_get_line_index(current_buffer, i-1) < current_buffer->lines.size) {
-            char* str = *get_line_in_buffer(i-1);
+            char* str;
+            if (active_insert != NULL && current_buffer->cursor_row == i-1) {
+                str = active_insert->new_content->data;
+            }
+            else {
+                str = *get_line_in_buffer(i-1);
+            }
             if (strlen(str) != 0) {
                 write_respect_tabspace(str, 0, strlen(str));
             }
@@ -441,8 +443,8 @@ void editor_move_up() {
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t col = strlen_tab(line);
-    if (!insert && col > 0) --col;
     if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
+    if (!insert && col > 0) --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
     editor_align_tab();
@@ -460,8 +462,8 @@ void editor_move_down() {
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t col = strlen_tab(line);
-    if (!insert && col > 0) --col;
     if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
+    if (!insert && col > 0) --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
     editor_align_tab();
