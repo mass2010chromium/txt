@@ -122,7 +122,7 @@ void Buffer_open_files(Buffer* buf, const char* mode_infile, const char* mode_sw
  * Scroll by up to `amount` (signed). Positive is down.
  * Return: The actual amount scrolled
  */
-ssize_t Buffer_scroll(Buffer* buf, size_t window_height, ssize_t amount) {
+ssize_t Buffer_scroll(Buffer* buf, ssize_t window_height, ssize_t amount) {
     ssize_t scroll_amount;
     if (-amount > buf->top_row) {
         scroll_amount = -buf->top_row;
@@ -130,7 +130,7 @@ ssize_t Buffer_scroll(Buffer* buf, size_t window_height, ssize_t amount) {
         return scroll_amount;
     }
     else {
-        size_t save = buf->top_row;
+        ssize_t save = buf->top_row;
         buf->top_row += amount;
         if (buf->top_row + window_height > buf->lines.size) {
             scroll_amount = buf->lines.size - window_height - save;
@@ -142,11 +142,11 @@ ssize_t Buffer_scroll(Buffer* buf, size_t window_height, ssize_t amount) {
     }
 }
 
-size_t Buffer_get_line_index(Buffer* buf, size_t y) {
+ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y) {
     return y + buf->top_row;
 }
 
-char** Buffer_get_line(Buffer* buf, size_t y) {
+char** Buffer_get_line(Buffer* buf, ssize_t y) {
     if (y + buf->top_row >= buf->lines.size) return NULL;
     return (char**) &(buf->lines.elements[y + buf->top_row]);
 }
@@ -287,17 +287,21 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
         while (true) {
             char* split_loc = strchr(scan_start, '\n');
             if (split_loc == NULL) {
+                if (remaining_size != strlen(scan_start)) {
+                    int* x = 0;
+                    *x = 1;
+                }
                 save = realloc(save, save_size + remaining_size + 1);
-                memcpy(save+save_size, scan_start, remaining_size);
+                memcpy(save+save_size, scan_start, remaining_size+1);
                 save_size += remaining_size;
-                save[save_size] = 0;
+                //save[save_size] = 0;
                 break;
             }
             size_t char_idx = (split_loc - scan_start);
             if (*save) {
-                save = realloc(save, save_size + remaining_size + 1);
-                memcpy(save+save_size, scan_start, remaining_size);
-                save_size += remaining_size;
+                save = realloc(save, save_size + char_idx + 2);
+                memcpy(save+save_size, scan_start, char_idx+1);
+                save_size += char_idx+1;
                 save[save_size] = 0;
                 Vector_push(ret, save);
 

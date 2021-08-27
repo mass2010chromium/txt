@@ -11,7 +11,7 @@ Vector /*EditorAction* */ action_stack = {0};
 
 void init_actions() {
     action_jump_table['j'] = &make_j_Action;
-    inplace_make_Vector(&action_stack);
+    inplace_make_Vector(&action_stack, 10);
 }
 
 /**
@@ -64,6 +64,7 @@ EditorAction* make_NumberAction(char input) {
         EditorAction* ret = malloc(sizeof(EditorAction));
         ret->update = &NumberAction_update;
         ret->resolve = &NumberAction_resolve;
+        ret->child = NULL;
         ret->num_value = val;
         return ret;
     }
@@ -79,6 +80,7 @@ EditorAction* make_j_Action() {
     EditorAction* ret = malloc(sizeof(EditorAction));
     ret->update = NULL;
     ret->resolve = &j_Action_resolve;
+    ret->child = NULL;
     ret->value = make_String("j");
     return ret;
 }

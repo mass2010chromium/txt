@@ -19,10 +19,10 @@ void Buffer_destroy(Buffer*);
  * Scroll by up to `amount` (signed). Positive is down.
  * Return: The actual amount scrolled
  */
-ssize_t Buffer_scroll(Buffer* buf, size_t window_height, ssize_t amount);
+ssize_t Buffer_scroll(Buffer* buf, ssize_t window_height, ssize_t amount);
 
-size_t Buffer_get_line_index(Buffer* buf, size_t y);
-char** Buffer_get_line(Buffer* buf, size_t y);
+ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y);
+char** Buffer_get_line(Buffer* buf, ssize_t y);
 
 int Buffer_save(Buffer* buf);
 

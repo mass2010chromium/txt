@@ -375,14 +375,16 @@ void editor_newline(int side, char* initial) {
 void display_bottom_bar(char* left, char* right) {
     size_t x, y;
     get_cursor_pos(&y, &x);
-    move_cursor(window_size.ws_row, 0);
+    move_cursor(window_size.ws_row-1, 0);
     write(STDOUT_FILENO, left, strlen(left));
     write(STDOUT_FILENO, "\0", 1);
+    clear_line();
     if (right != NULL) {
-
+        size_t off = strlen(right);
+        move_cursor(window_size.ws_row, window_size.ws_col - off);
+        write(STDOUT_FILENO, right, strlen(right));
     }
     print("Displayed bottom bar [%s]\n", left);
-    clear_line();
     move_cursor(y, x);
 }
 
@@ -406,7 +408,7 @@ void display_buffer_rows(size_t start, size_t end) {
 
         }
     }
-    move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+    move_to_current();
 }
 
 void display_current_buffer() {

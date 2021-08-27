@@ -20,6 +20,7 @@ struct EditorAction {
      */
     int (*update) (struct EditorAction* this, char, int);
     void (*resolve) (struct EditorAction* this, EditorContext*);
+    struct EditorAction* child;
 
     /**
      * Override this to provide custom repeat logic (or optimized repeat logic).
