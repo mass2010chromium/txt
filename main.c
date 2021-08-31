@@ -5,10 +5,12 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <errno.h>
 
 #include "debugging.h"
 #include "buffer.h"
 #include "editor.h"
+#include "editor_actions.h"
 
 extern struct winsize window_size;
 extern Buffer* current_buffer;
@@ -39,7 +41,13 @@ void process_command(char* command) {
         return;
     }
     else {
-
+		char* scan_start = command + 1;
+        char* scan_end = NULL;
+        errno = 0;
+        long int result = strtol(scan_start, &scan_end, 10);
+        if (errno == 0 && result >= 0) {
+            editor_move_to(result, 0);
+        }
     }
 }
 
@@ -87,56 +95,26 @@ void process_input(char input, int control) {
             move_cursor(window_size.ws_row-1, 1);
             return;
         }
-        else if (input == 'h') { editor_move_left(); }
-        else if (input == 'j' || input == BYTE_ENTER) { editor_move_down(); }
-        else if (input == 'k') { editor_move_up(); }
-        else if (input == 'l') { editor_move_right(); }
-        else if (input == 'u') { 
-            int res = editor_undo();
-            if (res == 0) {
-                display_bottom_bar("-- Undo: Nothing to undo", NULL);
+        else {
+            int res = process_action(input, control);
+            if (res == -1) {
+                clear_action_stack();
             }
         }
-        else if (input == 'x') {
-            editor_new_action();
-            del_chr();
-        }
-        else if (input == 'i') {
-            display_bottom_bar("-- INSERT --", NULL);
-            current_mode = EM_INSERT;
-            editor_new_action();
-            begin_insert();
-            editor_align_tab();
-        }
-        else if (input == '$') {
-            editor_move_EOL();
-        }
-        else if (input == 'A') {
-            display_bottom_bar("-- INSERT --", NULL);
-            current_mode = EM_INSERT;
-            editor_move_EOL();
-            editor_new_action();
-            begin_insert();
-            editor_move_right();
-        }
-        else if (input == 'o') {
-            display_bottom_bar("-- INSERT --", NULL);
-            current_mode = EM_INSERT;
-            editor_new_action();
-            editor_newline(1, "\n");
-        }
         move_to_current();
-        char buf[60] = {0};
-        snprintf(buf, 40, "%ld (%d, %d) %dx%d %s", 
-                    current_buffer->top_row, 
-                    Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
-                    current_buffer->cursor_col, 
-                    window_size.ws_row, window_size.ws_col,
-                    *get_line_in_buffer(current_buffer->cursor_row));
-        for (int i = 0; i < 60; ++i) {
-            if (buf[i] == '\n') buf[i] = ' ';
+        // char buf[60] = {0};
+        // snprintf(buf, 40, "%ld (%ld, %d) %dx%d %s", 
+        //             current_buffer->top_row, 
+        //             Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
+        //             current_buffer->cursor_col, 
+        //             window_size.ws_row, window_size.ws_col,
+        //             *get_line_in_buffer(current_buffer->cursor_row));
+        // for (int i = 0; i < 60; ++i) {
+        //     if (buf[i] == '\n') buf[i] = ' ';
+        // }
+        if (current_mode == EM_NORMAL) {
+            display_bottom_bar("-- NORMAL --", NULL);
         }
-        display_bottom_bar("-- NORMAL --", buf);
     }
     else if (current_mode == EM_COMMAND) {
         if (input == BYTE_ESC) {
@@ -181,6 +159,7 @@ int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
 
     editor_init(argv[1]);
+    init_actions();
 
     struct sigaction sa = {0};
     sa.sa_handler = signal_handler;

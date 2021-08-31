@@ -94,6 +94,7 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     buf->top_row = 0;
     buf->top_left_file_pos = 0;
     buf->last_pos = 0;
+    buf->undo_index = 0;
 }
     
 void Buffer_destroy(Buffer* buf) {

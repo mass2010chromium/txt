@@ -3,15 +3,10 @@
 
 #include "common.h"
 
-typedef int ActionType;
-extern const ActionType AT_NONE;
-extern const ActionType AT_MOVE;
-extern const ActionType AT_DELETE;
-
 struct EditorAction {
     union {
         String* value;
-        size_t num_value;
+        size_t* num_value;
     };
     /**
      * Return 1: Keep me on the stack
@@ -30,7 +25,10 @@ struct EditorAction {
 
 typedef struct EditorAction EditorAction;
 
-EditorAction* (*action_jump_table[]) (void);
+void EditorAction_destroy(EditorAction*);
+
+extern EditorAction* (*action_jump_table[]) (void);
+extern ActionType action_type_table[];
 Vector /*EditorAction* */ action_stack;
 
 void init_actions();
@@ -41,10 +39,23 @@ void init_actions();
  */
 int process_action(char, int);
 
+void clear_action_stack();
+
 /**
  * Try to make an EditorAction corresponding to "numbers" (repeat).
  * Returns null on failure (bad input).
  */
 EditorAction* make_NumberAction(char);
 
-EditorAction* make_j_Action();
+EditorAction* make_h_action();
+EditorAction* make_j_action();
+EditorAction* make_k_action();
+EditorAction* make_l_action();
+EditorAction* make_i_action();
+EditorAction* make_o_action();
+EditorAction* make_u_action();
+EditorAction* make_x_action();
+
+EditorAction* make_A_action();
+
+EditorAction* make_DOLLAR_action();

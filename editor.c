@@ -34,7 +34,6 @@ Buffer* current_buffer = NULL;
 Vector/*Buffer* */ buffers = {0};
 String* command_buffer = NULL;
 Edit* active_insert = NULL;
-size_t undo_index = 0;
 size_t editor_top;
 size_t editor_bottom;
 
@@ -44,13 +43,13 @@ void editor_window_size_change() {
 }
 
 void editor_new_action() {
-    undo_index += 1;
+    current_buffer->undo_index += 1;
 }
 
 int editor_undo() {
-    int num_undo = Buffer_undo(current_buffer, undo_index);
+    int num_undo = Buffer_undo(current_buffer, current_buffer->undo_index);
     if (num_undo > 0) {
-        undo_index -= 1;
+        current_buffer->undo_index -= 1;
         display_current_buffer();
     }
     return num_undo;
@@ -122,6 +121,11 @@ void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
+/*
+ * Position on screen in the line for a position in the string.
+ * buf: the line
+ * ptr: a position in the line
+ */
 size_t line_pos_ptr(char* buf, char* ptr) {
     size_t pos_x = 0;
     for (; buf != ptr; ++buf) {
@@ -233,7 +237,7 @@ size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start) {
 
 void begin_insert() {
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
-    active_insert = make_Edit(undo_index, 
+    active_insert = make_Edit(current_buffer->undo_index, 
                         Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
                         0, line);
 }
@@ -260,7 +264,7 @@ int del_chr() {
     else if (strlen(line) == 1 && line[0] == '\n') {
         return 0;
     }
-    Edit* delete_action = make_Edit(undo_index, 
+    Edit* delete_action = make_Edit(current_buffer->undo_index, 
                         Buffer_get_line_index(current_buffer, y_pos), 0, line);
     char* current_ptr = line_pos(delete_action->new_content->data, x_pos);
     size_t rest = Strlen(delete_action->new_content)
@@ -271,12 +275,10 @@ int del_chr() {
     free(line);
     *lineptr = strdup(delete_action->new_content->data);
     Buffer_push_undo(current_buffer, delete_action);
-    if (strlen(*lineptr) > 0) {
-        char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-        while (hover_ch == 0 || hover_ch == '\n') {
-            editor_move_left();
-            hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-        }
+    char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
+    for (int i = 0; i < TAB_WIDTH && (hover_ch == 0 || hover_ch == '\n'); ++i) {
+        editor_move_left();
+        hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
     }
     return 1;
 }
@@ -287,7 +289,7 @@ int editor_backspace() {
     if (current_buffer->cursor_col == 0) {
         if (line_num > 0) {
             char* prev_line = current_buffer->lines.elements[line_num-1];
-            Edit* new_action = make_Edit(undo_index, 
+            Edit* new_action = make_Edit(current_buffer->undo_index, 
                         line_num-1, 0, prev_line);
             String_pop(new_action->new_content); // Remove trailing character, it got de-yeeted
             current_buffer->cursor_col = strlen_tab(new_action->new_content->data);
@@ -362,14 +364,16 @@ void add_chr(char c) {
  * Initial string doesn't need to be malloc'd or anything.
  */
 void editor_newline(int side, char* initial) {
-    int y_pos = current_buffer->cursor_row + 1;
-    size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
-    current_buffer->cursor_row += 1;
-    Vector_insert(&current_buffer->lines, line_num, strdup("\n"));
-    active_insert = make_Insert(undo_index, line_num, 0, initial);
-    current_buffer->cursor_col = 0;
-    current_buffer->natural_col = 0;
-    display_buffer_rows(y_pos+1, editor_bottom);
+    if (side > 0) {
+        int y_pos = current_buffer->cursor_row + 1;
+        size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
+        Vector_insert(&current_buffer->lines, line_num, strdup(initial));
+        active_insert = make_Insert(current_buffer->undo_index, line_num, 0, initial);
+        current_buffer->cursor_row += 1;
+        current_buffer->cursor_col = 0;
+        current_buffer->natural_col = 0;
+        display_buffer_rows(y_pos+1, editor_bottom);
+    }
 }
 
 void display_bottom_bar(char* left, char* right) {
@@ -550,15 +554,23 @@ void editor_move_right() {
 
 void editor_fix_view() {
     //TODO more than 1
-    if (current_buffer->cursor_row > (ssize_t) (editor_bottom) -1
-            || current_buffer->cursor_row >= (ssize_t) current_buffer->lines.size) {
-        current_buffer->cursor_row -= 1;
-        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, 1);
-        display_current_buffer();
+    ssize_t bottom_limit = ((ssize_t) editor_bottom) - 1;
+    ssize_t buffer_limit = (ssize_t) current_buffer->lines.size - 1;
+    bool display = false;
+    if (buffer_limit < bottom_limit) bottom_limit = buffer_limit;
+    if (current_buffer->cursor_row > bottom_limit) {
+        ssize_t delta = current_buffer->cursor_row - bottom_limit;
+        current_buffer->cursor_row -= delta;
+        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, delta);
+        display = true;
     }
     if (current_buffer->cursor_row < (ssize_t) (editor_top-1)) {
-        current_buffer->cursor_row += 1;
-        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -1);
+        ssize_t delta = (ssize_t) (editor_top-1) - current_buffer->cursor_row;
+        current_buffer->cursor_row += delta;
+        Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -delta);
+        display = true;
+    }
+    if (display) {
         display_current_buffer();
     }
 }
@@ -572,4 +584,23 @@ void editor_align_tab() {
         // Right align in normal mode.
         right_align_tab(*get_line_in_buffer(current_buffer->cursor_row));
     }
+}
+
+void editor_move_to(ssize_t row, ssize_t col) {
+    if (row < 0) row = 0;
+    if (col < 0) col = 0;
+    ssize_t current_row = Buffer_get_line_index(current_buffer, current_buffer->cursor_row);
+    ssize_t delta = ((ssize_t) row) - current_row;
+    current_buffer->cursor_row += delta;
+    current_buffer->cursor_col = col;
+    editor_fix_view();
+    char* line = *get_line_in_buffer(current_buffer->cursor_row);
+    if (col > strlen(line)) col = strlen(line);
+    col = line_pos_ptr(line, line+col);
+    size_t max_col = strlen_tab(line);
+    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --max_col;
+    if (max_col > 0) --max_col;
+    if (col > max_col) col = max_col;
+    current_buffer->cursor_col = col;
+    move_to_current();
 }

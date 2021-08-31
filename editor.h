@@ -29,7 +29,6 @@ Buffer* current_buffer;
 Vector/*Buffer* */ buffers;
 String* command_buffer;
 Edit* active_insert;
-size_t undo_index;
 size_t editor_top;
 size_t editor_bottom;
 
@@ -80,3 +79,5 @@ void editor_move_left();
 void editor_move_right();
 void editor_fix_view();
 void editor_align_tab();
+
+void editor_move_to(ssize_t row, ssize_t col);

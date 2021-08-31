@@ -15,6 +15,11 @@ String* realloc_String(String*, size_t);
 
 size_t Strlen(String* s);
 
+/*
+ * Might modify the first pointer (length extend).
+ * Append string b to string a.
+ * Also returns the new pointer if u want to use that instead.
+ */
 String* Strcat(String**, String*);
 void String_push(String**, char);
 char String_pop(String*);

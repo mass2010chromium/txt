@@ -32,6 +32,11 @@ size_t Strlen(String* s) {
     return s->length;
 }
 
+/*
+ * Might modify the first pointer (length extend).
+ * Append string b to string a.
+ * Also returns the new pointer if u want to use that instead.
+ */
 String* Strcat(String** _a, String* b) {
     String* a = *_a;
     String* ret = realloc_String(a, Strlen(a) + Strlen(b));
@@ -49,7 +54,7 @@ void String_push(String** _s, char c) {
         ++s->length;
     }
     else {
-        String* new = realloc_String(s, s->max_length * 2);
+        String* new = realloc_String(s, s->max_length * 2 + 1);
         String_push(&new, c);
         *_s = new;
     }
