@@ -27,6 +27,8 @@ const EditorMode EM_NORMAL  = 0;
 const EditorMode EM_INSERT  = 1;
 const EditorMode EM_COMMAND = 2;
 
+Copy active_copy = {0};
+
 struct winsize window_size = {0};
 
 Buffer* current_buffer = NULL;
@@ -139,6 +141,9 @@ size_t line_pos_ptr(char* buf, char* ptr) {
     return pos_x;
 }
 
+/**
+ * Pointer corresponding to the spot in buf at screen pos x. (0 indexed)
+ */
 char* line_pos(char* buf, ssize_t x) {
     ssize_t pos_x = 0;
     char* prev = NULL;
@@ -269,7 +274,8 @@ int del_chr() {
     char* current_ptr = line_pos(delete_action->new_content->data, x_pos);
     size_t rest = Strlen(delete_action->new_content)
                     - (current_ptr - delete_action->new_content->data);
-    String_delete(delete_action->new_content, current_ptr - delete_action->new_content->data);
+    char buf[2] = {0, 0};
+    buf[0] = String_delete(delete_action->new_content, current_ptr - delete_action->new_content->data);
     clear_line();
     write_respect_tabspace(current_ptr, x_pos, rest);
     free(line);
@@ -322,6 +328,14 @@ int editor_backspace() {
     clear_line();
     write_respect_tabspace(current_ptr, current_buffer->cursor_col, rest+1);
     return 1;
+}
+
+/**
+ * Set the copy buffer to be this data.
+ */
+void editor_copy(char* data, bool line) {
+    free(active_copy.data);
+    active_copy.data = make_String(data);
 }
 
 void add_chr(char c) {
@@ -392,6 +406,9 @@ void display_bottom_bar(char* left, char* right) {
     move_cursor(y, x);
 }
 
+/**
+ * Display rows [start, end] inclusive, in screen coords (1-indexed).
+ */
 void display_buffer_rows(size_t start, size_t end) {
     //TODO handle line overruns
     //TODO only redraw changes
@@ -573,6 +590,13 @@ void editor_fix_view() {
     if (display) {
         display_current_buffer();
     }
+
+    char* line;
+    line = *get_line_in_buffer(current_buffer->cursor_row);
+    size_t max_col = strlen_tab(line);
+    if (current_buffer->cursor_col >= max_col) {
+        current_buffer->cursor_col = max_col - 1;
+    }
 }
 
 void editor_align_tab() {
@@ -592,7 +616,7 @@ void editor_move_to(ssize_t row, ssize_t col) {
     ssize_t current_row = Buffer_get_line_index(current_buffer, current_buffer->cursor_row);
     ssize_t delta = ((ssize_t) row) - current_row;
     current_buffer->cursor_row += delta;
-    current_buffer->cursor_col = col;
+    current_buffer->cursor_col = 0;
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     if (col > strlen(line)) col = strlen(line);
@@ -602,5 +626,9 @@ void editor_move_to(ssize_t row, ssize_t col) {
     if (max_col > 0) --max_col;
     if (col > max_col) col = max_col;
     current_buffer->cursor_col = col;
+    right_align_tab(line);
+    if (delta == 0) {
+        current_buffer->natural_col = current_buffer->cursor_col;
+    }
     move_to_current();
 }

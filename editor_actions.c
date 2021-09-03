@@ -1,6 +1,7 @@
 #include "editor_actions.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "editor.h"
 #include "buffer.h"
@@ -38,7 +39,9 @@ void init_actions() {
     action_jump_table['u'] = &make_u_action;
     action_type_table['u'] = AT_UNDO;
     action_jump_table['x'] = &make_x_action;
-    action_type_table['x'] = AT_NONE;
+    action_type_table['x'] = AT_DELETE;
+    action_jump_table['d'] = &make_d_action;
+    action_type_table['d'] = AT_DELETE;
     action_jump_table['A'] = &make_A_action;
     action_type_table['A'] = AT_OVERRIDE;
     action_jump_table['$'] = &make_DOLLAR_action;
@@ -51,7 +54,8 @@ void resolve_action_stack() {
     EditorContext ctx;
     Buffer* buf = current_buffer;
     ctx.start_row = Buffer_get_line_index(buf, buf->cursor_row);
-    ctx.start_col = buf->cursor_col;
+    char* start_line = *Buffer_get_line(buf, buf->cursor_row);
+    ctx.start_col = line_pos(start_line, buf->cursor_col) - start_line;
     ctx.jump_row = ctx.start_row;
     ctx.jump_col = ctx.start_col;
     ctx.undo_idx = buf->undo_index+1;
@@ -60,6 +64,22 @@ void resolve_action_stack() {
 
     editor_new_action();
     (*source->resolve)(source, &ctx);
+    if (ctx.jump_col < 0) {
+        ctx.jump_col = 0;
+    }
+    if (ctx.jump_row < 0) {
+        ctx.jump_row = 0;
+    }
+    if (ctx.jump_row >= Buffer_get_num_lines(buf)) {
+        ctx.jump_row = Buffer_get_num_lines(buf);
+    }
+    else {
+        char* linep = *Buffer_get_line_abs(buf, ctx.jump_row);
+        size_t max_col = strlen(linep);
+        if (ctx.jump_col > max_col) {
+            ctx.jump_col = max_col;
+        }
+    }
 
     //interpret result
     if (ctx.action == AT_MOVE) {
@@ -68,6 +88,26 @@ void resolve_action_stack() {
         editor_move_to(ctx.jump_row, ctx.jump_col);
     }
     else if (ctx.action == AT_DELETE) {
+        RepaintType repaint = Buffer_delete_range(buf, &ctx);
+        if (repaint == RP_ALL) {
+            display_current_buffer();
+        }
+        else if (repaint == RP_LINES) {
+            if (ctx.start_row <= ctx.jump_row) {
+                display_buffer_rows(1 + ctx.start_row - buf->top_row, 1 + ctx.jump_row - buf->top_row);
+            }
+            else {
+                display_buffer_rows(1 + ctx.jump_row - buf->top_row, 1 + ctx.start_row - buf->top_row);
+            }
+        }
+        else if (repaint == RP_LOWER) {
+            display_buffer_rows(1 + ctx.start_row - buf->top_row, window_size.ws_row);
+        }
+        else if (repaint == RP_UPPER) {
+            display_buffer_rows(1, 1 + ctx.start_row - buf->top_row);
+        }
+        editor_fix_view();
+        move_to_current();
     }
     else if (ctx.action == AT_UNDO) {
         int num_undo = Buffer_undo(buf, ctx.undo_idx);
@@ -173,6 +213,7 @@ EditorAction* make_NumberAction(char input) {
 void j_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     ctx->jump_row += 1;
+    ctx->jump_col = ctx->buffer->natural_col;
 }
 
 EditorAction* make_j_action() {
@@ -187,6 +228,7 @@ EditorAction* make_j_action() {
 void k_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     ctx->jump_row -= 1;
+    ctx->jump_col = ctx->buffer->natural_col;
 }
 
 EditorAction* make_k_action() {
@@ -275,9 +317,8 @@ EditorAction* make_u_action() {
 }
 
 void x_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_NONE;
-    del_chr();
-    move_to_current();
+    ctx->action = AT_DELETE;
+    ++ctx->jump_col;
 }
 
 EditorAction* make_x_action() {
@@ -286,6 +327,42 @@ EditorAction* make_x_action() {
     ret->resolve = &x_action_resolve;
     ret->child = NULL;
     ret->value = make_String("x");
+    return ret;
+}
+
+
+int d_action_update(EditorAction* this, char input, int control) {
+    if (input == 'd') {
+        String_push(&this->value, 'd');
+        return 2;
+    }
+    return 0;
+}
+
+void d_action_resolve(EditorAction* this, EditorContext* ctx) {
+    if (this->child == NULL) {
+        if (strcmp(this->value->data, "dd") == 0) {
+            ctx->action = AT_DELETE;
+            ctx->start_col = -1;    // Delete the whole line
+            ctx->jump_row += 1;
+            ctx->jump_col = 0;
+        }
+    }
+    // TODO implement move-delete
+    else {
+        (*this->child->resolve)(this->child, ctx);
+        if (ctx->action == AT_OVERRIDE) return;
+        if (ctx->action != AT_MOVE) return; // ERROR
+        ctx->action = AT_DELETE;
+    }
+}
+
+EditorAction* make_d_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = &d_action_update;
+    ret->resolve = &d_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("d");
     return ret;
 }
 

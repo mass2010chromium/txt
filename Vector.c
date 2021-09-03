@@ -61,8 +61,16 @@ void Vector_insert(Vector* v, size_t idx, void* element) {
  * Vector delete element at index. Shifts everything past it left.
  */
 void Vector_delete(Vector* v, size_t idx) {
-    memmove(v->elements + idx, v->elements + idx+1, (v->size - idx - 1) * sizeof(void*));
+    memmove(v->elements + idx, v->elements + idx+1, (v->size - (idx + 1)) * sizeof(void*));
     v->size -= 1;
+}
+
+/**
+ * Vector delete element in range [a, b). Shift everything >=b left.
+ */
+void Vector_delete_range(Vector* v, size_t a, size_t b) {
+    memmove(v->elements + a, v->elements + b, (v->size - b) * sizeof(void*));
+    v->size -= b-a;
 }
 
 void _Vector_quicksort(Vector* v, size_t lower, size_t upper, int(*cmp)(void*, void*)) {

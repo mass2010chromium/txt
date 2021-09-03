@@ -24,6 +24,8 @@ EditorMode current_mode;
 
 struct winsize window_size;
 
+Copy active_copy;
+
 Buffer* current_buffer;
 
 Vector/*Buffer* */ buffers;
@@ -46,6 +48,11 @@ int get_cursor_pos(size_t *y, size_t *x);
 void move_to_current();
 void move_cursor(size_t y, size_t x);
 
+/**
+ * Pointer corresponding to the spot in buf at screen pos x. (0 indexed)
+ */
+char* line_pos(char* buf, ssize_t x);
+
 void editor_init(char* filename);
 
 char** get_line_in_buffer(size_t y);
@@ -55,6 +62,11 @@ void end_insert();
 
 int del_chr();
 int editor_backspace();
+
+/**
+ * Set the copy buffer to be this data.
+ */
+void editor_copy(char* data, bool line);
 
 void add_chr(char c);
 

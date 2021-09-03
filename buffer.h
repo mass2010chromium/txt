@@ -21,12 +21,42 @@ void Buffer_destroy(Buffer*);
  */
 ssize_t Buffer_scroll(Buffer* buf, ssize_t window_height, ssize_t amount);
 
+size_t Buffer_get_num_lines(Buffer* buf);
+
+/**
+ * These two get relative to screen pos.
+ */
 ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y);
 char** Buffer_get_line(Buffer* buf, ssize_t y);
 
+/**
+ * This gets relative to document pos.
+ */
+char** Buffer_get_line_abs(Buffer* buf, size_t row);
+
+/**
+ * Write a line in this buffer. Copies data into the buffer.
+ */
+void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data);
+
+/**
+ * Delete a range of chars (from start to end in the given object)
+ */
+RepaintType Buffer_delete_range(Buffer* buf, EditorContext* range);
+
 int Buffer_save(Buffer* buf);
 
+/**
+ * Push an entry onto the undo buffer. This should be done for all changes to the buffer content
+ */
 void Buffer_push_undo(Buffer*, Edit*);
+
+/*
+ * Undo actions until the top of the undo buffer has an action index less than the specified undo index.
+ * Undone actions are pushed onto the redo buffer.
+ * Returns the number of actions undone. (Possibly zero)
+ * Postcondition: rightmost element of undo buffer has action index < undo_index, or undo buffer is empty.
+ */
 int Buffer_undo(Buffer*, size_t undo_index);
 int Buffer_redo(Buffer*, size_t undo_index);
 

@@ -36,6 +36,11 @@ void Vector_insert(Vector* v, size_t idx, void* element);
 void Vector_delete(Vector* v, size_t idx);
 
 /**
+ * Vector delete element in range [a, b). Shift everything >=b left.
+ */
+void Vector_delete_range(Vector* v, size_t a, size_t b);
+
+/**
  * Quicksort. Works (probably).
  * Not wrapping qsort for less pointery-ness.
  * Compare function: cmp(a, b) returns "a - b".

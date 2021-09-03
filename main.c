@@ -40,14 +40,17 @@ void process_command(char* command) {
         display_bottom_bar("-- File saved --", NULL);
         return;
     }
-    else {
-		char* scan_start = command + 1;
-        char* scan_end = NULL;
-        errno = 0;
-        long int result = strtol(scan_start, &scan_end, 10);
-        if (errno == 0 && result >= 0) {
-            editor_move_to(result, 0);
-        }
+    if (strcmp(command, ":wq") == 0 || strcmp(command, ":qw") == 0) {
+        Buffer_save(current_buffer);
+        display_bottom_bar("-- File saved --", NULL);
+        return;
+    }
+    char* scan_start = command + 1;
+    char* scan_end = NULL;
+    errno = 0;
+    long int result = strtol(scan_start, &scan_end, 10);
+    if (errno == 0 && result >= 0 && *scan_end == NULL) {
+        editor_move_to(result, 0);
     }
 }
 
@@ -206,7 +209,7 @@ int main(int argc, char** argv) {
             buf[result] = 0;
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
-            editor_fix_view();
+            //editor_fix_view();
         }
         print("current mode: %d\n", current_mode);
         if (current_mode == EM_QUIT) {

@@ -6,6 +6,12 @@
 #include "buffer.h"
 #include "utils.h"
 
+const RepaintType RP_NONE  = 0;
+const RepaintType RP_ALL   = 1;
+const RepaintType RP_LINES = 2;
+const RepaintType RP_LOWER = 3;
+const RepaintType RP_UPPER = 4;
+
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     Edit* ret = malloc(sizeof(Edit));
     ret->undo_index = undo;
@@ -78,9 +84,6 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
         if (infile != NULL)  {
             //TODO buffer/read not the whole file
             n_read = read_file_break_lines(&buf->lines, infile);
-            if (n_read == 0) {
-                Vector_push(&buf->lines, strdup(""));
-            }
         }
         else {
             n_read = 0;
@@ -143,13 +146,97 @@ ssize_t Buffer_scroll(Buffer* buf, ssize_t window_height, ssize_t amount) {
     }
 }
 
+size_t Buffer_get_num_lines(Buffer* buf) {
+    return buf->lines.size;
+}
+
+/**
+ * These two get relative to screen pos.
+ */
 ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y) {
     return y + buf->top_row;
 }
-
 char** Buffer_get_line(Buffer* buf, ssize_t y) {
     if (y + buf->top_row >= buf->lines.size) return NULL;
     return (char**) &(buf->lines.elements[y + buf->top_row]);
+}
+
+/**
+ * This gets relative to document pos.
+ */
+char** Buffer_get_line_abs(Buffer* buf, size_t row) {
+    return (char**) &(buf->lines.elements[row]);
+}
+
+/**
+ * This gets relative to document pos.
+ */
+void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data) {
+    char** line_p = Buffer_get_line_abs(buf, row);
+    free(*line_p);
+    *line_p = strdup(data);
+}
+
+/**
+ * Delete a range of chars (from start to end in the given object)
+ */
+RepaintType Buffer_delete_range(Buffer* buf, EditorContext* range) {
+    if (range->jump_row > range->start_row ||
+            (range->jump_row == range->start_row && range->jump_col > range->start_col)) {
+        // delete forwards.
+        ssize_t first_row = range->start_row;
+        ssize_t last_row = range->jump_row;
+        size_t undo_idx = range->undo_idx;
+        if (range->start_col == -1) {
+            for (ssize_t i = last_row - 1; i >= first_row; --i) {
+                Buffer_push_undo(buf, make_Delete(undo_idx, i, 0, *Buffer_get_line_abs(buf, i)));
+                free(*Buffer_get_line_abs(buf, i));
+            }
+            Vector_delete_range(&buf->lines, first_row, last_row);
+            if (buf->lines.size == 0) {
+                Vector_push(&buf->lines, strdup(""));
+            }
+            return RP_LOWER;
+        }
+        if (last_row == first_row) {
+            Edit* modify_row = make_Edit(undo_idx, first_row, 0, *Buffer_get_line_abs(buf, first_row));
+            Buffer_push_undo(buf, modify_row);
+            String_delete_range(modify_row->new_content, range->start_col, range->jump_col);
+            Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
+            return RP_LINES;
+        }
+        Edit* modify_first_row = make_Edit(undo_idx, first_row, 0, *Buffer_get_line_abs(buf, first_row));
+        Buffer_push_undo(buf, modify_first_row);
+        String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
+
+        if (last_row < Buffer_get_num_lines(buf)) {
+            Edit* delete_last_row = make_Delete(undo_idx, last_row, 0, *Buffer_get_line_abs(buf, last_row));
+            Buffer_push_undo(buf, delete_last_row);
+            String* last_row_fragment = make_String(delete_last_row->old_content + range->jump_col);
+
+            free(*Buffer_get_line_abs(buf, last_row));
+            Vector_delete(&buf->lines, last_row);
+
+            Strcat(&modify_first_row->new_content, last_row_fragment);
+            free(last_row_fragment);
+        }
+
+        Buffer_set_line_abs(buf, first_row, modify_first_row->new_content->data);
+
+        if (last_row > first_row + 1) {
+            for (size_t i = last_row - 1; i > first_row; --i) {
+                Buffer_push_undo(buf, make_Delete(undo_idx, i, 0, *Buffer_get_line_abs(buf, i)));
+                free(*Buffer_get_line_abs(buf, i));
+            }
+            Vector_delete_range(&buf->lines, first_row+1, last_row);
+            if (buf->lines.size == 0) {
+                Vector_push(&buf->lines, strdup(""));
+            }
+        }
+        return RP_LOWER;
+    }
+    // TODO implement
+    return RP_NONE;
 }
 
 int Buffer_save(Buffer* buf) {
@@ -175,6 +262,9 @@ int Buffer_save(Buffer* buf) {
     return 0;
 }
 
+/**
+ * Push an entry onto the undo buffer. This should be done for all changes to the buffer content
+ */
 void Buffer_push_undo(Buffer* buf, Edit* ed) {
     if (ed->old_content == NULL && ed->new_content == NULL) {
         Edit_destroy(ed);
@@ -190,6 +280,10 @@ void Buffer_push_undo(Buffer* buf, Edit* ed) {
     Vector_clear(&buf->redo_buffer, 100);
 }
 
+/**
+ * PRIVATE
+ * Undo the application of a given edit to this buffer.
+ */
 void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
     size_t index = ed->start_row;
     if (ed->old_content == NULL) {
@@ -209,6 +303,12 @@ void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
     *lineptr = strdup(ed->old_content);
 }
 
+/*
+ * Undo actions until the top of the undo buffer has an action index less than the specified undo index.
+ * Undone actions are pushed onto the redo buffer.
+ * Returns the number of actions undone. (Possibly zero)
+ * Postcondition: rightmost element of undo buffer has action index < undo_index, or undo buffer is empty.
+ */
 int Buffer_undo(Buffer* buf, size_t undo_index) {
     int num_undo = 0;
     while (true) {
@@ -274,12 +374,7 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
     while (true) {
         size_t num_read = fread(read_buf, sizeof(char), BLOCKSIZE, infile);
         if (num_read == 0) {
-            if (*save) {
-                Vector_push(ret, save);
-            }
-            else {
-                free(save);
-            }
+            Vector_push(ret, save);
             return total_copied;
         }
         read_buf[num_read] = 0;

@@ -9,6 +9,13 @@ extern const ActionType AT_UNDO;
 extern const ActionType AT_REDO;
 extern const ActionType AT_OVERRIDE;
 
+typedef int RepaintType;
+extern const RepaintType RP_NONE;
+extern const RepaintType RP_ALL;
+extern const RepaintType RP_LINES;
+extern const RepaintType RP_LOWER;
+extern const RepaintType RP_UPPER;
+
 struct Edit {
     size_t undo_index;
     size_t start_row;
@@ -36,13 +43,19 @@ struct Buffer {
 typedef struct Buffer Buffer;
 
 struct EditorContext {
-    size_t jump_row;
-    size_t jump_col;
-    size_t start_row;
-    size_t start_col;
+    ssize_t jump_row;
+    ssize_t jump_col;
+    ssize_t start_row;
+    ssize_t start_col;
     ssize_t undo_idx;
     ActionType action;
     Buffer* buffer;
 };
 
 typedef struct EditorContext EditorContext;
+
+struct Copy {
+    String* data;
+};
+
+typedef struct Copy Copy;

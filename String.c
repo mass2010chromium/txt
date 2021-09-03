@@ -10,6 +10,18 @@ String* make_String(const char* data) {
     return ret;
 }
 
+/**
+ * Take a malloc'd string and realloc it into a String.
+ */
+String* convert_String(char* data) {
+    size_t maxlen = strlen(data);
+    String* ret = realloc(data, sizeof(String) + maxlen + 1);
+    memmove(ret + 1, ret, maxlen);
+    ret->length = maxlen;
+    ret->max_length = maxlen;
+    return ret;
+}
+
 String* alloc_String(size_t maxlen) {
     String* ret = malloc(sizeof(String) + maxlen + 1);
     ret->data[0] = 0;
@@ -72,6 +84,10 @@ void String_clear(String* s) {
     s->data[0] = 0;
 }
 
+/**
+ * Delete character at index given (0-indexed) and returns it.
+ * Does not resize (maxlen) string.
+ */
 char String_delete(String* s, size_t index) {
     size_t line_len = s->length;
     size_t rest = line_len - (index + 1);
@@ -79,6 +95,17 @@ char String_delete(String* s, size_t index) {
     s->length -= 1;
     memmove(s->data + index, s->data + index+1, rest+1);
     return ret;
+}
+
+/**
+ * Delete characters [a, b).
+ * Does not resize (maxlen) string.
+ */
+void String_delete_range(String* s, size_t a, size_t b) {
+    size_t line_len = s->length;
+    size_t rest = line_len - b;
+    s->length -= (b-a);
+    memmove(s->data + a, s->data + b, rest+1);
 }
 
 /**
