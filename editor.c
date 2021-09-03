@@ -211,6 +211,11 @@ void write_respect_tabspace(char* buf, size_t start, size_t count) {
     }
     write(STDOUT_FILENO, write_buffer->data, Strlen(write_buffer));
 }
+
+void editor_make_buffer(char* filename) {
+    Buffer* buffer = make_Buffer(filename);
+    Vector_push(&buffers, buffer);
+}
     
 void editor_init(char* filename) {
     current_mode = EM_NORMAL;
@@ -219,8 +224,27 @@ void editor_init(char* filename) {
     inplace_make_Vector(&active_copy.data, 10);
     current_buffer = make_Buffer(filename);
     Vector_push(&buffers, current_buffer);
+    current_buffer_idx = 0;
     editor_top = 1;
     editor_window_size_change();
+}
+
+void editor_close_buffer(int idx) {
+    Buffer* buf = buffers.elements[idx];
+    Vector_delete(&buffers, idx);
+    Buffer_destroy(buf);
+    free(buf);
+    if (idx == current_buffer_idx) {
+        if (idx == 0) {
+            current_buffer_idx = buffers.size-1;
+        }
+        else {
+            --current_buffer_idx;
+        }
+        if (current_buffer_idx >= 0) {
+            current_buffer = buffers.elements[current_buffer_idx];
+        }
+    }
 }
 
 char** get_line_in_buffer(size_t y) {

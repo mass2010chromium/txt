@@ -95,8 +95,26 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
 }
     
 void Buffer_destroy(Buffer* buf) {
+    size_t deque_idx = buf->undo_buffer.head;
+    for (size_t i = 0; i < buf->undo_buffer.size; ++i) {
+        Edit_destroy(buf->undo_buffer.elements[deque_idx]);
+        free(buf->undo_buffer.elements[deque_idx]);
+        ++deque_idx;
+        if (deque_idx == buf->undo_buffer.max_size) {
+            deque_idx = 0;
+        }
+    }
     Deque_destroy(&buf->undo_buffer);
+
+    for (size_t i = 0; i < buf->redo_buffer.size; ++i) {
+        Edit_destroy(buf->redo_buffer.elements[i]);
+        free(buf->redo_buffer.elements[i]);
+    }
     Vector_destroy(&buf->redo_buffer);
+
+    for (size_t i = 0; i < buf->lines.size; ++i) {
+        free(buf->lines.elements[i]);
+    }
     Vector_destroy(&buf->lines);
     free(buf->name);
     Buffer_close_files(buf);

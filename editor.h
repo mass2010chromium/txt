@@ -27,7 +27,7 @@ struct winsize window_size;
 Copy active_copy;
 
 Buffer* current_buffer;
-
+int current_buffer_idx;
 Vector/*Buffer* */ buffers;
 String* command_buffer;
 Edit* active_insert;
@@ -53,7 +53,9 @@ void move_cursor(size_t y, size_t x);
  */
 char* line_pos(char* buf, ssize_t x);
 
+void editor_make_buffer(char* filename);
 void editor_init(char* filename);
+void editor_close_buffer(int idx);
 
 char** get_line_in_buffer(size_t y);
 

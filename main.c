@@ -32,7 +32,13 @@ struct termios set_settings;
 
 void process_command(char* command) {
     if (strcmp(command, ":q") == 0) {
-        current_mode = EM_QUIT;
+        editor_close_buffer(current_buffer_idx);
+        if (buffers.size == 0) {
+            current_mode = EM_QUIT;
+        }
+        else {
+            display_current_buffer();
+        }
         return;
     }
     if (strcmp(command, ":w") == 0) {
@@ -45,11 +51,19 @@ void process_command(char* command) {
         display_bottom_bar("-- File saved --", NULL);
         return;
     }
+    if (strncmp(command, ":tabnew ", 8) == 0) {
+        char* rest = command + 8;
+        editor_make_buffer(rest);
+        current_buffer_idx = buffers.size - 1;
+        current_buffer = buffers.elements[buffers.size - 1];
+        display_current_buffer();
+        display_bottom_bar("-- Opened file --", NULL);
+    }
     char* scan_start = command + 1;
     char* scan_end = NULL;
     errno = 0;
     long int result = strtol(scan_start, &scan_end, 10);
-    if (errno == 0 && result >= 0 && *scan_end == NULL) {
+    if (errno == 0 && result >= 0 && *scan_end == 0) {
         editor_move_to(result, 0);
     }
 }
