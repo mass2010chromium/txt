@@ -2,19 +2,22 @@
 #include "utils.h"
 
 typedef int ActionType;
-extern const ActionType AT_NONE;
-extern const ActionType AT_MOVE;
-extern const ActionType AT_DELETE;
-extern const ActionType AT_UNDO;
-extern const ActionType AT_REDO;
-extern const ActionType AT_OVERRIDE;
+#define AT_NONE 0
+#define AT_MOVE 1
+#define AT_DELETE 2
+#define AT_UNDO 3
+#define AT_REDO 4
+#define AT_OVERRIDE 5
+#define AT_PASTE 6
+
 
 typedef int RepaintType;
-extern const RepaintType RP_NONE;
-extern const RepaintType RP_ALL;
-extern const RepaintType RP_LINES;
-extern const RepaintType RP_LOWER;
-extern const RepaintType RP_UPPER;
+#define RP_NONE 0
+#define RP_ALL 1
+#define RP_LINES 2
+#define RP_LOWER 3
+#define RP_UPPER 4
+
 
 struct Edit {
     size_t undo_index;
@@ -54,8 +57,12 @@ struct EditorContext {
 
 typedef struct EditorContext EditorContext;
 
+#define CP_LINE 0
+#define CP_SPLIT 1
+typedef int CopyType;
 struct Copy {
-    String* data;
+    Vector/* String* */ data;
+    CopyType cp_type;
 };
 
 typedef struct Copy Copy;

@@ -6,12 +6,6 @@
 #include "buffer.h"
 #include "utils.h"
 
-const RepaintType RP_NONE  = 0;
-const RepaintType RP_ALL   = 1;
-const RepaintType RP_LINES = 2;
-const RepaintType RP_LOWER = 3;
-const RepaintType RP_UPPER = 4;
-
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     Edit* ret = malloc(sizeof(Edit));
     ret->undo_index = undo;
@@ -178,19 +172,42 @@ void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data) {
 }
 
 /**
+ * Paste a copy operation at `start_row, start_col` of ctx.
+ */
+RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
+    if (copy->cp_type == CP_LINE) {
+        Vector_create_range(&buf->lines, ctx->start_row+1, copy->data.size);
+        size_t undo_idx = ctx->undo_idx;
+        for (int i = 0; i < copy->data.size; ++i) {
+            String* s = copy->data.elements[i];
+            buf->lines.elements[ctx->start_row+1 + i] = strdup(s->data);
+            Buffer_push_undo(buf, make_Insert(undo_idx, ctx->start_row+1 + i, 0, s->data));
+        }
+        return RP_LOWER;
+    }
+}
+
+/**
  * Delete a range of chars (from start to end in the given object)
  */
-RepaintType Buffer_delete_range(Buffer* buf, EditorContext* range) {
+RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
     if (range->jump_row > range->start_row ||
             (range->jump_row == range->start_row && range->jump_col > range->start_col)) {
         // delete forwards.
+        for (int i = 0; i < copy->data.size; ++i) {
+            free(copy->data.elements[i]);
+        }
+        Vector_clear(&copy->data, 10);
         ssize_t first_row = range->start_row;
         ssize_t last_row = range->jump_row;
         size_t undo_idx = range->undo_idx;
         if (range->start_col == -1) {
-            for (ssize_t i = last_row - 1; i >= first_row; --i) {
-                Buffer_push_undo(buf, make_Delete(undo_idx, i, 0, *Buffer_get_line_abs(buf, i)));
-                free(*Buffer_get_line_abs(buf, i));
+            copy->cp_type = CP_LINE;
+            for (ssize_t i = first_row; i < last_row; ++i) {
+                char* line = *Buffer_get_line_abs(buf, i);
+                Vector_push(&copy->data, make_String(line));
+                Buffer_push_undo(buf, make_Delete(undo_idx, first_row, 0, line));
+                free(line);
             }
             Vector_delete_range(&buf->lines, first_row, last_row);
             if (buf->lines.size == 0) {
@@ -225,8 +242,9 @@ RepaintType Buffer_delete_range(Buffer* buf, EditorContext* range) {
 
         if (last_row > first_row + 1) {
             for (size_t i = last_row - 1; i > first_row; --i) {
-                Buffer_push_undo(buf, make_Delete(undo_idx, i, 0, *Buffer_get_line_abs(buf, i)));
-                free(*Buffer_get_line_abs(buf, i));
+                char* line = *Buffer_get_line_abs(buf, i);
+                Buffer_push_undo(buf, make_Delete(undo_idx, i, 0, line));
+                free(line);
             }
             Vector_delete_range(&buf->lines, first_row+1, last_row);
             if (buf->lines.size == 0) {

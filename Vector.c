@@ -58,6 +58,21 @@ void Vector_insert(Vector* v, size_t idx, void* element) {
 }
 
 /**
+ * Vector allocate a block of space in the middle of the vector.
+ * Allocated space is not initialized (contains hot garbage).
+ * Postcondition: v[idx ... idx+count-1] = undefined
+ */
+void Vector_create_range(Vector* v, size_t idx, size_t count) {
+    if (v->size + count > v->max_size) {
+        // TODO error handling
+        v->elements = realloc(v->elements, v->max_size*2 * sizeof(void*));
+        v->max_size *= 2;
+    }
+    memmove(v->elements + idx + count, v->elements + idx, (v->size - idx) * sizeof(void*));
+    v->size += count;
+}
+
+/**
  * Vector delete element at index. Shifts everything past it left.
  */
 void Vector_delete(Vector* v, size_t idx) {

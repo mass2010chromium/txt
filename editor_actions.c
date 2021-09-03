@@ -10,13 +10,6 @@ void EditorAction_destroy(EditorAction* this) {
     free(this->value);
 }
 
-const ActionType AT_NONE     = 0;
-const ActionType AT_MOVE     = 1;
-const ActionType AT_DELETE   = 2;
-const ActionType AT_UNDO     = 3;
-const ActionType AT_REDO     = 4;
-const ActionType AT_OVERRIDE = 5;
-
 EditorAction* (*action_jump_table[256]) (void) = {0};
 ActionType action_type_table[256] = {0};
 Vector /*EditorAction* */ action_stack = {0};
@@ -38,6 +31,8 @@ void init_actions() {
     action_type_table['o'] = AT_OVERRIDE;
     action_jump_table['u'] = &make_u_action;
     action_type_table['u'] = AT_UNDO;
+    action_jump_table['p'] = &make_p_action;
+    action_type_table['p'] = AT_PASTE;
     action_jump_table['x'] = &make_x_action;
     action_type_table['x'] = AT_DELETE;
     action_jump_table['d'] = &make_d_action;
@@ -88,26 +83,11 @@ void resolve_action_stack() {
         editor_move_to(ctx.jump_row, ctx.jump_col);
     }
     else if (ctx.action == AT_DELETE) {
-        RepaintType repaint = Buffer_delete_range(buf, &ctx);
-        if (repaint == RP_ALL) {
-            display_current_buffer();
-        }
-        else if (repaint == RP_LINES) {
-            if (ctx.start_row <= ctx.jump_row) {
-                display_buffer_rows(1 + ctx.start_row - buf->top_row, 1 + ctx.jump_row - buf->top_row);
-            }
-            else {
-                display_buffer_rows(1 + ctx.jump_row - buf->top_row, 1 + ctx.start_row - buf->top_row);
-            }
-        }
-        else if (repaint == RP_LOWER) {
-            display_buffer_rows(1 + ctx.start_row - buf->top_row, window_size.ws_row);
-        }
-        else if (repaint == RP_UPPER) {
-            display_buffer_rows(1, 1 + ctx.start_row - buf->top_row);
-        }
-        editor_fix_view();
-        move_to_current();
+        RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
+        editor_repaint(repaint, &ctx);
+    }
+    else if (ctx.action == AT_PASTE) {
+        editor_repaint(RP_ALL, &ctx);
     }
     else if (ctx.action == AT_UNDO) {
         int num_undo = Buffer_undo(buf, ctx.undo_idx);
@@ -313,6 +293,20 @@ EditorAction* make_u_action() {
     ret->resolve = &u_action_resolve;
     ret->child = NULL;
     ret->value = make_String("u");
+    return ret;
+}
+
+void p_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_PASTE;
+    Buffer_insert_copy(ctx->buffer, &active_copy, ctx);
+}
+
+EditorAction* make_p_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &p_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("p");
     return ret;
 }
 

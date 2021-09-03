@@ -20,6 +20,7 @@ const char BYTE_DOWNARROW   = '\120';
 const char BYTE_DELETE      = '\123';
 
 int TAB_WIDTH = 4;
+bool PRESERVE_INDENT = true;
 
 typedef int EditorMode;
 const EditorMode EM_QUIT    = -1;
@@ -215,6 +216,7 @@ void editor_init(char* filename) {
     current_mode = EM_NORMAL;
     command_buffer = alloc_String(10);
     inplace_make_Vector(&buffers, 10);
+    inplace_make_Vector(&active_copy.data, 10);
     current_buffer = make_Buffer(filename);
     Vector_push(&buffers, current_buffer);
     editor_top = 1;
@@ -257,6 +259,7 @@ void end_insert() {
 
 /**
  * Delete a character under the cursor (except newlines).
+ * DEPRECATED, kept for future reference for now
  */
 int del_chr() {
     size_t y_pos = current_buffer->cursor_row;
@@ -330,28 +333,24 @@ int editor_backspace() {
     return 1;
 }
 
-/**
- * Set the copy buffer to be this data.
- */
-void editor_copy(char* data, bool line) {
-    free(active_copy.data);
-    active_copy.data = make_String(data);
-}
-
 void add_chr(char c) {
     if (c == BYTE_ENTER) {
         char** line_p = get_line_in_buffer(current_buffer->cursor_row);
-        char* rest = line_pos(active_insert->new_content->data, current_buffer->cursor_col);
+        char* rest = strdup(line_pos(active_insert->new_content->data, current_buffer->cursor_col));
         Edit* save_insert = active_insert;
+        char* current_ptr = line_pos(save_insert->new_content->data, current_buffer->cursor_col);
+        size_t save_length = current_ptr - save_insert->new_content->data;
         size_t save_col = current_buffer->cursor_col;
-        editor_newline(1, rest);
-        write_respect_tabspace(active_insert->new_content->data, 0, 
-                                active_insert->new_content->length);
-        save_insert->new_content->length = save_col;
-        String_push(&save_insert->new_content, '\n');
-        //save_insert->new_content->data[save_col+1] = 0;
+
         free(*line_p);
         *line_p = strdup(save_insert->new_content->data);
+        editor_newline(1, rest);
+        free(rest);
+        write_respect_tabspace(active_insert->new_content->data, 0, 
+                                active_insert->new_content->length);
+        save_insert->new_content->length = save_length;
+        String_push(&save_insert->new_content, '\n');
+        //save_insert->new_content->data[save_col+1] = 0;
         Buffer_push_undo(current_buffer, save_insert);
         move_cursor(current_buffer->cursor_row - 1, save_col);
         clear_line();
@@ -381,10 +380,28 @@ void editor_newline(int side, char* initial) {
     if (side > 0) {
         int y_pos = current_buffer->cursor_row + 1;
         size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
+        String* add_space;
+        size_t start_len;
+        if (PRESERVE_INDENT) {
+            char* line = *get_line_in_buffer(current_buffer->cursor_row);
+            add_space = alloc_String(10);
+            for (char* ptr = line; is_whitespace(*ptr); ++ptr) {
+                String_push(&add_space, *ptr);
+            }
+            start_len = strlen_tab(add_space->data);
+            String* rest = make_String(initial);
+            Strcat(&add_space, rest);
+            free(rest);
+            initial = add_space->data;
+        }
         Vector_insert(&current_buffer->lines, line_num, strdup(initial));
         active_insert = make_Insert(current_buffer->undo_index, line_num, 0, initial);
         current_buffer->cursor_row += 1;
         current_buffer->cursor_col = 0;
+        if (PRESERVE_INDENT) {
+            free(add_space);
+            current_buffer->cursor_col = start_len;
+        }
         current_buffer->natural_col = 0;
         display_buffer_rows(y_pos+1, editor_bottom);
     }
@@ -630,5 +647,28 @@ void editor_move_to(ssize_t row, ssize_t col) {
     if (delta == 0) {
         current_buffer->natural_col = current_buffer->cursor_col;
     }
+    move_to_current();
+}
+
+void editor_repaint(RepaintType repaint, EditorContext* ctx) {
+    Buffer* buf = ctx->buffer;
+    if (repaint == RP_ALL) {
+        display_current_buffer();
+    }
+    else if (repaint == RP_LINES) {
+        if (ctx->start_row <= ctx->jump_row) {
+            display_buffer_rows(1 + ctx->start_row - buf->top_row, 1 + ctx->jump_row - buf->top_row);
+        }
+        else {
+            display_buffer_rows(1 + ctx->jump_row - buf->top_row, 1 + ctx->start_row - buf->top_row);
+        }
+    }
+    else if (repaint == RP_LOWER) {
+        display_buffer_rows(1 + ctx->start_row - buf->top_row, window_size.ws_row);
+    }
+    else if (repaint == RP_UPPER) {
+        display_buffer_rows(1, 1 + ctx->start_row - buf->top_row);
+    }
+    editor_fix_view();
     move_to_current();
 }

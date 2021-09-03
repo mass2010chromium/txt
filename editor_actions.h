@@ -55,6 +55,7 @@ EditorAction* make_i_action();
 EditorAction* make_o_action();
 
 EditorAction* make_u_action();
+EditorAction* make_p_action();
 
 EditorAction* make_x_action();
 EditorAction* make_d_action();

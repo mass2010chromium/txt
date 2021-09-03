@@ -60,13 +60,7 @@ char** get_line_in_buffer(size_t y);
 void begin_insert();
 void end_insert();
 
-int del_chr();
 int editor_backspace();
-
-/**
- * Set the copy buffer to be this data.
- */
-void editor_copy(char* data, bool line);
 
 void add_chr(char c);
 
@@ -93,3 +87,5 @@ void editor_fix_view();
 void editor_align_tab();
 
 void editor_move_to(ssize_t row, ssize_t col);
+
+void editor_repaint(RepaintType repaint, EditorContext* ctx);

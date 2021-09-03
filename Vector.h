@@ -31,6 +31,13 @@ void Vector_push(Vector* v, void* element);
 void Vector_insert(Vector* v, size_t idx, void* element);
 
 /**
+ * Vector allocate a block of space in the middle of the vector.
+ * Allocated space is not initialized (contains hot garbage).
+ * Postcondition: v[idx ... idx+count-1] = undefined
+ */
+void Vector_create_range(Vector* v, size_t idx, size_t count);
+
+/**
  * Vector delete element at index. Shifts everything past it left.
  */
 void Vector_delete(Vector* v, size_t idx);

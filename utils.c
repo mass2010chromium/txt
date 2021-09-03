@@ -37,3 +37,7 @@ size_t fcopy(FILE* dest, FILE* src, size_t bytes) {
     }
     return total_copied;
 }
+
+bool is_whitespace(char c) {
+    return (c == ' ' || c == '\t');
+}

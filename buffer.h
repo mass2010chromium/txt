@@ -40,9 +40,14 @@ char** Buffer_get_line_abs(Buffer* buf, size_t row);
 void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data);
 
 /**
+ * Paste a copy operation at `start_row, start_col` of ctx.
+ */
+RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx);
+
+/**
  * Delete a range of chars (from start to end in the given object)
  */
-RepaintType Buffer_delete_range(Buffer* buf, EditorContext* range);
+RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range);
 
 int Buffer_save(Buffer* buf);
 
