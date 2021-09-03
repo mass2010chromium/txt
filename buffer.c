@@ -203,6 +203,7 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
         }
         return RP_LOWER;
     }
+    return RP_NONE;
 }
 
 /**
@@ -295,6 +296,13 @@ int Buffer_save(Buffer* buf) {
         bytes -= nbytes;
     }
     Buffer_close_files(buf);
+    char* end = ".swp";
+    char* dest = malloc(strlen(buf->name) + strlen(end) + 1);
+    dest[0] = '\0';
+    strcat(dest, buf->name);
+    strcat(dest, end);
+    remove(dest);
+    free(dest);
     return 0;
 }
 
