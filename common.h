@@ -39,6 +39,7 @@ struct Buffer {
     size_t last_pos;            // TODO: update this...
     ssize_t cursor_row;         // 0-indexed Y coordinate on screen
     ssize_t cursor_col;         // 0-indexed X coordinate on screen
+    ssize_t cursor_char;        // 0-indexed X coordinate in character space
     int natural_col;
     ssize_t undo_index;
     Vector/*char* */ lines; //TODO: Cache/load buffered

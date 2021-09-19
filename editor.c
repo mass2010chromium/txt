@@ -59,7 +59,16 @@ int editor_undo() {
 }
 
 void clear_line() {
-    write(STDOUT_FILENO, "\033[0K", 4);
+    size_t x, y;
+    get_cursor_pos(&y, &x);
+    int n = window_size.ws_col - x;
+    char* buf = malloc(n + 1);
+    buf[n] = 0;
+    memset(buf, ' ', n);
+    write(STDOUT_FILENO, buf, n);
+    free(buf);
+    move_cursor(y, x);
+    //write(STDOUT_FILENO, "\033[0K", 4);
 }
 
 void clear_screen() {
@@ -92,10 +101,6 @@ int get_cursor_pos(size_t *y, size_t *x) {
             return 1;
         }
         buf[i] = ch;
-    }
-    if (i > 29) {
-        int* x = 0;
-        *x = 1;
     }
     if (i < 2) {
         return 1;

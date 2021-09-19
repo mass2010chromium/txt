@@ -46,20 +46,3 @@ void clear_action_stack();
  * Returns null on failure (bad input).
  */
 EditorAction* make_NumberAction(char);
-
-EditorAction* make_h_action();
-EditorAction* make_j_action();
-EditorAction* make_k_action();
-EditorAction* make_l_action();
-EditorAction* make_i_action();
-EditorAction* make_o_action();
-
-EditorAction* make_u_action();
-EditorAction* make_p_action();
-
-EditorAction* make_x_action();
-EditorAction* make_d_action();
-
-EditorAction* make_A_action();
-
-EditorAction* make_DOLLAR_action();

@@ -6,6 +6,26 @@
 #include "editor.h"
 #include "buffer.h"
 
+EditorAction* make_h_action();
+EditorAction* make_j_action();
+EditorAction* make_k_action();
+EditorAction* make_l_action();
+EditorAction* make_i_action();
+EditorAction* make_o_action();
+
+EditorAction* make_u_action();
+EditorAction* make_p_action();
+
+EditorAction* make_g_action();
+EditorAction* make_G_action();
+
+EditorAction* make_x_action();
+EditorAction* make_d_action();
+
+EditorAction* make_A_action();
+
+EditorAction* make_DOLLAR_action();
+
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
 }
@@ -33,6 +53,10 @@ void init_actions() {
     action_type_table['u'] = AT_UNDO;
     action_jump_table['p'] = &make_p_action;
     action_type_table['p'] = AT_PASTE;
+    action_jump_table['g'] = &make_g_action;
+    action_type_table['g'] = AT_MOVE;
+    action_jump_table['G'] = &make_G_action;
+    action_type_table['G'] = AT_MOVE;
     action_jump_table['x'] = &make_x_action;
     action_type_table['x'] = AT_DELETE;
     action_jump_table['d'] = &make_d_action;
@@ -307,6 +331,52 @@ EditorAction* make_p_action() {
     ret->resolve = &p_action_resolve;
     ret->child = NULL;
     ret->value = make_String("p");
+    return ret;
+}
+
+int g_action_update(EditorAction* this, char input, int control) {
+    if (input == 'g') {
+        String_push(&this->value, 'g');
+        return 2;
+    }
+    return 0;
+}
+
+void g_action_resolve(EditorAction* this, EditorContext* ctx) {
+    if (this->child == NULL) {
+        if (strcmp(this->value->data, "gg") == 0) {
+            ctx->action = AT_MOVE;
+            ctx->jump_row = 0;
+            ctx->jump_col = 0;
+        }
+    }
+    // TODO implement move-delete
+    else {
+        (*this->child->resolve)(this->child, ctx);
+    }
+}
+
+EditorAction* make_g_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = &g_action_update;
+    ret->resolve = &g_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("g");
+    return ret;
+}
+
+void G_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    ctx->jump_row = 0;
+    ctx->jump_col = 0;
+}
+
+EditorAction* make_G_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &G_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("G");
     return ret;
 }
 
