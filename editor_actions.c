@@ -367,7 +367,7 @@ EditorAction* make_g_action() {
 
 void G_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
-    ctx->jump_row = 0;
+    ctx->jump_row = Buffer_get_num_lines(ctx->buffer);
     ctx->jump_col = 0;
 }
 
