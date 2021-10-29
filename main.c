@@ -164,10 +164,13 @@ int main(int argc, char** argv) {
 #ifdef DEBUG
     __debug_init();
 #endif
+
     if (argc < 2) {
         printf("Usage: %s <file>\n", argv[0]);
         exit(1);
     }
+
+    // No terminal supports.
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {
         return 1;
     }
@@ -219,11 +222,9 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            //display_current_buffer();
             buf[result] = 0;
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
-            //editor_fix_view();
         }
         print("current mode: %d\n", current_mode);
         if (current_mode == EM_QUIT) {
@@ -234,4 +235,3 @@ int main(int argc, char** argv) {
     tcsetattr(STDOUT_FILENO, TCSANOW, &save_settings);
     return 0;
 }
-
