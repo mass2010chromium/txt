@@ -16,9 +16,18 @@ String* make_String(const char* data) {
 String* convert_String(char* data) {
     size_t maxlen = strlen(data);
     String* ret = realloc(data, sizeof(String) + maxlen + 1);
-    memmove(ret + 1, ret, maxlen);
+    memmove(ret + 1, ret, maxlen+1);
     ret->length = maxlen;
     ret->max_length = maxlen;
+    return ret;
+}
+
+/**
+ * Take a malloc'd String and "realloc" it into a string.
+ */
+char* String_to_cstr(String* data) {
+    char* ret = data;
+    memmove(ret, data+1, data->length+1);
     return ret;
 }
 
@@ -31,7 +40,13 @@ String* alloc_String(size_t maxlen) {
 }
 
 String* realloc_String(String* s, size_t maxlen) {
-    String* ret = realloc(s, sizeof(String) + maxlen + 1);
+    if (s->max_length > maxlen) {
+        return s;
+    }
+    if (maxlen < 2 * s->max_length && maxlen < 4096) {
+        maxlen = 2 * s->max_length;
+    }
+    String* ret = (String*) realloc(s, sizeof(String) + maxlen + 1);
     ret->max_length = maxlen;
     if (ret->length > maxlen) {
         ret->length = maxlen;
@@ -40,7 +55,7 @@ String* realloc_String(String* s, size_t maxlen) {
     return ret;
 }
 
-size_t Strlen(String* s) {
+size_t Strlen(const String* s) {
     return s->length;
 }
 
@@ -49,11 +64,32 @@ size_t Strlen(String* s) {
  * Append string b to string a.
  * Also returns the new pointer if u want to use that instead.
  */
-String* Strcat(String** _a, String* b) {
+String* Strcat(String** _a, const String* b) {
     String* a = *_a;
-    String* ret = realloc_String(a, Strlen(a) + Strlen(b));
-    memcpy(ret->data + Strlen(ret), b->data, Strlen(b)+1);
-    ret->length = ret->max_length;
+    size_t blen = Strlen(b);
+    String* ret = realloc_String(a, Strlen(a) + blen);
+    memcpy(ret->data + Strlen(ret), b->data, blen+1);
+    ret->length += blen;
+    *_a = ret;
+    return ret;
+}
+
+/**
+ * @see Strcat, except second argument is a C string
+ */
+String* Strcats(String** _a, const char* b) {
+    return Strncats(_a, b, strlen(b));
+}
+
+/**
+ * @see Strcats, except only n bytes are copied.
+ */
+String* Strncats(String** _a, const char* b, size_t blen) {
+    String* a = *_a;
+    String* ret = realloc_String(a, Strlen(a) + blen);
+    memcpy(ret->data + Strlen(ret), b, blen);
+    ret->length += blen;
+    ret->data[ret->length] = 0;
     *_a = ret;
     return ret;
 }
@@ -121,4 +157,39 @@ void String_insert(String** _s, size_t index, char c) {
     s->length += 1;
     memmove(s->data+index+1, s->data+index, tail+1);
     s->data[index] = c;
+}
+
+/**
+ * Postcondition: (*s)->data[index:index+strlen(insert)] == insert
+ */
+void String_inserts(String** s, size_t index, const char* insert) {
+    String_ninserts(s, index, insert, strlen(insert));
+}
+
+/**
+ * Postcondition: (*s)->data[index:index+n] == insert[:n]
+ */
+void String_ninserts(String** _s, size_t index, const char* insert, size_t n) {
+    String* s = *_s;
+    size_t new_length = s->length + n;
+    if (new_length > s->max_length) {
+        s = realloc_String(s, new_length);
+        *_s = s;
+    }
+    size_t tail = s->length - index;
+    s->length += n;
+    memmove(s->data+index+n, s->data+index, tail+1);
+    memcpy(s->data + index, insert, n);
+}
+
+/**
+ * "Fit" the string (realloc to fit length).
+ * Use:
+ *      String* s = ...;
+ *      s = String_fit(s);
+ */
+String* String_fit(String* s) {
+    String* ret = (String*) realloc(s, sizeof(String) + s->length + 1);
+    ret->max_length = ret->length;
+    return ret;
 }
