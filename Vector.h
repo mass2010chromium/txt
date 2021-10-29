@@ -54,7 +54,19 @@ void Vector_delete_range(Vector* v, size_t a, size_t b);
  */
 void Vector_sort(Vector* v, int(*cmp)(void*, void*));
 
+/**
+ * NOTE: Doesn't call free() on any of the contained elements!
+ */
 void Vector_clear(Vector* v, size_t init_size);
+
+/**
+ * This one frees its contained elements.
+ */
+void Vector_clear_free(Vector* v, size_t init_size);
+
+/**
+ * NOTE: Doesn't call free() on the passed in pointer!
+ */
 void Vector_destroy(Vector* v);
 
 int signed_compare(void*, void*);

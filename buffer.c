@@ -411,15 +411,14 @@ int Buffer_find_str(Buffer* this, char* str, bool cross_lines, bool direction, E
 size_t read_file_break_lines(Vector* ret, FILE* infile) {
     const size_t BLOCKSIZE = 4096;
     char read_buf[BLOCKSIZE+1];
-    size_t save_size = 0;
-    char* save = malloc(sizeof(char));
-    *save = 0;
+    String* save = make_String("");
     read_buf[BLOCKSIZE] = 0;
     size_t total_copied = 0;
     while (true) {
-        size_t num_read = fread(read_buf, sizeof(char), BLOCKSIZE, infile);
+        ssize_t num_read = fread(read_buf, sizeof(char), BLOCKSIZE, infile);
+        // TODO: error check
         if (num_read == 0) {
-            Vector_push(ret, save);
+            Vector_push(ret, String_to_cstr(save));
             return total_copied;
         }
         read_buf[num_read] = 0;
@@ -432,23 +431,15 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
                     int* x = 0;
                     *x = 1;
                 }
-                save = realloc(save, save_size + remaining_size + 1);
-                memcpy(save+save_size, scan_start, remaining_size+1);
-                save_size += remaining_size;
-                //save[save_size] = 0;
+                Strncats(&save, scan_start, remaining_size);
                 break;
             }
             size_t char_idx = (split_loc - scan_start);
-            if (*save) {
-                save = realloc(save, save_size + char_idx + 2);
-                memcpy(save+save_size, scan_start, char_idx+1);
-                save_size += char_idx+1;
-                save[save_size] = 0;
-                Vector_push(ret, save);
+            if (save->length) {
+                Strncats(&save, scan_start, char_idx+1);
+                Vector_push(ret, String_to_cstr(save));
 
-                save = malloc(sizeof(char));
-                *save = 0;
-                save_size = 0;
+                save = make_String("");
             }
             else {
                 Vector_push(ret, strndup(scan_start, char_idx+1));

@@ -6,5 +6,6 @@
 
 #include "utest.h"
 #include "test_string.h"
+#include "test_buffer.h"
 
 UTEST_MAIN()

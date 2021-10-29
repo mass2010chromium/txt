@@ -124,12 +124,30 @@ int unsigned_compare(void* a, void* b) {
     return ((size_t) a) > ((size_t) b);
 }
 
+/**
+ * NOTE: Doesn't call free() on any of the contained elements!
+ */
 void Vector_clear(Vector* v, size_t init_size) {
     v->size = 0;
     v->max_size = init_size;
     v->elements = realloc(v->elements, init_size * sizeof(void*));
 }
 
+/**
+ * This one frees its contained elements.
+ */
+void Vector_clear_free(Vector* v, size_t init_size) {
+    for (size_t i = 0; i < v->size; ++i) {
+        free(v->elements[i]);
+    }
+    v->size = 0;
+    v->max_size = init_size;
+    v->elements = realloc(v->elements, init_size * sizeof(void*));
+}
+
+/**
+ * NOTE: Doesn't call free() on the passed in pointer!
+ */
 void Vector_destroy(Vector* this) {
     free(this->elements);
     this->elements = NULL;
