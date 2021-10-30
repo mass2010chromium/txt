@@ -13,14 +13,14 @@ struct GapBuffer {
     size_t gap_size;
     size_t gap_start; /* Current position of the gap start (cursor). Defaults to 0. */
     size_t gap_end; /* Current position of the gap end. Defaults to 0 + gap_size. */
-}
+};
 typedef struct GapBuffer GapBuffer;
 
 /**
  * Creates a gap buffer for the line at line_num in the lines vector contained
  * by the given Buffer.
  */
-GapBuffer* make_GapBuffer(const char* content, ssize_t line_num);
+GapBuffer* make_GapBuffer(const char* content, size_t gap_size);
 void inplace_make_GapBuffer(GapBuffer* buf, const char* content, size_t gap_size);
 void gapBuffer_destroy(GapBuffer* buf);
 
