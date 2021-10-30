@@ -1,4 +1,9 @@
+# swapfiles
 *.swp
+
+# targets
+test
+main
 
 # Prerequisites
 *.d
