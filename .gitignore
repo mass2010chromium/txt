@@ -4,6 +4,7 @@
 # targets
 test
 main
+buffertest
 
 # Prerequisites
 *.d

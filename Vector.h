@@ -10,8 +10,17 @@ struct Vector {
 
 typedef struct Vector Vector;
 
+/**
+ * Allocates space for a newly created Vector,
+ * initializes it using inplace_make_Vector, then returns it.
+ */
+
 Vector* make_Vector(size_t init_size);
 
+/**
+ * Sets the size of `vector` to 0, max_size to init_size, and
+ * allocates `init_size` bytes of memory for `vector->elements`.
+ */
 void inplace_make_Vector(Vector* vector, size_t init_size);
 
 /**
@@ -55,6 +64,8 @@ void Vector_delete_range(Vector* v, size_t a, size_t b);
 void Vector_sort(Vector* v, int(*cmp)(void*, void*));
 
 /**
+ * Resets the size of the vector to 0, max_size to init_size,
+ * and reallocs the vector contents to fit init_size elements.
  * NOTE: Doesn't call free() on any of the contained elements!
  */
 void Vector_clear(Vector* v, size_t init_size);
@@ -65,10 +76,18 @@ void Vector_clear(Vector* v, size_t init_size);
 void Vector_clear_free(Vector* v, size_t init_size);
 
 /**
+ * Frees v->contents and sets the pointer to NULL.
  * NOTE: Doesn't call free() on the passed in pointer!
  */
 void Vector_destroy(Vector* v);
 
+/**
+ * Casts the arguments to ssize_t and returns if arg1 > arg2.
+ */
 int signed_compare(void*, void*);
+
+/**
+ * Casts the arguments to size_t and returns if arg1 > arg2.
+ */
 int unsigned_compare(void*, void*);
 

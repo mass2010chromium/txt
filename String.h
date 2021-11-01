@@ -9,6 +9,12 @@ struct String {
 
 typedef struct String String;
 
+/**
+ * Allocates space for a new String object,
+ * initializes it using alloc_string, then
+ * copies the contents of `data` to the new String
+ * and returns it.
+ */
 String* make_String(const char* data);
 
 /**
@@ -19,9 +25,23 @@ String* convert_String(char* data);
  * Take a malloc'd String and "realloc" it into a string.
  */
 char* String_to_cstr(String* data);
+
+/**
+ * Allocates space for a new String object on the heap
+ * then initializes it with default values.
+ */
 String* alloc_String(size_t);
+
+/**
+ * Reallocates the space allocated for some String* to
+ * accomodate some new size_t, if needed. Also updates the max_length
+ * of the passed String* if its storage space was reallocated.
+ */
 String* realloc_String(String*, size_t);
 
+/**
+ * Returns s->length.
+ */
 size_t Strlen(const String* s);
 
 /*
