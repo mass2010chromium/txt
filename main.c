@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
 
 #include "debugging.h"
 #include "buffer.h"
@@ -160,6 +161,24 @@ void process_input(char input, int control) {
     }
 }
 
+/**
+ * Assumes the program is running in a terminal with support for Xterm's alternate screen buffer.
+ * Simply outputs the escape code to display the alternate screen to prevent the editor
+ * from overwriting the previous terminal content.
+ */
+void display_altscreen() {
+    printf("\033[?1049h\033[H");
+}
+
+/**
+ * Assumes the program is running in a terminal with support for Xterm's alternate screen buffer.
+ * Simply outputs the escape code to hide the alternate screen. This will restore the terminal
+ * content to whatever was present before calling display_altscreen.
+ */
+void hide_altscreen() {
+    printf("\033[?1049l");
+}
+
 int main(int argc, char** argv) {
 #ifdef DEBUG
     __debug_init();
@@ -174,6 +193,7 @@ int main(int argc, char** argv) {
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {
         return 1;
     }
+    display_altscreen();
     fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -233,5 +253,6 @@ int main(int argc, char** argv) {
     }
 
     tcsetattr(STDOUT_FILENO, TCSANOW, &save_settings);
+    hide_altscreen();
     return 0;
 }

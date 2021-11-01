@@ -22,6 +22,11 @@ typedef struct GapBuffer GapBuffer;
  */
 GapBuffer* make_GapBuffer(const char* content, size_t gap_size);
 void inplace_make_GapBuffer(GapBuffer* buf, const char* content, size_t gap_size);
+
+/**
+ * Deallocates heap memory used by the given buffer.
+ * (Currently this is just buf->content, more data might be added later)
+ */
 void gapBuffer_destroy(GapBuffer* buf);
 
 /** Returns a string representation of the non-gap content in the buffer, allocated on the heap. */
