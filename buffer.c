@@ -80,6 +80,7 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
             n_read = read_file_break_lines(&buf->lines, infile);
         }
         else {
+            Vector_push(&buf->lines, strdup(""));
             n_read = 0;
         }
     }
@@ -221,7 +222,7 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         ssize_t first_row = range->start_row;
         ssize_t last_row = range->jump_row;
         size_t undo_idx = range->undo_idx;
-        if (range->start_col == -1) {
+        if (range->start_col == -1) {   // Line delete mode
             copy->cp_type = CP_LINE;
             for (ssize_t i = first_row; i < last_row; ++i) {
                 char* line = *Buffer_get_line_abs(buf, i);

@@ -40,15 +40,33 @@ Edit* active_insert = NULL;
 size_t editor_top;
 size_t editor_bottom;
 
+/**
+ * Callback function that gets called whenever the terminal size changes.
+ * Updates the window_size variable to reflect changes made to the window size,
+ * then also updates the editor_bottom variable accordingly.
+ */
 void editor_window_size_change() {
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
     editor_bottom = window_size.ws_row - 1;
 }
 
+/**
+ * Start a new editor action for undo purposes.
+ * Increments the undo counter.
+ */
 void editor_new_action() {
     current_buffer->undo_index += 1;
 }
 
+/**
+ * Performs the latest undo action contained in the current buffer's
+ * undo list, then decrements the undo counter and re-displays the buffer
+ * to reflect the changes.
+ * Wraps Buffer->undo.
+ *
+ * Return:
+ *   Number of actions undone (this is kinda meaningless tho)
+ */
 int editor_undo() {
     int num_undo = Buffer_undo(current_buffer, current_buffer->undo_index);
     if (num_undo > 0) {
@@ -58,6 +76,11 @@ int editor_undo() {
     return num_undo;
 }
 
+/**
+ * Clear the current line of text.
+ * I'm doing this by writing the empty space char instead of using
+ * control chars in an attempt to make it work on tmux wsl 20.04.
+ */
 void clear_line() {
     size_t x, y;
     get_cursor_pos(&y, &x);
@@ -71,6 +94,9 @@ void clear_line() {
     //write(STDOUT_FILENO, "\033[0K", 4);
 }
 
+/**
+ * Clear the entire screen by writing a control character.
+ */
 void clear_screen() {
     write(STDOUT_FILENO, "\033[2J", 4);
 }
@@ -78,6 +104,10 @@ void clear_screen() {
 /**
  * Adapted from https://stackoverflow.com/questions/50884685/how-to-get-cursor-position-in-c-using-ansi-code
  * See: https://en.wikipedia.org/wiki/ANSI_escape_code (Device Status Report)
+ *
+ * Writes the numbers to the given pointers.
+ *
+ * Returns success or fail: 0 for success, 1 for failure.
  */
 int get_cursor_pos(size_t *y, size_t *x) {
     char buf[30] = {0};
@@ -105,6 +135,8 @@ int get_cursor_pos(size_t *y, size_t *x) {
     if (i < 2) {
         return 1;
     }
+    // The terminal returns a `;` separated string of (y, x)
+    // (row, col). It is one-indexed but we want zero-indexed.
     for ( i -= 2, pow = 1; buf[i] != ';'; i--, pow *= 10)
         *x = *x + ( buf[i] - '0' ) * pow;
    
@@ -117,7 +149,8 @@ int get_cursor_pos(size_t *y, size_t *x) {
 }
 
 /**
- * Zero indexed!
+ * Move cursor to positions (y, x) (row, col).
+ * Zero indexed.
  */
 void move_cursor(size_t y, size_t x) {
     char buf[60] = {0};
@@ -125,6 +158,9 @@ void move_cursor(size_t y, size_t x) {
     write(STDOUT_FILENO, buf, strlen(buf));
 }
 
+/**
+ * Move the cursor to the current (row, col) of the buffer.
+ */
 void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
@@ -148,7 +184,7 @@ size_t line_pos_ptr(char* buf, char* ptr) {
 }
 
 /**
- * Pointer corresponding to the spot in buf at screen pos x. (0 indexed)
+ * Return a pointer corresponding to the spot in buf at screen pos x. (0 indexed)
  */
 char* line_pos(char* buf, ssize_t x) {
     ssize_t pos_x = 0;
@@ -158,11 +194,16 @@ char* line_pos(char* buf, ssize_t x) {
             return buf;
         }
         else if (pos_x > x) {
-            // Case of tab?
+            // Case of tab? If a tab jumps over, we return the tab.
             return prev;
         }
         if (*buf == BYTE_TAB) {
+            // Tabbing behavior. Jump to the end of the tab.
             pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
+            if (pos_x > x) {
+                // Case of tab? If a tab jumps over, we return the tab.
+                return buf;
+            }
         }
         else {
             ++pos_x;
@@ -172,6 +213,9 @@ char* line_pos(char* buf, ssize_t x) {
     return buf;
 }
 
+/**
+ * Get the character at the line position, or null.
+ */
 char line_pos_char(char* buf, size_t x) {
     char* pos_ptr = line_pos(buf, x);
     if (pos_ptr == NULL) {
@@ -180,14 +224,23 @@ char line_pos_char(char* buf, size_t x) {
     return *pos_ptr;
 }
 
+/**
+ * Get the character corresponding to sceen pos (y, x). Zero indexed.
+ */
 char screen_pos_char(size_t y, size_t x) {
     return line_pos_char(*get_line_in_buffer(y), x);
 }
 
+/**
+ * convenience function for getting current screen pos.
+ */
 char current_screen_pos_char() {
     return screen_pos_char(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
+/**
+ * Compute the 'screen length' of a buffer. Accounts for tabs.
+ */
 size_t strlen_tab(char* buf) {
     size_t ret = 0;
     for (; *buf; ++buf) {
@@ -200,8 +253,12 @@ size_t strlen_tab(char* buf) {
     return ret;
 }
 
-String* write_buffer = NULL;
+/**
+ * Write a buffer out to the screen, respecting tab width.
+ * Replaces tabs with spaces.
+ */
 void write_respect_tabspace(char* buf, size_t start, size_t count) {
+    static String* write_buffer = NULL;
     if (write_buffer == NULL) write_buffer = alloc_String(count);
     else String_clear(write_buffer);
     for (size_t i = 0; i < count; ++i) {
@@ -217,11 +274,19 @@ void write_respect_tabspace(char* buf, size_t start, size_t count) {
     write(STDOUT_FILENO, write_buffer->data, Strlen(write_buffer));
 }
 
+/**
+ * Creates a buffer for the given file and pushes it to the vector of buffers.
+ */
 void editor_make_buffer(char* filename) {
     Buffer* buffer = make_Buffer(filename);
     Vector_push(&buffers, buffer);
 }
     
+/**
+ * Performs initial setup for the editor, including making the vector of buffers,
+ * creating and pushing a buffer for the given filename to that vector,
+ * and configuring the size of the editor window. Defaults to `Normal` editing mode.
+ */
 void editor_init(char* filename) {
     current_mode = EM_NORMAL;
     command_buffer = alloc_String(10);
@@ -234,6 +299,10 @@ void editor_init(char* filename) {
     editor_window_size_change();
 }
 
+/**
+ * Destroys the buffer at position `idx` in the vector of buffers and updates
+ * the screen to display the previous buffer in the vector, if there is one.
+ */
 void editor_close_buffer(int idx) {
     Buffer* buf = buffers.elements[idx];
     Vector_delete(&buffers, idx);
@@ -252,6 +321,9 @@ void editor_close_buffer(int idx) {
     }
 }
 
+/**
+ * Returns a pointer to the line at position y in the current buffer.
+ */
 char** get_line_in_buffer(size_t y) {
     return Buffer_get_line(current_buffer, y);
 }
@@ -372,14 +444,13 @@ void add_chr(char c) {
         size_t save_col = current_buffer->cursor_col;
 
         free(*line_p);
-        *line_p = strdup(save_insert->new_content->data);
         editor_newline(1, rest);
         free(rest);
         write_respect_tabspace(active_insert->new_content->data, 0, 
                                 active_insert->new_content->length);
         save_insert->new_content->length = save_length;
-        String_push(&save_insert->new_content, '\n');
-        //save_insert->new_content->data[save_col+1] = 0;
+        String_push(&save_insert->new_content, '\n');   // Fixes null terminator
+        *line_p = strdup(save_insert->new_content->data);
         Buffer_push_undo(current_buffer, save_insert);
         move_cursor(current_buffer->cursor_row - 1, save_col);
         clear_line();
@@ -641,7 +712,12 @@ void editor_fix_view() {
     line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t max_col = strlen_tab(line);
     if (current_buffer->cursor_col >= max_col) {
-        current_buffer->cursor_col = max_col - 1;
+        if (max_col == 0) {
+            current_buffer->cursor_col = 0;
+        }
+        else {
+            current_buffer->cursor_col = max_col - 1;
+        }
     }
 }
 

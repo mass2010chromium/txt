@@ -120,16 +120,6 @@ void process_input(char input, int control) {
             }
         }
         move_to_current();
-        // char buf[60] = {0};
-        // snprintf(buf, 40, "%ld (%ld, %d) %dx%d %s", 
-        //             current_buffer->top_row, 
-        //             Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
-        //             current_buffer->cursor_col, 
-        //             window_size.ws_row, window_size.ws_col,
-        //             *get_line_in_buffer(current_buffer->cursor_row));
-        // for (int i = 0; i < 60; ++i) {
-        //     if (buf[i] == '\n') buf[i] = ' ';
-        // }
         if (current_mode == EM_NORMAL) {
             display_bottom_bar("-- NORMAL --", NULL);
         }
