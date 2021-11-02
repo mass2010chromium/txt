@@ -5,6 +5,9 @@
 #include "utils.h"
 #include "common.h"
 
+/**
+ * All variations of Edit constructor create a copy of their input.
+ */
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content);
 Edit* make_Delete(size_t undo, size_t start_row, size_t start_col, char* old_content);
 Edit* make_Edit(size_t undo, size_t start_row, size_t start_col, char* old_content);
