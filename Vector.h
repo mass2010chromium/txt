@@ -66,11 +66,18 @@ void Vector_sort(Vector* v, int(*cmp)(void*, void*));
 /**
  * Resets the size of the vector to 0, max_size to init_size,
  * and reallocs the vector contents to fit init_size elements.
+ * NOTE: Doesn't call free() on any of the contained elements!
  */
 void Vector_clear(Vector* v, size_t init_size);
 
 /**
+ * This one frees its contained elements.
+ */
+void Vector_clear_free(Vector* v, size_t init_size);
+
+/**
  * Frees v->contents and sets the pointer to NULL.
+ * NOTE: Doesn't call free() on the passed in pointer!
  */
 void Vector_destroy(Vector* v);
 

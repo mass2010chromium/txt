@@ -109,6 +109,9 @@ void resolve_action_stack() {
     else if (ctx.action == AT_DELETE) {
         RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
         editor_repaint(repaint, &ctx);
+    if (buf->cursor_col < 0) {
+        *((int*)0) = 0;
+    }
     }
     else if (ctx.action == AT_PASTE) {
         editor_repaint(RP_ALL, &ctx);

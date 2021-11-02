@@ -35,12 +35,14 @@ size_t editor_top;
 size_t editor_bottom;
 
 /**
+ * Callback function that gets called whenever the terminal size changes.
  * Updates the window_size variable to reflect changes made to the window size,
  * then also updates the editor_bottom variable accordingly.
  */
 void editor_window_size_change();
 
 /**
+ * Start a new editor action for undo purposes.
  * Increments the undo counter.
  */
 void editor_new_action();
@@ -49,16 +51,20 @@ void editor_new_action();
  * Performs the latest undo action contained in the current buffer's
  * undo list, then decrements the undo counter and re-displays the buffer
  * to reflect the changes.
+ * Wraps Buffer->undo.
+ *
+ * Return:
+ *   Number of actions undone (this is kinda meaningless tho)
  */
 int editor_undo();
 
-void clear_line(); /** Clear a line of STDOUT to prep for displaying the editor. */
-void clear_screen(); /** Prints an escape code that clears the entire terminal screen. */
+void clear_line();      /** Clear a line of STDOUT to prep for displaying the editor. */
+void clear_screen();    /** Prints an escape code that clears the entire terminal screen. */
 
-int get_cursor_pos(size_t *y, size_t *x); /** Gets the zero-indexed coords of the mouse cursor in the terminal. */
+int get_cursor_pos(size_t *y, size_t *x);   /** Gets the zero-indexed coords of the mouse cursor in the terminal. */
 
-void move_to_current(); /** Calls move_cursor with the current cursor position. */
-void move_cursor(size_t y, size_t x); /** Prints an escape code to move the location of the cursor to the given coordinates. */
+void move_to_current();     /** Calls move_cursor with the current cursor position. */
+void move_cursor(size_t y, size_t x);   /** Prints an escape code to move the location of the cursor to the given coordinates. */
 
 /**
  * Pointer corresponding to the spot in buf at screen pos x. (0 indexed)
@@ -140,6 +146,7 @@ void right_align_tab(char* line);
 
 void editor_move_up();
 void editor_move_down();
+
 /**
  * Only works in not insert mode.
  */
