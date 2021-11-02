@@ -295,7 +295,7 @@ void editor_init(const char* filename) {
     current_buffer = make_Buffer(filename);
     Vector_push(&buffers, current_buffer);
     current_buffer_idx = 0;
-    editor_top = 1;
+    editor_top = 1; // TODO this setting is broken
     editor_window_size_change();
 }
 
@@ -446,7 +446,6 @@ int editor_backspace() {
 
             free(_content);
 
-            // Convert to a delete action
             display_buffer_rows(y_pos+1, editor_bottom);
             return 1;
         }
