@@ -40,12 +40,23 @@ char* gapBuffer_get_content(GapBuffer* buf);
 void gapBuffer_insert(GapBuffer* buf, const char* new_content);
 
 /**
+ * Inserts n characters from the passed void* buffer into the GapBuffer.
+ */
+void gapBuffer_insertN(GapBuffer* buf, void* data, size_t n);
+
+/**
  * Attempts to delete `delete_size` bytes from the buffer, extending the gap
  * to the left by that many bytes. If delete_size would cause the gap to extend
  * past the start of the content buffer, it will instead only delete to the start
  * of the buffer.
  */
 void gapBuffer_delete(GapBuffer* buf, size_t delete_size);
+
+/**
+ * Same as gapBuffer_delete, but deletes from the right side of the gap instead.
+ */
+void gapBuffer_delete_right(GapBuffer* buf, size_t delete_size);
+
 
 /**
  * Resizes the gap inside the buffer to accomodate target_size +
@@ -60,3 +71,8 @@ void gapBuffer_resize(GapBuffer* buf, size_t target_size);
  * Positive offset moves forwards (right), negative offset moves backwards (left).
  */
 void gapBuffer_move_gap(GapBuffer* buf, ssize_t offset);
+
+/**
+ * Gets the length of the buffer content without the gap included.
+ */
+size_t gapBuffer_content_length(GapBuffer* buf);

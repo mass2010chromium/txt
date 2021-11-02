@@ -41,6 +41,19 @@ void gapBuffer_insert(GapBuffer* buf, const char* new_content) {
     }
 }
 
+void gapBuffer_insertN(GapBuffer* buf, void* data, size_t n) {
+    if (buf->gap_size >= n) {
+        memcpy(buf->content + buf->gap_start, data, n);
+        buf->gap_size -= n;
+        buf->gap_start += n;
+    } else {
+        gapBuffer_resize(buf, n);
+        memcpy(buf->content + buf->gap_start, data, n);
+        buf->gap_size -= n;
+        buf->gap_start += n;
+    }
+}
+
 void gapBuffer_delete(GapBuffer* buf, size_t delete_size) {
     if (delete_size > buf->gap_start) {
         delete_size = buf->gap_start;
@@ -48,6 +61,16 @@ void gapBuffer_delete(GapBuffer* buf, size_t delete_size) {
     buf->gap_size += delete_size;
     buf->gap_start -= delete_size;
     memset(buf->content + buf->gap_start, 0, delete_size);
+}
+
+void gapBuffer_delete_right(GapBuffer* buf, size_t delete_size) {
+    if (delete_size > buf->total_size - buf->gap_end) {
+        delete_size = buf->total_size - buf->gap_end;
+    }
+    buf->gap_size += delete_size;
+    memset(buf->content + buf->gap_end, 0, delete_size);
+    buf->gap_end += delete_size;
+    
 }
 
 void gapBuffer_resize(GapBuffer* buf, size_t target_size) {
@@ -111,4 +134,8 @@ void gapBuffer_destroy(GapBuffer* buf) {
     buf->gap_size = 0;
     buf->gap_start = 0;
     buf->content = NULL;
+}
+
+size_t gapBuffer_content_length(GapBuffer* buf) {
+    return buf->total_size . buf->gap_size;
 }
