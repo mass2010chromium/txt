@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -20,7 +21,7 @@ void inplace_make_GapBuffer(GapBuffer* buf, const char* content, size_t gap_size
     if (content != NULL) {
         content_size = strlen(content);
     }
-    buf->content = calloc(content_size + gap_size, sizeof(char));
+    buf->content = calloc(content_size + gap_size + 1, sizeof(char));
     if (content != NULL) {
         memcpy(buf->content + gap_size, content, content_size);
     }
@@ -29,19 +30,10 @@ void inplace_make_GapBuffer(GapBuffer* buf, const char* content, size_t gap_size
 
 void gapBuffer_insert(GapBuffer* buf, const char* new_content) {
     size_t insert_size = strlen(new_content);
-    if (buf->gap_size >= insert_size) {
-        memcpy(buf->content + buf->gap_start, new_content, insert_size);
-        buf->gap_size -= insert_size;
-        buf->gap_start += insert_size;
-    } else {
-        gapBuffer_resize(buf, insert_size);
-        memcpy(buf->content + buf->gap_start, new_content, insert_size);
-        buf->gap_size -= insert_size;
-        buf->gap_start += insert_size;
-    }
+    gapBuffer_insertN(buf, new_content, insert_size);
 }
 
-void gapBuffer_insertN(GapBuffer* buf, void* data, size_t n) {
+void gapBuffer_insertN(GapBuffer* buf, const void* data, size_t n) {
     if (buf->gap_size >= n) {
         memcpy(buf->content + buf->gap_start, data, n);
         buf->gap_size -= n;
@@ -84,8 +76,10 @@ void gapBuffer_resize(GapBuffer* buf, size_t target_size) {
     //Calloc gap size to accomodate target_size (plus some other growth factor?)
     int growth_k = (int)floor((DEFAULT_GAP_SIZE + target_size) / (double)DEFAULT_GAP_SIZE);
     size_t growth_amt = growth_k * DEFAULT_GAP_SIZE;
-    buf->content = realloc(buf->content, buf->total_size + growth_amt);
+    //size_t growth_amt = DEFAULT_GAP_SIZE;
+    buf->content = realloc(buf->content, buf->total_size + growth_amt + 1);
     buf->total_size += growth_amt;
+    buf->content[buf->total_size] = 0;
     buf->gap_size += growth_amt;
     buf->gap_end += growth_amt;
     //Move contents of temp array back to gap buffer, after the new gap end
@@ -98,9 +92,9 @@ void gapBuffer_move_gap(GapBuffer* buf, ssize_t offset) {
         //Don't need to move anything
         return;
     }
-    if (buf->gap_start + offset < 0 || buf->gap_end + offset >= buf->total_size) {
+    if (buf->gap_start + offset < 0 || buf->gap_end + offset > buf->total_size) {
         //Out of bounds, raise segfault to prevent weirdness from happening later
-        raise(SIGSEGV);
+        *((int*)0) = 0;
         return;
     }
     size_t new_start = buf->gap_start + offset;
@@ -137,5 +131,5 @@ void gapBuffer_destroy(GapBuffer* buf) {
 }
 
 size_t gapBuffer_content_length(GapBuffer* buf) {
-    return buf->total_size . buf->gap_size;
+    return buf->total_size - buf->gap_size;
 }

@@ -26,7 +26,7 @@ String* convert_String(char* data) {
  * Take a malloc'd String and "realloc" it into a string.
  */
 char* String_to_cstr(String* data) {
-    char* ret = data;
+    char* ret = (char*) data;
     memmove(ret, data+1, data->length+1);
     return ret;
 }

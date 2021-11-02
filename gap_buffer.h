@@ -42,7 +42,7 @@ void gapBuffer_insert(GapBuffer* buf, const char* new_content);
 /**
  * Inserts n characters from the passed void* buffer into the GapBuffer.
  */
-void gapBuffer_insertN(GapBuffer* buf, void* data, size_t n);
+void gapBuffer_insertN(GapBuffer* buf, const void* data, size_t n);
 
 /**
  * Attempts to delete `delete_size` bytes from the buffer, extending the gap

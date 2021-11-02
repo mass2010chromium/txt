@@ -10,7 +10,6 @@ typedef int ActionType;
 #define AT_OVERRIDE 5
 #define AT_PASTE 6
 
-
 typedef int RepaintType;
 #define RP_NONE 0
 #define RP_ALL 1
@@ -32,17 +31,18 @@ struct Buffer {
     char* name;
     FILE* file;
     FILE* swapfile;
-    Deque /*Edit* ?*/ undo_buffer;
-    Vector /*Edit* ?*/ redo_buffer;
+    Deque /*Edit* */ undo_buffer;
+    Vector /*Edit* */ redo_buffer;
     ssize_t top_row;            // Index into lines array corresponding to the top corner
     size_t top_left_file_pos;   // TODO: update this...
     size_t last_pos;            // TODO: update this...
     ssize_t cursor_row;         // 0-indexed Y coordinate on screen
     ssize_t cursor_col;         // 0-indexed X coordinate on screen
-    ssize_t cursor_char;        // 0-indexed X coordinate in character space
     int natural_col;
     ssize_t undo_index;
     Vector/*char* */ lines; //TODO: Cache/load buffered
+    ssize_t visual_row;     // visual mode anchor. -1 means inactive
+    ssize_t visual_col;     // visual mode anchor. -1 means line mode
 };
 typedef struct Buffer Buffer;
 

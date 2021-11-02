@@ -30,7 +30,7 @@ Buffer* current_buffer;
 int current_buffer_idx;
 Vector/*Buffer* */ buffers;
 String* command_buffer;
-Edit* active_insert;
+GapBuffer active_insert;
 size_t editor_top;
 size_t editor_bottom;
 
@@ -74,14 +74,14 @@ char* line_pos(char* buf, ssize_t x);
 /**
  * Creates a buffer for the given file and pushes it to the vector of buffers.
  */
-void editor_make_buffer(char* filename);
+void editor_make_buffer(const char* filename);
 
 /**
  * Performs initial setup for the editor, including making the vector of buffers,
  * creating and pushing a buffer for the given filename to that vector,
  * and configuring the size of the editor window. Defaults to `Normal` editing mode.
  */
-void editor_init(char* filename);
+void editor_init(const char* filename);
 
 /**
  * Destroys the buffer at position `idx` in the vector of buffers and updates
@@ -119,7 +119,7 @@ void add_chr(char c);
 /**
  * Adds a line below the current line and begins insert mode.
  */
-void editor_newline(int, char*);
+void editor_newline(int, const char* head, const char* initial);
 
 void display_bottom_bar(char* left, char* right);
 

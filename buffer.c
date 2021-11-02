@@ -88,7 +88,6 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     buf->name = strdup(filename);
     buf->cursor_row = 0;
     buf->cursor_col = 0;
-    buf->cursor_char = 0;
     buf->natural_col = 0;
     buf->top_row = 0;
     buf->top_left_file_pos = 0;

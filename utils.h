@@ -6,6 +6,8 @@
 #include "Vector.h"
 #include "String.h"
 
+#include "gap_buffer.h"
+
 /**
  * Attempt to write the contents of `buf` to the passed file `f`.
  * Will retry if the write fails or is otherwise incomplete.
