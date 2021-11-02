@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <math.h>
 
 #include "buffer.h"
 #include "gap_buffer.h"
@@ -42,6 +41,19 @@ void gapBuffer_insert(GapBuffer* buf, const char* new_content) {
     }
 }
 
+void gapBuffer_insertN(GapBuffer* buf, void* data, size_t n) {
+    if (buf->gap_size >= n) {
+        memcpy(buf->content + buf->gap_start, data, n);
+        buf->gap_size -= n;
+        buf->gap_start += n;
+    } else {
+        gapBuffer_resize(buf, n);
+        memcpy(buf->content + buf->gap_start, data, n);
+        buf->gap_size -= n;
+        buf->gap_start += n;
+    }
+}
+
 void gapBuffer_delete(GapBuffer* buf, size_t delete_size) {
     if (delete_size > buf->gap_start) {
         delete_size = buf->gap_start;
@@ -49,6 +61,16 @@ void gapBuffer_delete(GapBuffer* buf, size_t delete_size) {
     buf->gap_size += delete_size;
     buf->gap_start -= delete_size;
     memset(buf->content + buf->gap_start, 0, delete_size);
+}
+
+void gapBuffer_delete_right(GapBuffer* buf, size_t delete_size) {
+    if (delete_size > buf->total_size - buf->gap_end) {
+        delete_size = buf->total_size - buf->gap_end;
+    }
+    buf->gap_size += delete_size;
+    memset(buf->content + buf->gap_end, 0, delete_size);
+    buf->gap_end += delete_size;
+    
 }
 
 void gapBuffer_resize(GapBuffer* buf, size_t target_size) {
@@ -77,13 +99,20 @@ void gapBuffer_move_gap(GapBuffer* buf, ssize_t offset) {
         return;
     }
     if (buf->gap_start + offset < 0 || buf->gap_end + offset >= buf->total_size) {
-        //Out of bounds
+        //Out of bounds, raise segfault to prevent weirdness from happening later
+        raise(SIGSEGV);
         return;
     }
     size_t new_start = buf->gap_start + offset;
     size_t new_end = buf->gap_end + offset;
-    //Move memory that gap will occupy into space previously occupied by buffer
-    memmove(buf->content + new_end, buf->content + new_start, abs(offset));
+    if (offset > 0) {
+        //copy overlap characters to left side of gap
+        memmove(buf->content + buf->gap_start, buf->content + buf->gap_end, offset);
+    } else {
+        //copy overlap characters to right side of gap
+        memmove(buf->content + new_end, buf->content + new_start, -offset);
+    }
+    //Clear new gap location
     memset(buf->content + new_start, 0, buf->gap_size);
     buf->gap_start = new_start;
     buf->gap_end = new_end;
@@ -107,8 +136,6 @@ void gapBuffer_destroy(GapBuffer* buf) {
     buf->content = NULL;
 }
 
-// CRAB---ONTENT
-// CR---ABONTENT
-
-// CR--ABONTENT
-// CRAB--ONTENT
+size_t gapBuffer_content_length(GapBuffer* buf) {
+    return buf->total_size . buf->gap_size;
+}

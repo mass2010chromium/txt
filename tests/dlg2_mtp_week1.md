@@ -45,6 +45,6 @@
  - Press the following key combo: `gg`. This should navigate your cursor to the top left of the file.
  - Similarly, press the following key combo: `Shift G`. Your cursor should now be at the bottom left of the file.
 
-### Test 2.4 - Undoing changes
+### Test 1.4 - Undoing changes
  - In the same file as Test 1.3, enter `NORMAL` mode by pressing `ESC` if you are not already in it.
  - Press the `u` key. The changes you made to the file in Test 1.3 should be gone, and the file should simply read "Hello, Earth!"
