@@ -21,7 +21,7 @@ typedef int RepaintType;
 struct Edit {
     size_t undo_index;
     size_t start_row;
-    size_t start_col;
+    ssize_t start_col;  // -1 means entire row modification
     char* old_content;
     String* new_content;
 };
