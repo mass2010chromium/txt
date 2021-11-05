@@ -2,6 +2,7 @@
 
 #include "../common.h"
 #include "../buffer.h"
+#include "test_utils.h"
 
 UTEST(Buffer, read_file_break_lines) {
     Vector ret;

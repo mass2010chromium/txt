@@ -365,7 +365,7 @@ void push_current_action(char* new_content) {
     Edit* action = malloc(sizeof(Edit));
     action->undo_index = current_buffer->undo_index;
     action->start_row = current_buffer->cursor_row;
-    action->start_col = 0;
+    action->start_col = -1;
     action->old_content = *line_p;
     if (new_content == NULL) {
         Vector_delete(&current_buffer->lines, line_num);
@@ -402,7 +402,7 @@ int del_chr() {
         return 0;
     }
     Edit* delete_action = make_Edit(current_buffer->undo_index, 
-                        Buffer_get_line_index(current_buffer, y_pos), 0, line);
+                        Buffer_get_line_index(current_buffer, y_pos), -1, line);
     char* current_ptr = line_pos(delete_action->new_content->data, x_pos);
     size_t rest = Strlen(delete_action->new_content)
                     - (current_ptr - delete_action->new_content->data);
@@ -517,7 +517,7 @@ void editor_newline(int side, const char* head, const char* initial) {
         // HACK new action just to insert. TODO
         // lack of start info -- gapbuffer tracks a lot of nice metadata implicitly, but not the insert status.
         Vector_insert(&current_buffer->lines, line_num, strdup(""));
-        Edit* newline_edit = make_Insert(current_buffer->undo_index, line_num, 0, "");
+        Edit* newline_edit = make_Insert(current_buffer->undo_index, line_num, -1, "");
         Buffer_push_undo(current_buffer, newline_edit);
         current_buffer->cursor_row += 1;
         current_buffer->cursor_col = 0;
