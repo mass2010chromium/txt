@@ -80,3 +80,11 @@ int Buffer_redo(Buffer*, size_t undo_index);
 int Buffer_find_str(Buffer*, char*, bool cross_lines, bool direction, EditorContext* ret);
 
 size_t read_file_break_lines(Vector* ret, FILE* infile);
+
+/**
+ * Searches the current line in `buf` for `c`.
+ * If the character is found, updates `ctx->jump_col`
+ * with the found position and.
+ * Returns 0 on success and -1 on failure.
+ */
+int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c);

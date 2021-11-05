@@ -450,3 +450,16 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
         total_copied += num_read;
     }
 }
+
+int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c) {
+    size_t current_pos = ctx->jump_col + 1;
+    char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
+    while (line[current_pos]) {
+        if (line[current_pos] == c) {
+            ctx->jump_col = current_pos;
+            return 0;
+        }
+        current_pos++;
+    }
+    return -1;
+}

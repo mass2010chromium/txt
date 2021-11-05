@@ -166,3 +166,10 @@ void editor_move_to(ssize_t row, ssize_t col);
  * and position information contained in `ctx`.
  */
 void editor_repaint(RepaintType repaint, EditorContext* ctx);
+
+
+/**
+ * Moves the cursor to the start of the next word.
+ * (Used for vim's "w" command)
+ */
+void editor_skip_word();

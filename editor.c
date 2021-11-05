@@ -815,3 +815,7 @@ void editor_repaint(RepaintType repaint, EditorContext* ctx) {
     editor_fix_view();
     move_to_current();
 }
+
+// void editor_skip_word() {
+    
+// }

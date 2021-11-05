@@ -291,6 +291,20 @@ EditorAction* make_i_action() {
     return ret;
 }
 
+EditorAction* make_w_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &w_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("w");
+    return ret;
+}
+
+void w_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    editor_skip_word();
+}
+
 void o_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;
     current_mode = EM_INSERT;
