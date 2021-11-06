@@ -291,6 +291,11 @@ EditorAction* make_i_action() {
     return ret;
 }
 
+void w_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    // Buffer_skip_word();
+}
+
 EditorAction* make_w_action() {
     EditorAction* ret = malloc(sizeof(EditorAction));
     ret->update = NULL;
@@ -300,10 +305,6 @@ EditorAction* make_w_action() {
     return ret;
 }
 
-void w_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    editor_skip_word();
-}
 
 void o_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;

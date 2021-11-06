@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <sys/sendfile.h>
 
 #include "buffer.h"
@@ -416,25 +417,44 @@ int Buffer_redo(Buffer*, size_t undo_index);
  *
  * Return: 0 = OK, 1 = NOT_FOUND, -1 = error
  */
-int Buffer_find_str(Buffer* this, char* str, bool cross_lines, bool direction, EditorContext* ret) {
-    //TODO: direction false
+int Buffer_find_str(Buffer* buf, EditorContext* ctx, char* str, bool cross_lines, bool direction) {
+    // printf("find_str called, searching for: %s\n", str);
+    if (!cross_lines) {
+        return Buffer_find_str_inline(buf, ctx, str, ctx->jump_row, direction, ctx->jump_col);
+    }
+    int boundary = Buffer_get_num_lines(buf);
+    int offset = 1;
+    if (!direction) {
+        boundary = 0;
+        offset = -1;
+    }
+    int col_offset = ctx->jump_col;
+    for (int i = (int) ctx->jump_row; i != boundary; i += offset) {
+        int result = Buffer_find_str_inline(buf, ctx, str, i, direction, col_offset);
+        if (result == 0) {
+            return result;
+        }
+        col_offset = 0;
+    }
+    return -1;  // TODO
+}
 
-    char* line = this->lines.elements[ret->start_row];
-    char* search = line + ret->start_col;
+int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, bool direction, size_t offset) {
+    char* line = *(Buffer_get_line_abs(buf, line_num));
+    char* search = line + offset;
+    if (!direction) {
+        //This will search the entire line if searching backwards
+        search = line;
+    }
     char* result = strstr(search, str);
-    if (result == NULL) {
-        if (!cross_lines) {
-            return 1;
+    if (result != NULL) {
+        if (!(offset != 0 && !direction && result >= (line + offset))) {
+            ctx->jump_row = line_num;
+            ctx->jump_col = result - line;
+            return 0;
         }
     }
-    else {
-        ret->jump_row = ret->start_row;
-        ret->jump_col = result - line;
-        return 0;
-    }
-
-    size_t start_row = ret->start_row;
-    return -1;  // TODO
+    return -1;
 }
 
 /**
@@ -489,6 +509,21 @@ int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c) {
     char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
     while (line[current_pos]) {
         if (line[current_pos] == c) {
+            ctx->jump_col = current_pos;
+            return 0;
+        }
+        current_pos++;
+    }
+    return -1;
+}
+
+int Buffer_skip_word(Buffer* buf, EditorContext* ctx) {
+    size_t current_pos = ctx->jump_col + 1;
+    char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
+    char start_char = line[current_pos - 1];
+    char c;
+    while ((c = line[current_pos])) {
+        if (ispunct(c) && c != start_char && c != '_') {
             ctx->jump_col = current_pos;
             return 0;
         }
