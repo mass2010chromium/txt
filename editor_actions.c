@@ -30,6 +30,7 @@ EditorAction* make_F_action();
 EditorAction* make_DOLLAR_action();
 
 EditorAction* make_slash_action();
+EditorAction* make_question_action();
 
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
@@ -76,6 +77,8 @@ void init_actions() {
     action_type_table['F'] = AT_MOVE;
     action_jump_table['/'] = &make_slash_action;
     action_type_table['/'] = AT_MOVE;
+    action_jump_table['?'] = &make_question_action;
+    action_type_table['?'] = AT_MOVE;
     inplace_make_Vector(&action_stack, 10);
 }
 
@@ -267,6 +270,36 @@ EditorAction* make_slash_action() {
     ret->resolve = &slash_action_resolve;
     ret->child = NULL;
     ret->value = make_String("/");
+    return ret;
+}
+
+int question_action_update(EditorAction* this, char input, int control) {
+    //TO-DO: Catch special cases? Ask Jing about it
+    if (input != '\n') {
+        // printf("pushing %c to question stack\n", input);
+        String_push(&this->value, input);
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+void question_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (Strlen(this->value) > 1) {
+        char* str = this->value->data + 1;
+        // printf("searching for %s\n", str);
+        Buffer_find_str(ctx->buffer, ctx, str, true, false);
+    }
+}
+
+EditorAction* make_question_action() {
+    // printf("making question action\n");
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = &question_action_update;
+    ret->resolve = &question_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("?");
     return ret;
 }
 

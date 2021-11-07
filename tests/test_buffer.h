@@ -21,28 +21,28 @@ UTEST(Buffer, search_char) {
     //Search success
     ctx.jump_col = 0;
     ctx.jump_row = 0;
-    int result = Buffer_search_char(buf, &ctx, 'e');
+    int result = Buffer_search_char(buf, &ctx, 'e', true);
     ASSERT_EQ(0, result);
     ASSERT_EQ(1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
 
     //Search fail
-    result = Buffer_search_char(buf, &ctx, 'H');
+    result = Buffer_search_char(buf, &ctx, 'H', true);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
 
     //Search at end of string
     ctx.jump_col = strlen("Hello, World!") - 1;
-    Buffer_search_char(buf, &ctx, 'H');
+    Buffer_search_char(buf, &ctx, 'H', true);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
 
     //Double search failure
     ctx.jump_col = 0;
-    result = Buffer_search_char(buf, &ctx, '!');
-    result = Buffer_search_char(buf, &ctx, '!');
+    result = Buffer_search_char(buf, &ctx, '!', true);
+    result = Buffer_search_char(buf, &ctx, '!', true);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
@@ -76,22 +76,22 @@ UTEST(Buffer, find_str) {
     ASSERT_EQ(2, ctx.jump_col);
 
     //Search backwards across lines
-    result = Buffer_find_str(buf, &ctx, "ick", true, false);
+    result = Buffer_find_str(buf, &ctx, "quick", true, false);
     ASSERT_EQ(0, result);
     ASSERT_EQ(1, ctx.jump_row);
-    ASSERT_EQ(2, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_col);
 
     //Search backwards inline with content present forwards
     result = Buffer_find_str(buf, &ctx, "ick", false, false);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_row);
-    ASSERT_EQ(2, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_col);
 
     //Should not cross lines if set to false
     result = Buffer_find_str(buf, &ctx, "brown", false, true);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_row);
-    ASSERT_EQ(2, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_col);
 
     Buffer_destroy(buf);
     free(buf);

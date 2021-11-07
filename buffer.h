@@ -83,9 +83,10 @@ int Buffer_find_str(Buffer*, EditorContext* ret, char*, bool cross_lines, bool d
  * Helper for Buffer_find_str.
  * Searches for `str` at the passed `line_num`
  * in `buf`, starting at position `offset`.
+ * An offset of -1 signifies to search the entire line when searching backwards.
  * Return codes and directional behavior are the same as in Buffer_find_str.
  */
-int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, bool direction, size_t offset);
+int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, ssize_t offset, bool direction);
 
 size_t read_file_break_lines(Vector* ret, FILE* infile);
 

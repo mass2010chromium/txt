@@ -420,26 +420,31 @@ int Buffer_redo(Buffer*, size_t undo_index);
 int Buffer_find_str(Buffer* buf, EditorContext* ctx, char* str, bool cross_lines, bool direction) {
     // printf("find_str called, searching for: %s\n", str);
     if (!cross_lines) {
-        return Buffer_find_str_inline(buf, ctx, str, ctx->jump_row, direction, ctx->jump_col);
+        return Buffer_find_str_inline(buf, ctx, str, ctx->jump_row, ctx->jump_col, direction);
     }
     int boundary = Buffer_get_num_lines(buf);
     int offset = 1;
     if (!direction) {
-        boundary = 0;
+        boundary = -1;
         offset = -1;
     }
     int col_offset = ctx->jump_col;
     for (int i = (int) ctx->jump_row; i != boundary; i += offset) {
-        int result = Buffer_find_str_inline(buf, ctx, str, i, direction, col_offset);
+        int result = Buffer_find_str_inline(buf, ctx, str, i, col_offset, direction);
         if (result == 0) {
             return result;
         }
-        col_offset = 0;
+        col_offset = -1;
     }
     return -1;  // TODO
 }
 
-int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, bool direction, size_t offset) {
+int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, ssize_t offset, bool direction) {
+    bool search_full = false;
+    if (offset == -1) {
+        search_full = true;
+        offset = 0;
+    }
     char* line = *(Buffer_get_line_abs(buf, line_num));
     char* search = line + offset;
     if (!direction) {
@@ -448,7 +453,7 @@ int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t li
     }
     char* result = strstr(search, str);
     if (result != NULL) {
-        if (!(offset != 0 && !direction && result >= (line + offset))) {
+        if (direction || search_full || result < line + offset) {
             ctx->jump_row = line_num;
             ctx->jump_col = result - line;
             return 0;
