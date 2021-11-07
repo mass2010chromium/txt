@@ -586,7 +586,18 @@ EditorAction* make_A_action() {
 
 void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
-    editor_move_EOL();
+    Buffer* buf = ctx->buffer;
+    char* line = *Buffer_get_line(buf, ctx->jump_row);
+    size_t line_len = strlen(line);
+    size_t max_char = line_len;
+    // Save newlines, but don't count them towards line length for cursor purposes.
+    if (line_len > 0 && line[line_len - 1] == '\n') {
+        max_char -= 1;
+    }
+    if (max_char >= 0) {
+        max_char -= 1;
+    }
+    ctx->jump_col = max_char;
 }
 
 EditorAction* make_DOLLAR_action() {
@@ -599,7 +610,7 @@ EditorAction* make_DOLLAR_action() {
 }
 
 void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_NONE;
+    ctx->action = AT_OVERRIDE;
 }
 
 EditorAction* make_ESC_action() {

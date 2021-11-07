@@ -241,7 +241,8 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         if (last_row == first_row) {
             Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
             Buffer_push_undo(buf, modify_row);
-            String_delete_range(modify_row->new_content, range->start_col, range->jump_col);
+            // Delete to jump col, inclusive
+            String_delete_range(modify_row->new_content, range->start_col, range->jump_col+1);
             Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
             return RP_LINES;
         }
@@ -250,9 +251,16 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
 
         if (last_row < Buffer_get_num_lines(buf)) {
+            // Remove last row, merge with first row
             Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
             Buffer_push_undo(buf, delete_last_row);
-            String* last_row_fragment = make_String(delete_last_row->old_content + range->jump_col);
+            // Delete to jump col, inclusive.
+            size_t target_len = strlen(delete_last_row->old_content);
+            size_t delete_to = range->jump_col + 1;
+            if (target_len < delete_to) {
+                delete_to = target_len;
+            }
+            String* last_row_fragment = make_String(delete_last_row->old_content + target_len);
 
             free(*Buffer_get_line_abs(buf, last_row));
             Vector_delete(&buf->lines, last_row);
