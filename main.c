@@ -69,29 +69,39 @@ void process_command(char* command) {
     }
 }
 
-void process_esc(int control) {
-    if (control == BYTE_UPARROW) { editor_move_up(); }
-    else if (control == BYTE_DOWNARROW) { editor_move_down(); }
-    else if (control == BYTE_LEFTARROW) { editor_move_left(); }
-    else if (control == BYTE_RIGHTARROW) { editor_move_right(); }
-    else {
-        if (current_mode == EM_INSERT) { end_insert(); }
-        current_mode = EM_NORMAL;
-        // TODO update data structures
-        display_bottom_bar("-- NORMAL --", NULL);
-    }
-    move_to_current();
+/**
+ * Get the corresponding action char.
+ */
+int esc_action(int control) {
+    if (control == BYTE_UPARROW) { return 'k'; }
+    else if (control == BYTE_DOWNARROW) { return 'j'; }
+    else if (control == BYTE_LEFTARROW) { return 'h'; }
+    else if (control == BYTE_RIGHTARROW) { return 'l'; }
+    else { return BYTE_ESC; }
 }
 
 void process_input(char input, int control) {
     if (current_mode == EM_INSERT) {
         display_bottom_bar("-- INSERT --", NULL);
         if (input == BYTE_ESC) {
-            process_esc(control);
-            if (current_mode == EM_NORMAL) {
-                // Match vim behavior when exiting insert mode.
-                editor_move_left();
-                editor_align_tab();
+            int res = esc_action(control);
+            if (res == -1) {
+                display_bottom_bar("ERROR: Unrecognized escape sequence", NULL);
+            }
+            else {
+                if (res == 'k') { editor_move_up(); }
+                else if (res == 'j') { editor_move_down(); }
+                else if (res == 'h') { editor_move_left(); }
+                else if (res == 'l') { editor_move_right(); }
+                else {
+                    end_insert();
+                    current_mode = EM_NORMAL;
+                    // TODO update data structures
+                    display_bottom_bar("-- NORMAL --", NULL);
+                    // Match vim behavior when exiting insert mode.
+                    editor_move_left();
+                    editor_align_tab();
+                }
                 move_to_current();
             }
             return;
@@ -102,8 +112,8 @@ void process_input(char input, int control) {
     }
     else if (current_mode == EM_NORMAL) {
         if (input == BYTE_ESC) {
-            process_esc(control);
-            return;
+            int res = esc_action(control);
+            if (res != -1) input = res;
         }
         if (input == ':') {
             current_mode = EM_COMMAND;
@@ -123,10 +133,21 @@ void process_input(char input, int control) {
         if (current_mode == EM_NORMAL) {
             display_bottom_bar("-- NORMAL --", NULL);
         }
+        else if (current_mode == EM_INSERT) {
+            display_bottom_bar("-- INSERT --", NULL);
+        }
     }
     else if (current_mode == EM_COMMAND) {
         if (input == BYTE_ESC) {
-            process_esc(control);
+            int res = esc_action(control);
+            if (res == BYTE_ESC) {
+                move_cursor(window_size.ws_row-1, 1);
+                clear_line();
+                current_mode = EM_NORMAL;
+                display_bottom_bar("-- NORMAL --", NULL);
+                move_to_current();
+                String_clear(command_buffer);
+            }
             return;
         }
         if (input == BYTE_ENTER) {

@@ -79,12 +79,12 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
         if (infile != NULL)  {
             //TODO buffer/read not the whole file
             n_read = read_file_break_lines(&buf->lines, infile);
+            fclose(infile);
         }
         else {
             Vector_push(&buf->lines, strdup(""));
             n_read = 0;
         }
-        fclose(infile);
     }
     buf->swapfile = NULL;
     buf->name = strdup(filename);

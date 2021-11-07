@@ -2,6 +2,7 @@
 
 #include "../common.h"
 #include "../buffer.h"
+#include "test_utils.h"
 
 char* infile_dat[8] = {
 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",

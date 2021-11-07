@@ -32,6 +32,8 @@ EditorAction* make_DOLLAR_action();
 EditorAction* make_slash_action();
 EditorAction* make_question_action();
 
+EditorAction* make_ESC_action();
+
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
 }
@@ -79,6 +81,8 @@ void init_actions() {
     action_type_table['/'] = AT_MOVE;
     action_jump_table['?'] = &make_question_action;
     action_type_table['?'] = AT_MOVE;
+    action_jump_table[BYTE_ESC] = &make_ESC_action;
+    action_type_table[BYTE_ESC] = AT_NONE;
     inplace_make_Vector(&action_stack, 10);
 }
 
@@ -591,5 +595,18 @@ EditorAction* make_DOLLAR_action() {
     ret->resolve = &DOLLAR_action_resolve;
     ret->child = NULL;
     ret->value = make_String("$");
+    return ret;
+}
+
+void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_NONE;
+}
+
+EditorAction* make_ESC_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &ESC_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("<esc>");
     return ret;
 }
