@@ -481,6 +481,7 @@ void add_chr(char c) {
         write_respect_tabspace(rest, 0, rest_len);
         free(content);
 
+        editor_fix_view();
         move_to_current();
         return;
     }

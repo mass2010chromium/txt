@@ -83,6 +83,7 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
             Vector_push(&buf->lines, strdup(""));
             n_read = 0;
         }
+        fclose(infile);
     }
     buf->swapfile = NULL;
     buf->name = strdup(filename);

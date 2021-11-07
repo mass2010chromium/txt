@@ -5,7 +5,7 @@ all: main.o buffer.o utils.o editor.o debugging.o Deque.o Vector.o String.o edit
 	gcc main.o buffer.o utils.o editor.o debugging.o Deque.o Vector.o String.o editor_actions.o gap_buffer.o -o main
 
 valgrind_test: _test
-	valgrind --leak-check=full ./test
+	valgrind --leak-check=full --show-leak-kinds=all ./test
 
 test: _test
 	./test
