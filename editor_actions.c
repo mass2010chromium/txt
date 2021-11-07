@@ -24,7 +24,12 @@ EditorAction* make_d_action();
 
 EditorAction* make_A_action();
 
+EditorAction* make_f_action();
+EditorAction* make_F_action();
+
 EditorAction* make_DOLLAR_action();
+
+EditorAction* make_slash_action();
 
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
@@ -65,6 +70,12 @@ void init_actions() {
     action_type_table['A'] = AT_OVERRIDE;
     action_jump_table['$'] = &make_DOLLAR_action;
     action_type_table['$'] = AT_MOVE;
+    action_jump_table['f'] = &make_f_action;
+    action_type_table['f'] = AT_MOVE;
+    action_jump_table['F'] = &make_F_action;
+    action_type_table['F'] = AT_MOVE;
+    action_jump_table['/'] = &make_slash_action;
+    action_type_table['/'] = AT_MOVE;
     inplace_make_Vector(&action_stack, 10);
 }
 
@@ -229,6 +240,77 @@ EditorAction* make_j_action() {
     ret->resolve = &j_action_resolve;
     ret->child = NULL;
     ret->value = make_String("j");
+    return ret;
+}
+
+int slash_action_update(EditorAction* this, char input, int control) {
+    //TO-DO: Catch special cases? Ask Jing about it
+    if (input != '\n') {
+        String_push(&this->value, input);
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (Strlen(this->value) > 1) {
+        char* str = this->value->data + 1;
+        Buffer_find_str(ctx->buffer, ctx, str, true, true);
+    }
+}
+
+EditorAction* make_slash_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = &slash_action_update;
+    ret->resolve = &slash_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("/");
+    return ret;
+}
+
+int f_action_update(EditorAction* this, char input, int control) {
+    //TO-DO: Catch special cases? Ask Jing about it
+    String_push(&this->value, input);
+    return 2;
+}
+
+void f_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (Strlen(this->value) == 2) {
+        Buffer_search_char(ctx->buffer, ctx, this->value->data[1], true);
+    }
+}
+
+EditorAction* make_f_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = &f_action_update;
+    ret->resolve = &f_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("f");
+    return ret;
+}
+
+int F_action_update(EditorAction* this, char input, int control) {
+    //TO-DO: Catch special cases? Ask Jing about it
+    String_push(&this->value, input);
+    return 2;
+}
+
+void F_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (Strlen(this->value) == 2) {
+        Buffer_search_char(ctx->buffer, ctx, this->value->data[1], false);
+    }
+}
+
+EditorAction* make_F_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = &F_action_update;
+    ret->resolve = &F_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("F");
     return ret;
 }
 

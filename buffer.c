@@ -504,28 +504,38 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
     }
 }
 
-int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c) {
-    size_t current_pos = ctx->jump_col + 1;
+int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction) {
+    int current_pos = ctx->jump_col + 1;
+    int offset = 1;
+    if (!direction) {
+        offset = -1;
+    }
     char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
-    while (line[current_pos]) {
+    while (current_pos >= 0 && line[current_pos]) {
         if (line[current_pos] == c) {
             ctx->jump_col = current_pos;
             return 0;
         }
-        current_pos++;
+        current_pos += offset;
     }
     return -1;
 }
 
-int Buffer_skip_word(Buffer* buf, EditorContext* ctx) {
+int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
     size_t current_pos = ctx->jump_col + 1;
     char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
     char start_char = line[current_pos - 1];
     char c;
+    bool found_space = false;
     while ((c = line[current_pos])) {
         if (ispunct(c) && c != start_char && c != '_') {
             ctx->jump_col = current_pos;
             return 0;
+        } else if (found_space && isalnum(c)) {
+            ctx->jump_col = current_pos;
+            return 0;
+        } else if (isspace(c)) {
+            found_space = true;
         }
         current_pos++;
     }
