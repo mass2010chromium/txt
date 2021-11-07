@@ -77,6 +77,35 @@ int Buffer_redo(Buffer*, size_t undo_index);
  *
  * Return: 0 = OK, 1 = NOT_FOUND, -1 = error
  */
-int Buffer_find_str(Buffer*, char*, bool cross_lines, bool direction, EditorContext* ret);
+int Buffer_find_str(Buffer*, EditorContext* ret, char*, bool cross_lines, bool direction);
+
+/**
+ * Helper for Buffer_find_str.
+ * Searches for `str` at the passed `line_num`
+ * in `buf`, starting at position `offset`.
+ * An offset of -1 signifies to search the entire line when searching backwards.
+ * Return codes and directional behavior are the same as in Buffer_find_str.
+ */
+int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, ssize_t offset, bool direction);
 
 size_t read_file_break_lines(Vector* ret, FILE* infile);
+
+/**
+ * Searches the current line in `buf` for `c`.
+ * If the character is found, updates `ctx->jump_col`
+ * with the found position and.
+ * Searches forwards if direction is true, otherwise backwards.
+ * Returns 0 on success and -1 on failure.
+ */
+int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction);
+
+/**
+ * Moves the cursor to the next "word".
+ * If skip_punct is false, this is the next punctuation mark
+ * present in the buffer that is identical to the character at
+ * the cursor's starting position.
+ *
+ * Otherwise, the next word begins at the next alphanumeric
+ * character following a whitespace character (not necessarily consecutive).
+ */
+int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct);
