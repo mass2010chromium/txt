@@ -555,7 +555,7 @@ int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
     char c;
     bool found_space = false;
     while ((c = line[current_pos])) {
-        if (ispunct(c) && c != start_char && c != '_') {
+        if (!skip_punct && ispunct(c) && c != start_char && c != '_') {
             ctx->jump_col = current_pos;
             return 0;
         } else if (found_space && isalnum(c)) {

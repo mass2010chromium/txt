@@ -163,3 +163,31 @@ UTEST(Buffer, find_str) {
     Buffer_destroy(buf);
     free(buf);
 }
+
+UTEST(Buffer, skip_word) {
+    Buffer buf;
+    EditorContext ctx;
+    ctx.jump_col = 0;
+    ctx.jump_row = 0;
+    inplace_make_Buffer(&buf, "./tests/dummy.txt");
+    //Skip to next punctuation char
+    int result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(5, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    //Skip to next word when starting on space char
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(7, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    //Should skip punctuation when flag is toggled
+    result = Buffer_skip_word(&buf, &ctx, true);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(14, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    ctx.jump_col = 0;
+    result = Buffer_skip_word(&buf, &ctx, true);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(7, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+}

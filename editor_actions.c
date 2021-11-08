@@ -16,6 +16,9 @@ EditorAction* make_o_action();
 EditorAction* make_v_action();
 EditorAction* make_V_action();
 
+EditorAction* make_w_action();
+EditorAction* make_W_action();
+
 EditorAction* make_u_action();
 EditorAction* make_p_action();
 
@@ -64,6 +67,10 @@ void init_actions() {
     action_type_table['v'] = AT_OVERRIDE;
     action_jump_table['V'] = &make_V_action;
     action_type_table['V'] = AT_OVERRIDE;
+    action_jump_table['w'] = &make_w_action;
+    action_type_table['w'] = AT_OVERRIDE;
+    action_jump_table['W'] = &make_W_action;
+    action_type_table['W'] = AT_OVERRIDE;
     action_jump_table['u'] = &make_u_action;
     action_type_table['u'] = AT_UNDO;
     action_jump_table['p'] = &make_p_action;
@@ -286,9 +293,7 @@ EditorAction* make_slash_action() {
 }
 
 int question_action_update(EditorAction* this, char input, int control) {
-    //TO-DO: Catch special cases? Ask Jing about it
     if (input != '\n') {
-        // printf("pushing %c to question stack\n", input);
         String_push(&this->value, input);
         return 1;
     } else {
@@ -300,13 +305,11 @@ void question_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
-        // printf("searching for %s\n", str);
         Buffer_find_str(ctx->buffer, ctx, str, true, false);
     }
 }
 
 EditorAction* make_question_action() {
-    // printf("making question action\n");
     EditorAction* ret = malloc(sizeof(EditorAction));
     ret->update = &question_action_update;
     ret->resolve = &question_action_resolve;
@@ -316,7 +319,6 @@ EditorAction* make_question_action() {
 }
 
 int f_action_update(EditorAction* this, char input, int control) {
-    //TO-DO: Catch special cases? Ask Jing about it
     String_push(&this->value, input);
     return 2;
 }
@@ -338,7 +340,6 @@ EditorAction* make_f_action() {
 }
 
 int F_action_update(EditorAction* this, char input, int control) {
-    //TO-DO: Catch special cases? Ask Jing about it
     String_push(&this->value, input);
     return 2;
 }
@@ -421,7 +422,7 @@ EditorAction* make_i_action() {
 
 void w_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
-    // Buffer_skip_word();
+    Buffer_skip_word(ctx->buffer, ctx, false);
 }
 
 EditorAction* make_w_action() {
@@ -433,6 +434,19 @@ EditorAction* make_w_action() {
     return ret;
 }
 
+void W_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    Buffer_skip_word(ctx->buffer, ctx, true);
+}
+
+EditorAction* make_W_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &W_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("W");
+    return ret;
+}
 
 void v_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;
@@ -498,7 +512,6 @@ EditorAction* make_V_action() {
     ret->value = make_String("V");
     return ret;
 }
-
 
 void o_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;
@@ -663,7 +676,7 @@ EditorAction* make_A_action() {
 
 void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
-    Buffer* buf = ctx->buffer;
+        Buffer* buf = ctx->buffer;
     char* line = *Buffer_get_line(buf, ctx->jump_row);
     size_t line_len = strlen(line);
     size_t max_char = line_len;
