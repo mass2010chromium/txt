@@ -66,6 +66,8 @@ void move_cursor(size_t y, size_t x);   /** Prints an escape code to move the lo
  */
 char* line_pos(char* buf, ssize_t x);
 
+size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count);
+
 /**
  * Creates a buffer for the given file and pushes it to the vector of buffers.
  */

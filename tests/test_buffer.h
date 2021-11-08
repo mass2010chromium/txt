@@ -14,6 +14,7 @@ char* infile_dat[8] = {
 "",
 NULL
 };
+#define TESTFILE_LEN 7
 
 UTEST(Buffer_util, read_file_break_lines) {
     Vector ret;
@@ -63,20 +64,71 @@ UTEST(Buffer, scroll) {
     Buffer buf;
     ssize_t scroll_amount;
     inplace_make_Buffer(&buf, "./tests/testfile");
+    size_t window_size = 4;
 
-    scroll_amount = Buffer_scroll(&buf, 4, 0);
+    scroll_amount = Buffer_scroll(&buf, window_size, 0);
     ASSERT_EQ(0, scroll_amount);
     ASSERT_EQ(0, buf.top_row);
-    scroll_amount = Buffer_scroll(&buf, 4, -1);
+    scroll_amount = Buffer_scroll(&buf, window_size, -1);
     ASSERT_EQ(0, scroll_amount);
     ASSERT_EQ(0, buf.top_row);
-    scroll_amount = Buffer_scroll(&buf, 4, 1);
+    scroll_amount = Buffer_scroll(&buf, window_size, 1);
     ASSERT_EQ(1, scroll_amount);
     ASSERT_EQ(1, buf.top_row);
 
-    scroll_amount = Buffer_scroll(&buf, 4, 3);
+    scroll_amount = Buffer_scroll(&buf, window_size, 3);
     ASSERT_EQ(2, scroll_amount);
     ASSERT_EQ(3, buf.top_row);
+
+    scroll_amount = Buffer_scroll(&buf, window_size, -1);
+    ASSERT_EQ(-1, scroll_amount);
+    ASSERT_EQ(2, buf.top_row);
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, get_line) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+    size_t window_size = 4;
+    ssize_t scroll_delta = 0;
+    size_t scroll_amount = 0;
+
+    for (size_t i = 0; i < window_size; ++i) {
+        char** linep = Buffer_get_line(&buf, i);
+        ASSERT_NE(NULL, linep);
+        ASSERT_STREQ(infile_dat[i], *linep);
+    }
+
+    scroll_delta = 2;
+    scroll_amount += scroll_delta;
+    Buffer_scroll(&buf, window_size, scroll_delta);
+
+    for (size_t i = 0; i < window_size; ++i) {
+        char** linep = Buffer_get_line(&buf, i);
+        ASSERT_NE(NULL, linep);
+        ASSERT_STREQ(infile_dat[i+scroll_amount], *linep);
+    }
+
+    scroll_delta = -1;
+    scroll_amount += scroll_delta;
+    Buffer_scroll(&buf, window_size, scroll_delta);
+
+    for (size_t i = 0; i < window_size; ++i) {
+        char** linep = Buffer_get_line(&buf, i);
+        ASSERT_NE(NULL, linep);
+        ASSERT_STREQ(infile_dat[i+scroll_amount], *linep);
+    }
+
+    scroll_delta = -3;
+    scroll_amount = 0;
+    Buffer_scroll(&buf, window_size, scroll_delta);
+
+    for (size_t i = 0; i < window_size; ++i) {
+        char** linep = Buffer_get_line(&buf, i);
+        ASSERT_NE(NULL, linep);
+        ASSERT_STREQ(infile_dat[i+scroll_amount], *linep);
+    }
 
     Buffer_destroy(&buf);
 }

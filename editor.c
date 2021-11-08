@@ -223,20 +223,6 @@ char line_pos_char(char* buf, size_t x) {
 }
 
 /**
- * Get the character corresponding to sceen pos (y, x). Zero indexed.
- */
-char screen_pos_char(size_t y, size_t x) {
-    return line_pos_char(*get_line_in_buffer(y), x);
-}
-
-/**
- * convenience function for getting current screen pos.
- */
-char current_screen_pos_char() {
-    return screen_pos_char(current_buffer->cursor_row, current_buffer->cursor_col);
-}
-
-/**
  * Compute the 'screen length' of a buffer. Accounts for tabs.
  */
 size_t strlen_tab(const char* buf) {
@@ -355,6 +341,7 @@ void begin_insert() {
     // active_insert = make_Edit(current_buffer->undo_index, 
     //                     Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
     //                     0, line);
+    Buffer_set_mode(current_buffer, EM_NORMAL);
 }
 
 /**
@@ -598,11 +585,6 @@ void display_buffer_rows(size_t start, size_t end) {
         if (start_idx > visual_start_row && start_idx <= visual_end_row) {
             write(STDOUT_FILENO, SET_HIGHLIGHT, strlen(SET_HIGHLIGHT));
         }
-        fprintf(stderr, "visual (%lu, %lu) (%lu, %lu)\n",
-                    visual_start_row,
-                    visual_start_col,
-                    visual_end_row,
-                    visual_end_col);
     }
     for (size_t i = start; i <= end; ++i) {
         move_cursor(i-1, 0);

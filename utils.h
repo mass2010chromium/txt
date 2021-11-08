@@ -20,16 +20,19 @@ size_t fwriteall(void* buf, size_t size, size_t n_element, FILE* f);
  */
 size_t fcopy(FILE* dest, FILE* src, size_t bytes);
 
-static inline size_t max_u(size_t a, size_t b) {
-    if (a > b) return a;
-    return b;
+#define __MINMAX_GEN(name, type) \
+static inline type max_ ## name (type a, type b) {\
+    if (a > b) return a; \
+    return b; \
+} \
+static inline type min_ ## name (type a, type b) {\
+    if (a > b) return b; \
+    return a; \
 }
 
-static inline size_t min_u(size_t a, size_t b) {
-    if (a > b) return b;
-    return a;
-}
+__MINMAX_GEN(u, size_t)
 
+__MINMAX_GEN(d, ssize_t)
 
 /**
  * Checks if the passed character is whitespace.

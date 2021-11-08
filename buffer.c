@@ -6,6 +6,7 @@
 
 #include "buffer.h"
 #include "utils.h"
+#include "editor.h"
 
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     Edit* ret = malloc(sizeof(Edit));
@@ -177,6 +178,17 @@ EditorMode Buffer_get_mode(Buffer* buf) {
 void Buffer_set_mode(Buffer* buf, EditorMode mode) {
     buf->buffer_mode = mode;
 }
+void Buffer_exit_visual(Buffer* buf) {
+    Buffer_set_mode(buf, EM_NORMAL);
+
+    EditorContext ctx;
+    ctx.start_row = buf->cursor_row;
+    ctx.start_col = buf->cursor_col;
+    ctx.jump_row = buf->visual_row;
+    ctx.jump_col = buf->visual_col;
+    ctx.buffer = buf;
+    editor_repaint(RP_LINES, &ctx);
+}
 
 /**
  * These two get relative to screen pos.
@@ -225,80 +237,76 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
 
 /**
  * Delete a range of chars (from start to end in the given object)
+ * Expects a normalized range.
  */
 RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
-    if (range->jump_row > range->start_row ||
-            (range->jump_row == range->start_row && range->jump_col > range->start_col)) {
-        // delete forwards.
-        for (int i = 0; i < copy->data.size; ++i) {
-            free(copy->data.elements[i]);
+    // delete forwards.
+    for (int i = 0; i < copy->data.size; ++i) {
+        free(copy->data.elements[i]);
+    }
+    Vector_clear(&copy->data, 10);
+    ssize_t first_row = range->start_row;
+    ssize_t last_row = range->jump_row;
+    size_t undo_idx = range->undo_idx;
+    if (range->start_col == -1) {   // Line delete mode
+        copy->cp_type = CP_LINE;
+        for (ssize_t i = first_row; i < last_row; ++i) {
+            char* line = *Buffer_get_line_abs(buf, i);
+            Vector_push(&copy->data, make_String(line));
+            Buffer_push_undo(buf, make_Delete(undo_idx, first_row, -1, line));
+            free(line);
         }
-        Vector_clear(&copy->data, 10);
-        ssize_t first_row = range->start_row;
-        ssize_t last_row = range->jump_row;
-        size_t undo_idx = range->undo_idx;
-        if (range->start_col == -1) {   // Line delete mode
-            copy->cp_type = CP_LINE;
-            for (ssize_t i = first_row; i < last_row; ++i) {
-                char* line = *Buffer_get_line_abs(buf, i);
-                Vector_push(&copy->data, make_String(line));
-                Buffer_push_undo(buf, make_Delete(undo_idx, first_row, -1, line));
-                free(line);
-            }
-            Vector_delete_range(&buf->lines, first_row, last_row);
-            if (buf->lines.size == 0) {
-                Vector_push(&buf->lines, strdup(""));
-            }
-            return RP_LOWER;
-        }
-        if (last_row == first_row) {
-            Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
-            Buffer_push_undo(buf, modify_row);
-            // Delete to jump col, inclusive
-            String_delete_range(modify_row->new_content, range->start_col, range->jump_col+1);
-            Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
-            return RP_LINES;
-        }
-        Edit* modify_first_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
-        Buffer_push_undo(buf, modify_first_row);
-        String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
-
-        if (last_row < Buffer_get_num_lines(buf)) {
-            // Remove last row, merge with first row
-            Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
-            Buffer_push_undo(buf, delete_last_row);
-            // Delete to jump col, inclusive.
-            size_t target_len = strlen(delete_last_row->old_content);
-            size_t delete_to = range->jump_col + 1;
-            if (target_len < delete_to) {
-                delete_to = target_len;
-            }
-            String* last_row_fragment = make_String(delete_last_row->old_content + target_len);
-
-            free(*Buffer_get_line_abs(buf, last_row));
-            Vector_delete(&buf->lines, last_row);
-
-            Strcat(&modify_first_row->new_content, last_row_fragment);
-            free(last_row_fragment);
-        }
-
-        Buffer_set_line_abs(buf, first_row, modify_first_row->new_content->data);
-
-        if (last_row > first_row + 1) {
-            for (size_t i = last_row - 1; i > first_row; --i) {
-                char* line = *Buffer_get_line_abs(buf, i);
-                Buffer_push_undo(buf, make_Delete(undo_idx, i, -1, line));
-                free(line);
-            }
-            Vector_delete_range(&buf->lines, first_row+1, last_row);
-            if (buf->lines.size == 0) {
-                Vector_push(&buf->lines, strdup(""));
-            }
+        Vector_delete_range(&buf->lines, first_row, last_row);
+        if (buf->lines.size == 0) {
+            Vector_push(&buf->lines, strdup(""));
         }
         return RP_LOWER;
     }
-    // TODO implement
-    return RP_NONE;
+    if (last_row == first_row) {
+        Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
+        Buffer_push_undo(buf, modify_row);
+        // Delete to jump col, inclusive
+        String_delete_range(modify_row->new_content, range->start_col, range->jump_col+1);
+        Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
+        return RP_LINES;
+    }
+    Edit* modify_first_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
+    Buffer_push_undo(buf, modify_first_row);
+    String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
+
+    if (last_row < Buffer_get_num_lines(buf)) {
+        // Remove last row, merge with first row
+        Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
+        Buffer_push_undo(buf, delete_last_row);
+        // Delete to jump col, inclusive.
+        size_t target_len = strlen(delete_last_row->old_content);
+        size_t delete_to = range->jump_col + 1;
+        if (target_len < delete_to) {
+            delete_to = target_len;
+        }
+        String* last_row_fragment = make_String(delete_last_row->old_content + target_len);
+
+        free(*Buffer_get_line_abs(buf, last_row));
+        Vector_delete(&buf->lines, last_row);
+
+        Strcat(&modify_first_row->new_content, last_row_fragment);
+        free(last_row_fragment);
+    }
+
+    Buffer_set_line_abs(buf, first_row, modify_first_row->new_content->data);
+
+    if (last_row > first_row + 1) {
+        for (size_t i = last_row - 1; i > first_row; --i) {
+            char* line = *Buffer_get_line_abs(buf, i);
+            Buffer_push_undo(buf, make_Delete(undo_idx, i, -1, line));
+            free(line);
+        }
+        Vector_delete_range(&buf->lines, first_row+1, last_row);
+        if (buf->lines.size == 0) {
+            Vector_push(&buf->lines, strdup(""));
+        }
+    }
+    return RP_LOWER;
 }
 
 int Buffer_save(Buffer* buf) {
@@ -346,7 +354,12 @@ void Buffer_push_undo(Buffer* buf, Edit* ed) {
         free(ed_old);
     }
     Deque_push(&buf->undo_buffer, ed);
-    Vector_clear_free(&buf->redo_buffer, 100);
+    for (size_t i = 0; i < buf->redo_buffer.size; ++i) {
+        Edit* redo_edit = (Edit*) buf->redo_buffer.elements[i];
+        Edit_destroy(redo_edit);
+        free(redo_edit);
+    }
+    Vector_clear(&buf->redo_buffer, 100);
 }
 
 /**
