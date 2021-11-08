@@ -81,87 +81,123 @@ UTEST(Buffer, scroll) {
     Buffer_destroy(&buf);
 }
 
-UTEST(Buffer, search_char) {
-    Buffer* buf = make_Buffer("./tests/dummy.txt");
+UTEST(Buffer, search_char_forward_success) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/dummy.txt");
     EditorContext ctx;
-
-    //Search success
     ctx.jump_col = 0;
     ctx.jump_row = 0;
-    int result = Buffer_search_char(buf, &ctx, 'e', true);
+    int result = Buffer_search_char(&buf, &ctx, 'e', true);
     ASSERT_EQ(0, result);
     ASSERT_EQ(1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+}
 
-    //Search fail
-    result = Buffer_search_char(buf, &ctx, 'H', true);
+UTEST(Buffer, search_char_forward_fail) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/dummy.txt");
+    EditorContext ctx;
+    ctx.jump_col = 1;
+    ctx.jump_row = 0;
+    int result = Buffer_search_char(&buf, &ctx, 'H', true);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
-
-    //Search at end of string
-    ctx.jump_col = strlen("Hello, World!") - 1;
-    Buffer_search_char(buf, &ctx, 'H', true);
-    ASSERT_EQ(-1, result);
-    ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
-    ASSERT_EQ(0, ctx.jump_row);
-
-    //Double search failure
-    ctx.jump_col = 0;
-    result = Buffer_search_char(buf, &ctx, '!', true);
-    result = Buffer_search_char(buf, &ctx, '!', true);
-    ASSERT_EQ(-1, result);
-    ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
-    ASSERT_EQ(0, ctx.jump_row);
-
-    Buffer_destroy(buf);
-    free(buf);
 }
 
-UTEST(Buffer, find_str) {
-    Buffer* buf = make_Buffer("./tests/multi_line_text.txt");
+UTEST(Buffer, search_char_backward_success) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/dummy.txt");
+    EditorContext ctx;
+    ctx.jump_col = strlen("Hello, World!") - 1;
+    ctx.jump_row = 0;
+    int result = Buffer_search_char(&buf, &ctx, 'H', false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+}
+
+UTEST(Buffer, search_char_backward_fail) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/dummy.txt");
+    EditorContext ctx;
+    ctx.jump_col = strlen("Hello, World!") - 1;
+    ctx.jump_row = 0;
+    int result = Buffer_search_char(&buf, &ctx, '!', false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+}
+//Bool order: (cross_lines, direction)
+UTEST(Buffer, find_str_forward_inline) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
     EditorContext ctx;
     ctx.jump_row = 3;
     ctx.jump_col = 1;
-    //Bool order: (cross_lines, direction)
-    //Search forwards on current line
-    int result = Buffer_find_str(buf, &ctx, "x", false, true);
+    int result = Buffer_find_str(&buf, &ctx, "x", false, true);
     ASSERT_EQ(0, result);
     ASSERT_EQ(3, ctx.jump_row);
     ASSERT_EQ(2, ctx.jump_col);
-
-    //Search backwards on current line
-    result = Buffer_find_str(buf, &ctx, "f", false, false);
+}
+UTEST(Buffer, find_str_backward_inline) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
+    EditorContext ctx;
+    ctx.jump_row = 3;
+    ctx.jump_col = 1;
+    int result = Buffer_find_str(&buf, &ctx, "f", false, false);
     ASSERT_EQ(0, result);
     ASSERT_EQ(3, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+}
 
-    //Search forwards across lines
-    result = Buffer_find_str(buf, &ctx, "zy", true, true);
+UTEST(Buffer, find_str_forward_multiline) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
+    EditorContext ctx;
+    ctx.jump_row = 0;
+    ctx.jump_col = 0;
+    int result = Buffer_find_str(&buf, &ctx, "zy", true, true);
     ASSERT_EQ(0, result);
     ASSERT_EQ(7, ctx.jump_row);
     ASSERT_EQ(2, ctx.jump_col);
+}
 
-    //Search backwards across lines
-    result = Buffer_find_str(buf, &ctx, "quick", true, false);
+UTEST(Buffer, find_str_backward_multiline) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
+    EditorContext ctx;
+    ctx.jump_row = 8;
+    ctx.jump_col = 0;
+    int result = Buffer_find_str(&buf, &ctx, "quick", true, false);
     ASSERT_EQ(0, result);
     ASSERT_EQ(1, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+}
 
-    //Search backwards inline with content present forwards
-    result = Buffer_find_str(buf, &ctx, "ick", false, false);
+UTEST(Buffer, find_str_fail) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
+    EditorContext ctx;
+    ctx.jump_row = 1;
+    ctx.jump_col = 0;
+    int result = Buffer_find_str(&buf, &ctx, "ick", false, false);
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+}
 
-    //Should not cross lines if set to false
-    result = Buffer_find_str(buf, &ctx, "brown", false, true);
+UTEST(Buffer, find_str_no_crossing) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
+    EditorContext ctx;
+    ctx.jump_row = 0;
+    ctx.jump_col = 0;
+    int result = Buffer_find_str(&buf, &ctx, "brown", false, true);
     ASSERT_EQ(-1, result);
-    ASSERT_EQ(1, ctx.jump_row);
+    ASSERT_EQ(0, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
-
-    Buffer_destroy(buf);
-    free(buf);
 }
 
 UTEST(Buffer, skip_word) {
