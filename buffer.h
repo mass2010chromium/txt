@@ -31,6 +31,8 @@ size_t Buffer_get_num_lines(Buffer* buf);
  */
 EditorMode Buffer_get_mode(Buffer* buf);
 void Buffer_set_mode(Buffer* buf, EditorMode);
+void Buffer_exit_visual(Buffer* buf);
+
 /**
  * These two get relative to screen pos.
  */

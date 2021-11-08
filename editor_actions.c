@@ -89,7 +89,7 @@ void init_actions() {
     action_jump_table['?'] = &make_question_action;
     action_type_table['?'] = AT_MOVE;
     action_jump_table[BYTE_ESC] = &make_ESC_action;
-    action_type_table[BYTE_ESC] = AT_NONE;
+    action_type_table[BYTE_ESC] = AT_ESCAPE;
     inplace_make_Vector(&action_stack, 10);
 }
 
@@ -136,11 +136,31 @@ void resolve_action_stack() {
     else if (ctx.action == AT_OVERRIDE) {
         // Do nothing.
     }
+    else if (ctx.action == AT_ESCAPE) {
+        // Escape key.
+        size_t mode = Buffer_get_mode(buf);
+        if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+            Buffer_exit_visual(buf);
+        }
+    }
     else {
-        Buffer_set_mode(buf, EM_NORMAL);
+        size_t mode = Buffer_get_mode(buf);
+        if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+            Buffer_exit_visual(buf);
+        }
         if (ctx.action == AT_DELETE) {
             editor_new_action();
+            EditorContext_normalize(&ctx);
             RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
+            if (ctx.start_col != -1) {
+                buf->cursor_row = ctx.start_row;
+                String* s = alloc_String(10);
+                char** line_p = Buffer_get_line_abs(buf, ctx.start_row);
+                char* line = *line_p;
+                size_t size = format_respect_tabspace(&s, line, 0, ctx.start_col);
+                free(s);
+                buf->cursor_col = size;
+            }
             editor_repaint(repaint, &ctx);
         }
         else if (ctx.action == AT_PASTE) {
@@ -234,7 +254,7 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
 
 EditorAction* make_NumberAction(char input) {
     int val = input - '0';
-    if (val >= 0 && val < 10) {
+    if (val > 0 && val < 10) {  // Number action does not begin with 0.
         EditorAction* ret = malloc(sizeof(EditorAction));
         ret->update = &NumberAction_update;
         ret->resolve = &NumberAction_resolve;
@@ -444,9 +464,7 @@ void v_action_resolve(EditorAction* this, EditorContext* ctx) {
     EditorMode mode = Buffer_get_mode(buf);
     if (mode == EM_VISUAL) {
         // exit visual mode.
-        Buffer_set_mode(buf, EM_NORMAL);
-        ctx->jump_row = buf->visual_row;
-        editor_repaint(RP_LINES, ctx);
+        Buffer_exit_visual(buf);
         return;
     }
     Buffer_set_mode(buf, EM_VISUAL);
@@ -700,7 +718,7 @@ EditorAction* make_DOLLAR_action() {
 }
 
 void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_OVERRIDE;
+    ctx->action = AT_ESCAPE;
 }
 
 EditorAction* make_ESC_action() {

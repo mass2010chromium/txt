@@ -223,20 +223,6 @@ char line_pos_char(char* buf, size_t x) {
 }
 
 /**
- * Get the character corresponding to sceen pos (y, x). Zero indexed.
- */
-char screen_pos_char(size_t y, size_t x) {
-    return line_pos_char(*get_line_in_buffer(y), x);
-}
-
-/**
- * convenience function for getting current screen pos.
- */
-char current_screen_pos_char() {
-    return screen_pos_char(current_buffer->cursor_row, current_buffer->cursor_col);
-}
-
-/**
  * Compute the 'screen length' of a buffer. Accounts for tabs.
  */
 size_t strlen_tab(const char* buf) {

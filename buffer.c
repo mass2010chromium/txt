@@ -6,6 +6,7 @@
 
 #include "buffer.h"
 #include "utils.h"
+#include "editor.h"
 
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     Edit* ret = malloc(sizeof(Edit));
@@ -177,6 +178,17 @@ EditorMode Buffer_get_mode(Buffer* buf) {
 void Buffer_set_mode(Buffer* buf, EditorMode mode) {
     buf->buffer_mode = mode;
 }
+void Buffer_exit_visual(Buffer* buf) {
+    Buffer_set_mode(buf, EM_NORMAL);
+
+    EditorContext ctx;
+    ctx.start_row = buf->cursor_row;
+    ctx.start_col = buf->cursor_col;
+    ctx.jump_row = buf->visual_row;
+    ctx.jump_col = buf->visual_col;
+    ctx.buffer = buf;
+    editor_repaint(RP_LINES, &ctx);
+}
 
 /**
  * These two get relative to screen pos.
@@ -225,11 +237,9 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
 
 /**
  * Delete a range of chars (from start to end in the given object)
+ * Expects a normalized range.
  */
 RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
-
-    EditorContext_normalize(range);
-
     // delete forwards.
     for (int i = 0; i < copy->data.size; ++i) {
         free(copy->data.elements[i]);
