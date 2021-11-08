@@ -13,6 +13,9 @@ EditorAction* make_l_action();
 EditorAction* make_i_action();
 EditorAction* make_o_action();
 
+EditorAction* make_v_action();
+EditorAction* make_V_action();
+
 EditorAction* make_u_action();
 EditorAction* make_p_action();
 
@@ -57,6 +60,10 @@ void init_actions() {
     action_type_table['i'] = AT_OVERRIDE;
     action_jump_table['o'] = &make_o_action;
     action_type_table['o'] = AT_OVERRIDE;
+    action_jump_table['v'] = &make_v_action;
+    action_type_table['v'] = AT_OVERRIDE;
+    action_jump_table['V'] = &make_V_action;
+    action_type_table['V'] = AT_OVERRIDE;
     action_jump_table['u'] = &make_u_action;
     action_type_table['u'] = AT_UNDO;
     action_jump_table['p'] = &make_p_action;
@@ -99,7 +106,6 @@ void resolve_action_stack() {
     ctx.action = AT_NONE;
     ctx.buffer = buf;
 
-    editor_new_action();
     (*source->resolve)(source, &ctx);
     if (ctx.jump_col < 0) {
         ctx.jump_col = 0;
@@ -121,17 +127,19 @@ void resolve_action_stack() {
     //interpret result
     if (ctx.action == AT_MOVE) {
         //TODO jank
-        --buf->undo_index;
         editor_move_to(ctx.jump_row, ctx.jump_col);
+        EditorMode mode = Buffer_get_mode(buf);
+        if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+            editor_repaint(RP_LINES, &ctx);
+        }
     }
     else if (ctx.action == AT_DELETE) {
+        editor_new_action();
         RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
         editor_repaint(repaint, &ctx);
-    if (buf->cursor_col < 0) {
-        *((int*)0) = 0;
-    }
     }
     else if (ctx.action == AT_PASTE) {
+        editor_new_action();
         editor_repaint(RP_ALL, &ctx);
     }
     else if (ctx.action == AT_UNDO) {
@@ -396,6 +404,7 @@ EditorAction* make_l_action() {
 
 void i_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;
+    editor_new_action();
     current_mode = EM_INSERT;
     begin_insert();
     editor_align_tab();
@@ -425,8 +434,75 @@ EditorAction* make_w_action() {
 }
 
 
+void v_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_OVERRIDE;
+    Buffer* buf = ctx->buffer;
+    // TODO: num->v
+    EditorMode mode = Buffer_get_mode(buf);
+    if (mode == EM_VISUAL) {
+        // exit visual mode.
+        Buffer_set_mode(buf, EM_NORMAL);
+        ctx->jump_row = buf->visual_row;
+        editor_repaint(RP_LINES, ctx);
+        return;
+    }
+    Buffer_set_mode(buf, EM_VISUAL);
+    if (mode == EM_NORMAL) {
+        buf->visual_row = ctx->jump_row;
+        buf->visual_col = ctx->jump_col;
+        editor_repaint(RP_LINES, ctx);
+        return;
+    }
+    ctx->jump_row = buf->visual_row;
+    editor_repaint(RP_LINES, ctx);
+}
+
+EditorAction* make_v_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &v_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("v");
+    return ret;
+}
+
+
+void V_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_OVERRIDE;
+    Buffer* buf = ctx->buffer;
+    // TODO: num->v
+    EditorMode mode = Buffer_get_mode(buf);
+    if (mode == EM_VISUAL_LINE) {
+        // exit visual mode.
+        Buffer_set_mode(buf, EM_NORMAL);
+        ctx->jump_row = buf->visual_row;
+        editor_repaint(RP_LINES, ctx);
+        return;
+    }
+    Buffer_set_mode(buf, EM_VISUAL_LINE);
+    if (mode == EM_NORMAL) {
+        buf->visual_row = ctx->jump_row;
+        buf->visual_col = ctx->jump_col;
+        editor_repaint(RP_LINES, ctx);
+        return;
+    }
+    ctx->jump_row = buf->visual_row;
+    editor_repaint(RP_LINES, ctx);
+}
+
+EditorAction* make_V_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &V_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("V");
+    return ret;
+}
+
+
 void o_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;
+    editor_new_action();
     current_mode = EM_INSERT;
     editor_move_EOL();
     begin_insert();
@@ -569,6 +645,7 @@ EditorAction* make_d_action() {
 
 void A_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_OVERRIDE;
+    editor_new_action();
     current_mode = EM_INSERT;
     editor_move_EOL();
     begin_insert();

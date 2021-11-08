@@ -27,6 +27,11 @@ ssize_t Buffer_scroll(Buffer* buf, ssize_t window_height, ssize_t amount);
 size_t Buffer_get_num_lines(Buffer* buf);
 
 /**
+ * Get buffer mode. For now only guaranteed to be accurate for visual/visual line.
+ */
+EditorMode Buffer_get_mode(Buffer* buf);
+void Buffer_set_mode(Buffer* buf, EditorMode);
+/**
  * These two get relative to screen pos.
  */
 ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y);

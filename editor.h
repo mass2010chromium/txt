@@ -3,6 +3,7 @@
 
 #include "buffer.h"
 #include "utils.h"
+#include "common.h"
 
 const char BYTE_ESC;
 //const char BYTE_ENTER;     // Carriage Return
@@ -13,12 +14,6 @@ const char BYTE_LEFTARROW;
 const char BYTE_RIGHTARROW;
 const char BYTE_DOWNARROW;
 const char BYTE_DELETE;
-
-typedef int EditorMode;
-extern const EditorMode EM_QUIT;
-extern const EditorMode EM_NORMAL;
-extern const EditorMode EM_INSERT;
-extern const EditorMode EM_COMMAND;
 
 EditorMode current_mode;
 

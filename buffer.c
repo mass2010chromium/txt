@@ -95,6 +95,9 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     buf->top_left_file_pos = 0;
     buf->last_pos = 0;
     buf->undo_index = 0;
+    buf->visual_row = 0;
+    buf->visual_col = 0;
+    buf->buffer_mode = EM_NORMAL;
 }
     
 void Buffer_destroy(Buffer* buf) {
@@ -163,6 +166,16 @@ ssize_t Buffer_scroll(Buffer* buf, ssize_t window_height, ssize_t amount) {
 
 size_t Buffer_get_num_lines(Buffer* buf) {
     return buf->lines.size;
+}
+
+/**
+ * Get buffer mode. For now only guaranteed to be accurate for visual/visual line.
+ */
+EditorMode Buffer_get_mode(Buffer* buf) {
+    return buf->buffer_mode;
+}
+void Buffer_set_mode(Buffer* buf, EditorMode mode) {
+    buf->buffer_mode = mode;
 }
 
 /**

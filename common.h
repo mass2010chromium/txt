@@ -1,6 +1,14 @@
 #pragma once
 #include "utils.h"
 
+typedef int EditorMode;
+#define EM_QUIT         -1
+#define EM_NORMAL       0
+#define EM_INSERT       1
+#define EM_COMMAND      2
+#define EM_VISUAL       3
+#define EM_VISUAL_LINE  4
+
 typedef int ActionType;
 #define AT_NONE 0
 #define AT_MOVE 1
@@ -41,8 +49,9 @@ struct Buffer {
     int natural_col;
     ssize_t undo_index;
     Vector/*char* */ lines; //TODO: Cache/load buffered
-    ssize_t visual_row;     // visual mode anchor. -1 means inactive
-    ssize_t visual_col;     // visual mode anchor. -1 means line mode
+    size_t visual_row;      // Visual mode anchors.
+    size_t visual_col;
+    EditorMode buffer_mode;
 };
 typedef struct Buffer Buffer;
 

@@ -20,10 +20,16 @@ size_t fwriteall(void* buf, size_t size, size_t n_element, FILE* f);
  */
 size_t fcopy(FILE* dest, FILE* src, size_t bytes);
 
-/**
- * Currently unimplemented.
- */
-char* string_insert_c(char* head, size_t index, char c);
+static inline size_t max_u(size_t a, size_t b) {
+    if (a > b) return a;
+    return b;
+}
+
+static inline size_t min_u(size_t a, size_t b) {
+    if (a > b) return b;
+    return a;
+}
+
 
 /**
  * Checks if the passed character is whitespace.
