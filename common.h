@@ -76,3 +76,14 @@ struct Copy {
 };
 
 typedef struct Copy Copy;
+
+/**
+ * "Normalize" a set of row, col pairs such that
+ * (ret->start_row, ret->start_col) comes "before"
+ * (ret->jump_row, ret->jump_col).
+ *
+ * If c1 or c2 is negative, both jump columns are set to -1.
+ */
+void normalize_context(EditorContext* ret, ssize_t r1, ssize_t c1,
+                                           ssize_t r2, ssize_t c2);
+void EditorContext_normalize(EditorContext* self);

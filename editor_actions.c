@@ -133,30 +133,33 @@ void resolve_action_stack() {
             editor_repaint(RP_LINES, &ctx);
         }
     }
-    else if (ctx.action == AT_DELETE) {
-        editor_new_action();
-        RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
-        editor_repaint(repaint, &ctx);
-    }
-    else if (ctx.action == AT_PASTE) {
-        editor_new_action();
-        editor_repaint(RP_ALL, &ctx);
-    }
-    else if (ctx.action == AT_UNDO) {
-        int num_undo = Buffer_undo(buf, ctx.undo_idx);
-        buf->undo_index = ctx.undo_idx-1;
-        if (buf->undo_index < 0) buf->undo_index = 0;
-        if (num_undo > 0) {
-            editor_fix_view();
-            display_current_buffer();
-            move_to_current();
-        }
-    }
-    else if (ctx.action == AT_REDO) {
-        //TODO implement 
-    }
     else if (ctx.action == AT_OVERRIDE) {
         // Do nothing.
+    }
+    else {
+        Buffer_set_mode(buf, EM_NORMAL);
+        if (ctx.action == AT_DELETE) {
+            editor_new_action();
+            RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
+            editor_repaint(repaint, &ctx);
+        }
+        else if (ctx.action == AT_PASTE) {
+            editor_new_action();
+            editor_repaint(RP_ALL, &ctx);
+        }
+        else if (ctx.action == AT_UNDO) {
+            int num_undo = Buffer_undo(buf, ctx.undo_idx);
+            buf->undo_index = ctx.undo_idx-1;
+            if (buf->undo_index < 0) buf->undo_index = 0;
+            if (num_undo > 0) {
+                editor_fix_view();
+                display_current_buffer();
+                move_to_current();
+            }
+        }
+        else if (ctx.action == AT_REDO) {
+            //TODO implement 
+        }
     }
     clear_action_stack();
 }
@@ -595,7 +598,17 @@ EditorAction* make_G_action() {
 
 void x_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_DELETE;
-    ++ctx->jump_col;
+    Buffer* buf = ctx->buffer;
+    EditorMode mode = Buffer_get_mode(buf);
+    if (mode == EM_VISUAL) {
+        ctx->jump_col = buf->visual_col;
+        ctx->jump_row = buf->visual_row;
+    }
+    else if (mode == EM_VISUAL_LINE) {
+        ctx->start_col = -1;    // Delete the whole line
+        ctx->jump_col = 0;
+        ctx->jump_row = buf->visual_row;
+    }
 }
 
 EditorAction* make_x_action() {

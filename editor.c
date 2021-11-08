@@ -355,6 +355,7 @@ void begin_insert() {
     // active_insert = make_Edit(current_buffer->undo_index, 
     //                     Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
     //                     0, line);
+    Buffer_set_mode(current_buffer, EM_NORMAL);
 }
 
 /**
@@ -598,11 +599,6 @@ void display_buffer_rows(size_t start, size_t end) {
         if (start_idx > visual_start_row && start_idx <= visual_end_row) {
             write(STDOUT_FILENO, SET_HIGHLIGHT, strlen(SET_HIGHLIGHT));
         }
-        fprintf(stderr, "visual (%lu, %lu) (%lu, %lu)\n",
-                    visual_start_row,
-                    visual_start_col,
-                    visual_end_row,
-                    visual_end_col);
     }
     for (size_t i = start; i <= end; ++i) {
         move_cursor(i-1, 0);
