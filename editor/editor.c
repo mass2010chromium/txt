@@ -344,21 +344,6 @@ char** get_line_in_buffer(size_t y) {
     return Buffer_get_line(current_buffer, y);
 }
 
-//TODO rewrite this?
-size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start) {
-    size_t start = current_buffer->top_left_file_pos;
-    size_t end = y-1;
-    if (end > current_buffer->lines.size) {
-        end = current_buffer->lines.size - current_buffer->top_row;
-    }
-    for (size_t r = 0; r < end; ++r) {
-        start += strlen(*get_line_in_buffer(r));
-    }
-    *line_start = start;
-    start += (x - 1);
-    return start;
-}
-
 void begin_insert() {
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     char* head = line_pos(line, current_buffer->cursor_col);

@@ -19,8 +19,11 @@ struct EditorAction {
 
     /**
      * Override this to provide custom repeat logic (or optimized repeat logic).
+     *
+     * Return 0: Use default repeat (loop) (Or null)
+     * Return 1: Custom repeat processed.
      */
-    void (*repeat) (struct EditorAction* this, size_t);
+    int (*repeat) (struct EditorAction* this, EditorContext*, size_t);
 };
 
 typedef struct EditorAction EditorAction;

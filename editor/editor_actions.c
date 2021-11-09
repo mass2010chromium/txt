@@ -272,6 +272,17 @@ char* format_action_stack() {
     return ret->data;
 }
 
+EditorAction* make_DefaultAction() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->child = NULL;
+    ret->resolve = NULL;
+    ret->repeat = NULL;
+    ret->value = alloc_String(1);
+    ret->num_value = 0;
+    return ret;
+}
+
 int NumberAction_update(EditorAction* this, char input, int control) {
     int val = input - '0';
     if (val >= 0 && val < 10) {
@@ -286,8 +297,12 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
     if (this->child == NULL) {
         return;
     }
+    if (this->child->repeat) {
+        if ((*this->child->repeat)(this->child, ctx, this->num_value)) {
+            return;
+        }
+    }
     for (int i = 0; i < this->num_value; ++i) {
-        // TODO: repeating
         (*this->child->resolve)(this->child, ctx);
         if (ctx->action == AT_OVERRIDE) break;
     }
@@ -296,11 +311,9 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
 EditorAction* make_NumberAction(char input) {
     int val = input - '0';
     if (val > 0 && val < 10) {  // Number action does not begin with 0.
-        EditorAction* ret = malloc(sizeof(EditorAction));
+        EditorAction* ret = make_DefaultAction();
         ret->update = &NumberAction_update;
         ret->resolve = &NumberAction_resolve;
-        ret->child = NULL;
-        ret->value = alloc_String(10);
         String_push(&ret->value, input);
         ret->num_value = val;
         return ret;
@@ -315,11 +328,9 @@ void j_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_j_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &j_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("j");
+    String_push(&ret->value, 'j');
     return ret;
 }
 
@@ -346,22 +357,24 @@ void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
         (*this->child->resolve)(this->child, ctx);
         return;
     }
-    ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
         prev_search_order = true;
         if (prev_search_str == NULL) { prev_search_str = make_String(this->value->data + 1); }
         else { Strcpys(&prev_search_str, this->value->data + 1); }
         Buffer_find_str(ctx->buffer, ctx, str, true, true);
+        if (ctx->action == AT_DELETE && ctx->jump_col > 0) {
+            --ctx->jump_col;
+        }
+        ctx->action = AT_MOVE;
     }
 }
 
 EditorAction* make_slash_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &slash_action_update;
     ret->resolve = &slash_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("/");
+    String_push(&ret->value, '/');
     return ret;
 }
 
@@ -395,11 +408,10 @@ void question_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_question_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &question_action_update;
     ret->resolve = &question_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("?");
+    String_push(&ret->value, '?');
     return ret;
 }
 
@@ -411,11 +423,9 @@ void n_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_n_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &n_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("n");
+    String_push(&ret->value, 'n');
     return ret;
 }
 
@@ -427,11 +437,9 @@ void N_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_N_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &N_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("N");
+    String_push(&ret->value, 'N');
     return ret;
 }
 
@@ -448,11 +456,10 @@ void f_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_f_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &f_action_update;
     ret->resolve = &f_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("f");
+    String_push(&ret->value, 'f');
     return ret;
 }
 
@@ -469,11 +476,10 @@ void F_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_F_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &F_action_update;
     ret->resolve = &F_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("F");
+    String_push(&ret->value, 'F');
     return ret;
 }
 
@@ -484,11 +490,9 @@ void k_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_k_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &k_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("k");
+    String_push(&ret->value, 'k');
     return ret;
 }
 
@@ -498,11 +502,9 @@ void h_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_h_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &h_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("h");
+    String_push(&ret->value, 'h');
     return ret;
 }
 
@@ -512,11 +514,9 @@ void l_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_l_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &l_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("l");
+    String_push(&ret->value, 'l');
     return ret;
 }
 
@@ -529,25 +529,24 @@ void i_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_i_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &i_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("i");
+    String_push(&ret->value, 'i');
     return ret;
 }
 
 void w_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
     Buffer_skip_word(ctx->buffer, ctx, false);
+    if (ctx->action == AT_DELETE && ctx->jump_col > 0) {
+        --ctx->jump_col;
+    }
+    ctx->action = AT_MOVE;
 }
 
 EditorAction* make_w_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &w_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("w");
+    String_push(&ret->value, 'w');
     return ret;
 }
 
@@ -557,11 +556,9 @@ void W_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_W_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &W_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("W");
+    String_push(&ret->value, 'w');
     return ret;
 }
 
@@ -587,11 +584,9 @@ void v_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_v_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &v_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("v");
+    String_push(&ret->value, 'v');
     return ret;
 }
 
@@ -620,11 +615,9 @@ void V_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_V_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &V_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("V");
+    String_push(&ret->value, 'V');
     return ret;
 }
 
@@ -639,11 +632,9 @@ void o_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_o_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &o_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("o");
+    String_push(&ret->value, 'o');
     return ret;
 }
 
@@ -653,11 +644,9 @@ void u_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_u_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &u_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("u");
+    String_push(&ret->value, 'u');
     return ret;
 }
 
@@ -667,11 +656,9 @@ void p_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_p_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &p_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("p");
+    String_push(&ret->value, 'p');
     return ret;
 }
 
@@ -698,11 +685,10 @@ void g_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_g_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &g_action_update;
     ret->resolve = &g_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("g");
+    String_push(&ret->value, 'g');
     return ret;
 }
 
@@ -713,11 +699,9 @@ void G_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_G_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &G_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("G");
+    String_push(&ret->value, 'G');
     return ret;
 }
 
@@ -736,12 +720,20 @@ void x_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
+int x_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        ctx->action = AT_DELETE;
+        ctx->jump_col += n - 1;
+        return 1;
+    }
+    return 0;
+}
+
 EditorAction* make_x_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &x_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("x");
+    ret->repeat = &x_action_repeat;
+    String_push(&ret->value, 'x');
     return ret;
 }
 
@@ -759,12 +751,12 @@ void d_action_resolve(EditorAction* this, EditorContext* ctx) {
         if (strcmp(this->value->data, "dd") == 0) {
             ctx->action = AT_DELETE;
             ctx->start_col = -1;    // Delete the whole line
-            ctx->jump_row += 1;
             ctx->jump_col = 0;
         }
     }
     // TODO implement move-delete
     else {
+        ctx->action = AT_DELETE;    // Signal intent to delete.
         (*this->child->resolve)(this->child, ctx);
         if (ctx->action == AT_OVERRIDE) return;
         if (ctx->action != AT_MOVE) return; // ERROR
@@ -772,12 +764,26 @@ void d_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
+int d_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        if (this->child == NULL) {
+            if (strcmp(this->value->data, "dd") == 0) {
+                ctx->action = AT_DELETE;
+                ctx->start_col = -1;
+                ctx->jump_row += n - 1;
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 EditorAction* make_d_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &d_action_update;
     ret->resolve = &d_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("d");
+    ret->repeat = &d_action_repeat;
+    String_push(&ret->value, 'd');
     return ret;
 }
 
@@ -791,11 +797,9 @@ void A_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_A_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &A_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("A");
+    String_push(&ret->value, 'A');
     return ret;
 }
 
@@ -816,11 +820,9 @@ void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_DOLLAR_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &DOLLAR_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("$");
+    String_push(&ret->value, '$');
     return ret;
 }
 
@@ -830,11 +832,8 @@ void _0_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_0_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &_0_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("0");
     return ret;
 }
 
@@ -843,10 +842,8 @@ void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_ESC_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &ESC_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("<esc>");
+    Strcats(&ret->value, "<esc>");
     return ret;
 }

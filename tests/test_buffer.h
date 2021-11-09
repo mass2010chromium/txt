@@ -4,18 +4,6 @@
 #include "../structures/buffer.h"
 #include "test_utils.h"
 
-char* infile_dat[8] = {
-"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
-"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
-"cccccccccccccccccccccccccccccc\n",
-"dddddddddddddddddddddddddddddd\n",
-"eeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n",
-"ffffffffffffffffffffffffffffff\n",
-"",
-NULL
-};
-#define TESTFILE_LEN 7
-
 UTEST(Buffer_util, read_file_break_lines) {
     Vector ret;
     Vector expected;

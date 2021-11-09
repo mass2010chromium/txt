@@ -267,7 +267,12 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
         Buffer_push_undo(buf, modify_row);
         // Delete to jump col, inclusive
-        String_delete_range(modify_row->new_content, range->start_col, range->jump_col+1);
+        size_t line_len = Strlen(modify_row->new_content);
+        if (line_len > 0 && modify_row->new_content->data[line_len-1] == '\n') {
+            line_len -= 1;
+        }
+        size_t max_del = min_u(range->jump_col+1, line_len);
+        String_delete_range(modify_row->new_content, range->start_col, max_del);
         Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
         return RP_LINES;
     }
