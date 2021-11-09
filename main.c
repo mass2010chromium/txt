@@ -258,7 +258,6 @@ int main(int argc, char** argv) {
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
         }
-        print("current mode: %d\n", current_mode);
         if (current_mode == EM_QUIT) {
             break;
         }

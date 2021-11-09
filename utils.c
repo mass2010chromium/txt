@@ -51,11 +51,6 @@ void normalize_context(EditorContext* ret, ssize_t r1, ssize_t c1,
     if (r1 == r2) {
         ret->start_row = r1;
         ret->jump_row = r1;
-        if (c1 == -1 || c2 == -1) {
-            ret->start_col = -1;
-            ret->jump_col = -1;
-            return;
-        }
         ret->start_col = min_d(c1, c2);
         ret->jump_col = max_d(c1, c2);
     }
@@ -63,7 +58,7 @@ void normalize_context(EditorContext* ret, ssize_t r1, ssize_t c1,
         ret->start_row = r2;
         ret->start_col = c2;
         ret->jump_row = r1;
-        ret->jump_col = c2;
+        ret->jump_col = c1;
     }
     else {
         ret->start_row = r1;
@@ -71,6 +66,12 @@ void normalize_context(EditorContext* ret, ssize_t r1, ssize_t c1,
         ret->jump_row = r2;
         ret->jump_col = c2;
     }
+    if (ret->start_col == -1 || ret->jump_col == -1) {
+        ret->start_col = -1;
+        ret->jump_col = -1;
+    }
+    fprintf(stderr, "pre: %ld %ld %ld %ld\n", r1, c1, r2, c2);
+    fprintf(stderr, "normalized: %ld %ld %ld %ld\n", ret->start_row, ret->start_col, ret->jump_row, ret->jump_col);
 }
 
 void EditorContext_normalize(EditorContext* self) {

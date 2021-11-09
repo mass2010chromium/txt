@@ -159,14 +159,17 @@ void resolve_action_stack() {
             editor_new_action();
             EditorContext_normalize(&ctx);
             RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
+            buf->cursor_row = ctx.start_row;
             if (ctx.start_col != -1) {
-                buf->cursor_row = ctx.start_row;
                 String* s = alloc_String(10);
                 char** line_p = Buffer_get_line_abs(buf, ctx.start_row);
                 char* line = *line_p;
                 size_t size = format_respect_tabspace(&s, line, 0, ctx.start_col);
                 free(s);
                 buf->cursor_col = size;
+            }
+            else {
+                buf->cursor_col = 0;
             }
             editor_repaint(repaint, &ctx);
         }

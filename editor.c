@@ -232,6 +232,9 @@ size_t strlen_tab(const char* buf) {
             ret = ((ret / TAB_WIDTH) + 1) * TAB_WIDTH;
             continue;
         }
+        if (*buf == BYTE_ENTER) {
+            continue;
+        }
         ++ret;
     }
     return ret;
@@ -244,6 +247,9 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
             for (int j = x; j < ((x / TAB_WIDTH) + 1) * TAB_WIDTH; ++j) {
                 String_push(write_buffer, ' ');
             }
+            continue;
+        }
+        else if (buf[i] == BYTE_ENTER) {
             continue;
         }
         String_push(write_buffer, buf[i]);
@@ -682,7 +688,6 @@ void editor_move_up() {
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t col = strlen_tab(line);
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
     if (!insert && col > 0) --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
@@ -701,7 +706,6 @@ void editor_move_down() {
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t col = strlen_tab(line);
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
     if (!insert && col > 0) --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
@@ -860,7 +864,6 @@ void editor_move_to(ssize_t row, ssize_t col) {
     if (col > strlen(line)) col = strlen(line);
     col = line_pos_ptr(line, line+col);
     size_t max_col = strlen_tab(line);
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --max_col;
     if (max_col > 0) --max_col;
     if (col > max_col) col = max_col;
     current_buffer->cursor_col = col;
@@ -873,8 +876,8 @@ void editor_move_to(ssize_t row, ssize_t col) {
 
 void editor_repaint(RepaintType repaint, EditorContext* ctx) {
     Buffer* buf = ctx->buffer;
-    move_to_current();
     editor_fix_view();
+    move_to_current();
     if (repaint == RP_ALL) {
         display_current_buffer();
     }
