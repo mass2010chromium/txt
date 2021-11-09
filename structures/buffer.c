@@ -5,8 +5,8 @@
 #include <sys/sendfile.h>
 
 #include "buffer.h"
-#include "utils.h"
-#include "editor.h"
+#include "../editor/utils.h"
+#include "../editor/editor.h"
 
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     Edit* ret = malloc(sizeof(Edit));
@@ -545,11 +545,11 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
 }
 
 int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction) {
-    int current_pos = ctx->jump_col + 1;
-    int offset = 1;
+    ssize_t offset = 1;
     if (!direction) {
         offset = -1;
     }
+    ssize_t current_pos = ctx->jump_col + offset;
     char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
     while (current_pos >= 0 && line[current_pos]) {
         if (line[current_pos] == c) {

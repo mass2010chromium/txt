@@ -9,10 +9,10 @@
 #include <stdio.h>
 
 #include "debugging.h"
-#include "buffer.h"
+#include "../structures/buffer.h"
 #include "editor.h"
 #include "editor_actions.h"
-#include "common.h"
+#include "../common.h"
 
 extern struct winsize window_size;
 extern Buffer* current_buffer;

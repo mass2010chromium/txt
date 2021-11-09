@@ -1,18 +1,17 @@
 CC=gcc
 CFLAGS=-ggdb -Wall
 
-all: main.o buffer.o utils.o editor.o debugging.o Deque.o Vector.o String.o editor_actions.o gap_buffer.o
-	gcc main.o buffer.o utils.o editor.o debugging.o Deque.o Vector.o String.o editor_actions.o gap_buffer.o -o main
+all: editor/main.o structures/buffer.o editor/utils.o editor/editor.o editor/debugging.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o
+	gcc editor/main.o structures/buffer.o editor/utils.o editor/editor.o editor/debugging.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o -o bin/main
 
 valgrind_test: _test
-	valgrind --leak-check=full --show-leak-kinds=all ./test
+	valgrind --leak-check=full --show-leak-kinds=all bin/test
 
 test: _test
-	./test
+	bin/test
 
 .PHONY: _test
-_test: buffer.o utils.o editor.o debugging.o Deque.o Vector.o String.o editor_actions.o gap_buffer.o
-	gcc tests/test.c buffer.o utils.o editor.o debugging.o Deque.o Vector.o String.o editor_actions.o gap_buffer.o -o test -ggdb
-
+_test: structures/buffer.o editor/utils.o editor/editor.o editor/debugging.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o
+	gcc tests/test.c structures/buffer.o editor/utils.o editor/editor.o editor/debugging.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o -o bin/test -ggdb
 clean:
-	rm -f main.o buffer.o utils.o test.o editor.o debugging.o Deque.o Vector.o String.o editor_actions.o gap_buffer.o
+	rm -f editor/*.o structures/*.o bin/* main test buffertest

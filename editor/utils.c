@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "utils.h"
-#include "common.h"
+#include "../common.h"
 
 size_t fwriteall(void* buf, size_t size, size_t n_element, FILE* f) {
     // TODO technically dangerous but idrc

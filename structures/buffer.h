@@ -2,8 +2,8 @@
 
 #include <stdio.h>
 
-#include "utils.h"
-#include "common.h"
+#include "../editor/utils.h"
+#include "../common.h"
 
 /**
  * All variations of Edit constructor create a copy of their input.

@@ -2,11 +2,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "Deque.h"
-#include "Vector.h"
-#include "String.h"
-
-#include "gap_buffer.h"
+#include "../structures/Deque.h"
+#include "../structures/Vector.h"
+#include "../structures/String.h"
+#include "../structures/gap_buffer.h"
 
 /**
  * Attempt to write the contents of `buf` to the passed file `f`.

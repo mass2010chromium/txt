@@ -15,7 +15,7 @@
 
 ------
 # Test 1.0 - Editor Display
-- In the same directory, run the command `./main hello.txt`. 
+- In the same directory, run the command `./bin/main hello.txt`. 
 - The terminal should clear the previous content and display the contents of hello.txt, plus a bar at the bottom of the screen indicating that you are in `NORMAL` mode.
 ![editor display](mtp_images/editor_display.png)
 
@@ -35,7 +35,7 @@
 ![terminal state](mtp_images/terminal_state.png)
 
 ### Test 1.2 - Viewing saved changes.
- - To check that our changes in Test 2.0 were saved, re-open the file using the editor by entering the following command again: `./main hello.txt`.
+ - To check that our changes in Test 2.0 were saved, re-open the file using the editor by entering the following command again: `./bin/main hello.txt`.
  - The contents of the file should reflect what you changed it to earlier: "Hello, Earth!".
 ![saved changes](mtp_images/edited_text.png)
 
@@ -51,7 +51,7 @@
 ------
 ### Test 2.0 - Searching for characters (forwards)
  - Close the editor by pressing `Control c` to exit without saving.
- - Re-run the editor on a different file: `./main tests/dummy.txt`
+ - Re-run the editor on a different file: `./bin/main tests/dummy.txt`
  - While in `NORMAL` mode, press the `f` key followed by some character to search for. The cursor should now move to the next occurrence of that character in the same line.
 ![cursor starting position](mtp_images/cursor_start.png)
 
@@ -75,7 +75,7 @@
 
 ### Test 2.4 - Searching for words (forwards)
 - Close the editor by pressing `Control c` to exit without saving.
-- Re-run the editor on a different file: `./main tests/multi_line_text.txt`.
+- Re-run the editor on a different file: `./bin/main tests/multi_line_text.txt`.
 - While in `NORMAL` mode, press the forward slash key `/` to begin a search query.
 - Then, type in a query to search for in the file. For example: `/fox`. Once you've finished typing the query, press `ENTER`.
 - The cursor should move to the next occurrence of that query (without the preceeding forward slash) in the file.

@@ -2,8 +2,8 @@
 
 #include <stdio.h>
 
-#include "utils.h"
-#include "common.h"
+#include "../editor/utils.h"
+#include "../common.h"
 
 #define DEFAULT_GAP_SIZE 1000
 

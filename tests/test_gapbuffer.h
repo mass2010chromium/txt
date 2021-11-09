@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../gap_buffer.h"
+#include "../structures/gap_buffer.h"
 #include <stdio.h>
 
 UTEST(GapBuffer, make_GapBuffer) {

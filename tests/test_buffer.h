@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../common.h"
-#include "../buffer.h"
+#include "../structures/buffer.h"
 #include "test_utils.h"
 
 char* infile_dat[8] = {
@@ -169,6 +169,18 @@ UTEST(Buffer, search_char_backward_success) {
     ASSERT_EQ(0, ctx.jump_row);
 }
 
+UTEST(Buffer, search_char_backward_edge) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/dummy.txt");
+    EditorContext ctx;
+    ctx.jump_col = 9;
+    ctx.jump_row = 0;
+    int result = Buffer_search_char(&buf, &ctx, 'l', false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(3, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+}
+
 UTEST(Buffer, search_char_backward_fail) {
     Buffer buf;
     inplace_make_Buffer(&buf, "./tests/dummy.txt");
@@ -176,7 +188,7 @@ UTEST(Buffer, search_char_backward_fail) {
     ctx.jump_col = strlen("Hello, World!") - 1;
     ctx.jump_row = 0;
     int result = Buffer_search_char(&buf, &ctx, '!', false);
-    ASSERT_EQ(0, result);
+    ASSERT_EQ(-1, result);
     ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
 }
