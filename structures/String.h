@@ -67,6 +67,12 @@ String* Strcats(String**, const char*);
 String* Strncats(String**, const char*, size_t);
 
 /**
+ * Set the content of this string.
+ * May realloc.
+ */
+void Strcpys(String**, char*);
+
+/**
  * Push a char onto the end of this string. Increases length.
  * Might cause a reallocation.
  */

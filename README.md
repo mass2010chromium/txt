@@ -11,7 +11,7 @@ Current features:
     - see `editor_actions.c`
 - Preserve indent
     - probably dies on some edge cases
-- Enter visual mode (single line) by pressing `w`, or multi-line by pressing `W`.
+- Enter visual mode (single line) by pressing `v`, or multi-line by pressing `V`.
 - Search for a character inline by pressing `f` (forwards) or `F` (backwards), then the character to search for. `NORMAL` mode only.
 - Search for words across lines by pressing `/` (forwards) or `?` (backwards), then the text to search for followed by `ENTER`. `NORMAL` mode only.
 

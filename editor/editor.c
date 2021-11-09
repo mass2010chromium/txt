@@ -22,6 +22,7 @@ const char BYTE_DELETE      = '\123';
 
 int TAB_WIDTH = 4;
 bool PRESERVE_INDENT = true;
+bool EXPAND_TAB = true;
 
 Copy active_copy = {0};
 
@@ -155,6 +156,10 @@ void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
+size_t tab_round_up(size_t start) {
+    return ((start / TAB_WIDTH) + 1) * TAB_WIDTH;
+}
+
 /*
  * Position on screen in the line for a position in the string.
  * buf: the line
@@ -164,7 +169,7 @@ size_t line_pos_ptr(const char* buf, const char* ptr) {
     size_t pos_x = 0;
     for (; buf != ptr; ++buf) {
         if (*buf == BYTE_TAB) {
-            pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
+            pos_x = tab_round_up(pos_x);
         }
         else {
             ++pos_x;
@@ -189,7 +194,7 @@ char* line_pos(char* buf, ssize_t x) {
         }
         if (*buf == BYTE_TAB) {
             // Tabbing behavior. Jump to the end of the tab.
-            pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
+            pos_x = tab_round_up(pos_x);
             if (pos_x > x) {
                 // Case of tab? If a tab jumps over, we return the tab.
                 return buf;
@@ -221,7 +226,7 @@ size_t strlen_tab(const char* buf) {
     size_t ret = 0;
     for (; *buf; ++buf) {
         if (*buf == BYTE_TAB) {
-            ret = ((ret / TAB_WIDTH) + 1) * TAB_WIDTH;
+            ret = tab_round_up(ret);
             continue;
         }
         if (*buf == BYTE_ENTER) {
@@ -250,7 +255,7 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
     for (size_t i = 0; i < count; ++i) {
         if (buf[i] == BYTE_TAB) {
             size_t x = Strlen(*write_buffer) - zero_size + start;
-            for (size_t j = x; j < ((x / TAB_WIDTH) + 1) * TAB_WIDTH; ++j) {
+            for (size_t j = x; j < tab_round_up(x); ++j) {
                 String_push(write_buffer, ' ');
             }
             continue;
@@ -269,12 +274,11 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
  * 
  * Drops newlines.
  */
+String* write_line_buffer = NULL;
 size_t write_respect_tabspace(const char* buf, size_t start, size_t count) {
-    static String* write_buffer = NULL;
-    if (write_buffer == NULL) write_buffer = alloc_String(count);
-    else String_clear(write_buffer);
-    size_t ret = format_respect_tabspace(&write_buffer, buf, start, count);
-    write(STDOUT_FILENO, write_buffer->data, Strlen(write_buffer));
+    String_clear(write_line_buffer);
+    size_t ret = format_respect_tabspace(&write_line_buffer, buf, start, count);
+    write(STDOUT_FILENO, write_line_buffer->data, Strlen(write_line_buffer));
     return ret;
 }
 
@@ -292,6 +296,7 @@ void editor_make_buffer(const char* filename) {
  * and configuring the size of the editor window. Defaults to `Normal` editing mode.
  */
 void editor_init(const char* filename) {
+    write_line_buffer = alloc_String(100);
     current_mode = EM_NORMAL;
     command_buffer = alloc_String(10);
     inplace_make_Vector(&buffers, 10);
@@ -355,6 +360,10 @@ void begin_insert() {
     // active_insert = make_Edit(current_buffer->undo_index, 
     //                     Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
     //                     0, line);
+    EditorMode mode = Buffer_get_mode(current_buffer);
+    if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+        Buffer_exit_visual(current_buffer);
+    }
     Buffer_set_mode(current_buffer, EM_INSERT);
 }
 
@@ -369,7 +378,7 @@ void push_current_action(char* new_content) {
     // TODO: make constructor, check correctness
     Edit* action = malloc(sizeof(Edit));
     action->undo_index = current_buffer->undo_index;
-    action->start_row = current_buffer->cursor_row;
+    action->start_row = line_num;
     action->start_col = -1;
     action->old_content = *line_p;
     if (new_content == NULL) {
@@ -389,41 +398,6 @@ void end_insert() {
     // consumes the content pointer. no need to free
     push_current_action(content);
     gapBuffer_destroy(&active_insert);
-}
-
-/**
- * Delete a character under the cursor (except newlines).
- * DEPRECATED, kept for future reference for now
- */
-int del_chr() {
-    size_t y_pos = current_buffer->cursor_row;
-    size_t x_pos = current_buffer->cursor_col;
-    char** lineptr = (char**) get_line_in_buffer(y_pos);
-    char* line = *lineptr;
-    if (strlen(line) == 0) {
-        return 0;
-    }
-    else if (strlen(line) == 1 && line[0] == '\n') {
-        return 0;
-    }
-    Edit* delete_action = make_Edit(current_buffer->undo_index, 
-                        Buffer_get_line_index(current_buffer, y_pos), -1, line);
-    char* current_ptr = line_pos(delete_action->new_content->data, x_pos);
-    size_t rest = Strlen(delete_action->new_content)
-                    - (current_ptr - delete_action->new_content->data);
-    char buf[2] = {0, 0};
-    buf[0] = String_delete(delete_action->new_content, current_ptr - delete_action->new_content->data);
-    clear_line();
-    write_respect_tabspace(current_ptr, x_pos, rest);
-    free(line);
-    *lineptr = strdup(delete_action->new_content->data);
-    Buffer_push_undo(current_buffer, delete_action);
-    char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-    for (int i = 0; i < TAB_WIDTH && (hover_ch == 0 || hover_ch == '\n'); ++i) {
-        editor_move_left();
-        hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-    }
-    return 1;
 }
 
 int editor_backspace() {
@@ -488,18 +462,30 @@ void add_chr(char c) {
 
         editor_fix_view();
         move_to_current();
+        print("newline: col=%ld\n", current_buffer->cursor_col);
         return;
     }
     char* current_ptr = active_insert.content + active_insert.gap_start;
-    gapBuffer_insertN(&active_insert, &c, 1);
-    clear_line();
-    write_respect_tabspace(current_ptr, current_buffer->cursor_col, 1);
+    if (c == BYTE_TAB && EXPAND_TAB) {
+    	size_t fill_target = tab_round_up(current_buffer->cursor_col);
+    	size_t n_insert = fill_target - current_buffer->cursor_col;
+    	char spaces[n_insert];
+    	memset(spaces, ' ', n_insert);
+        gapBuffer_insertN(&active_insert, spaces, n_insert);
+    }
+    else {
+        gapBuffer_insertN(&active_insert, &c, 1);
+    }
+    String_clear(write_line_buffer);
+    Strcats(&write_line_buffer, CLEAR_LINE);
+    size_t pos = format_respect_tabspace(&write_line_buffer, current_ptr, current_buffer->cursor_col, 1);
     // add might realloc. no need to null terminate the string though
     current_ptr = active_insert.content + active_insert.gap_start;
-    current_buffer->cursor_col = line_pos_ptr(active_insert.content, current_ptr);
+    current_buffer->cursor_col = pos;
     current_buffer->natural_col = current_buffer->cursor_col;
-    write_respect_tabspace(active_insert.content + active_insert.gap_end, current_buffer->cursor_col,
+    format_respect_tabspace(&write_line_buffer, active_insert.content + active_insert.gap_end, pos,
                             active_insert.total_size - active_insert.gap_end);
+    write(STDOUT_FILENO, write_line_buffer->data, Strlen(write_line_buffer));
     move_to_current();
 }
 
@@ -526,7 +512,6 @@ void editor_newline(int side, const char* head, const char* initial) {
         Edit* newline_edit = make_Insert(current_buffer->undo_index, line_num, -1, "");
         Buffer_push_undo(current_buffer, newline_edit);
         current_buffer->cursor_row += 1;
-        current_buffer->cursor_col = 0;
         current_buffer->cursor_col = start_len;
         current_buffer->natural_col = start_len;
         display_buffer_rows(y_pos+1, editor_bottom);
@@ -836,7 +821,16 @@ RepaintType editor_fix_view() {
         --current_buffer->cursor_row;
         line_p = get_line_in_buffer(current_buffer->cursor_row);
     }
-    size_t max_col = strlen_tab(*line_p);
+    char* line;
+    size_t max_col;
+    if (active_insert.content != NULL) {
+        line = active_insert.content;   // lol jankish
+        max_col = strlen_tab(line)+1;
+    }
+    else {
+        line = *line_p;
+        max_col = strlen_tab(line);
+    }
     if (current_buffer->cursor_col >= max_col) {
         if (max_col == 0) {
             current_buffer->cursor_col = 0;

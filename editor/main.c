@@ -111,6 +111,7 @@ void process_input(char input, int control) {
                 }
                 move_to_current();
             }
+            Buffer_set_mode(current_buffer, EM_NORMAL);
             return;
         }
         if (input == BYTE_BACKSPACE) { editor_backspace(); }

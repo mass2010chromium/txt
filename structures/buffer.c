@@ -187,6 +187,7 @@ void Buffer_exit_visual(Buffer* buf) {
     ctx.jump_row = buf->visual_row;
     ctx.jump_col = buf->visual_col;
     ctx.buffer = buf;
+    EditorContext_normalize(&ctx);
     editor_repaint(RP_LINES, &ctx);
 }
 

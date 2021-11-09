@@ -20,3 +20,7 @@ bin:
 .PHONY: clean
 clean:
 	rm -f editor/*.o structures/*.o bin/*
+
+.PHONY: install
+install: all
+	sudo cp ./bin/main /usr/local/bin/txt

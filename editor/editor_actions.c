@@ -38,6 +38,8 @@ EditorAction* make_0_action();
 
 EditorAction* make_slash_action();
 EditorAction* make_question_action();
+EditorAction* make_n_action();
+EditorAction* make_N_action();
 
 EditorAction* make_ESC_action();
 
@@ -98,6 +100,10 @@ void init_actions() {
     action_type_table['/'] = AT_MOVE;
     action_jump_table['?'] = &make_question_action;
     action_type_table['?'] = AT_MOVE;
+    action_jump_table['n'] = &make_n_action;
+    action_type_table['n'] = AT_MOVE;
+    action_jump_table['N'] = &make_N_action;
+    action_type_table['N'] = AT_MOVE;
     action_jump_table[BYTE_ESC] = &make_ESC_action;
     action_type_table[BYTE_ESC] = AT_ESCAPE;
     inplace_make_Vector(&action_stack, 10);
@@ -155,6 +161,7 @@ void resolve_action_stack() {
         if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
             Buffer_exit_visual(buf);
         }
+        Buffer_set_mode(buf, EM_NORMAL);
     }
     else {
         EditorMode mode = Buffer_get_mode(buf);
@@ -165,7 +172,6 @@ void resolve_action_stack() {
             editor_new_action();
             EditorContext_normalize(&ctx);
             RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
-            buf->cursor_row = ctx.start_row;
             if (ctx.start_col != -1) {
                 String* s = alloc_String(10);
                 char** line_p = Buffer_get_line_abs(buf, ctx.start_row);
@@ -321,6 +327,9 @@ int slash_action_update(EditorAction* this, char input, int control) {
     //TO-DO: Catch special cases? Ask Jing about it
     if (input == BYTE_ESC) {
         return 0;
+    } else if (input == BYTE_BACKSPACE) {
+        String_pop(this->value);
+        return Strlen(this->value) > 0;
     } else if (input != '\n') {
         String_push(&this->value, input);
         return 1;
@@ -328,6 +337,9 @@ int slash_action_update(EditorAction* this, char input, int control) {
         return 2;
     }
 }
+
+bool prev_search_order;
+String* prev_search_str = NULL;
 
 void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
     if (this->child != NULL) {
@@ -337,6 +349,9 @@ void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
+        prev_search_order = true;
+        if (prev_search_str == NULL) { prev_search_str = make_String(this->value->data + 1); }
+        else { Strcpys(&prev_search_str, this->value->data + 1); }
         Buffer_find_str(ctx->buffer, ctx, str, true, true);
     }
 }
@@ -353,6 +368,9 @@ EditorAction* make_slash_action() {
 int question_action_update(EditorAction* this, char input, int control) {
     if (input == BYTE_ESC) {
         return 0;
+    } else if (input == BYTE_BACKSPACE) {
+        String_pop(this->value);
+        return Strlen(this->value) > 0;
     } else if (input != '\n') {
         String_push(&this->value, input);
         return 1;
@@ -369,6 +387,9 @@ void question_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
+        prev_search_order = false;
+        if (prev_search_str == NULL) { prev_search_str = make_String(this->value->data + 1); }
+        else { Strcpys(&prev_search_str, this->value->data + 1); }
         Buffer_find_str(ctx->buffer, ctx, str, true, false);
     }
 }
@@ -379,6 +400,38 @@ EditorAction* make_question_action() {
     ret->resolve = &question_action_resolve;
     ret->child = NULL;
     ret->value = make_String("?");
+    return ret;
+}
+
+void n_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (prev_search_str != NULL) {
+        Buffer_find_str(ctx->buffer, ctx, prev_search_str->data, true, prev_search_order);
+    }
+}
+
+EditorAction* make_n_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &n_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("n");
+    return ret;
+}
+
+void N_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (prev_search_str != NULL) {
+        Buffer_find_str(ctx->buffer, ctx, prev_search_str->data, true, !prev_search_order);
+    }
+}
+
+EditorAction* make_N_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &N_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("N");
     return ret;
 }
 
@@ -749,7 +802,7 @@ EditorAction* make_A_action() {
 void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     Buffer* buf = ctx->buffer;
-    char* line = *Buffer_get_line(buf, ctx->jump_row);
+    char* line = *Buffer_get_line_abs(buf, ctx->jump_row);
     size_t line_len = strlen(line);
     size_t max_char = line_len;
     // Save newlines, but don't count them towards line length for cursor purposes.
