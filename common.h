@@ -9,6 +9,8 @@ typedef int EditorMode;
 #define EM_VISUAL       3
 #define EM_VISUAL_LINE  4
 
+extern const char* EDITOR_MODE_STR[5];
+
 typedef int ActionType;
 #define AT_NONE 0
 #define AT_MOVE 1

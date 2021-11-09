@@ -34,6 +34,7 @@ EditorAction* make_f_action();
 EditorAction* make_F_action();
 
 EditorAction* make_DOLLAR_action();
+EditorAction* make_0_action();
 
 EditorAction* make_slash_action();
 EditorAction* make_question_action();
@@ -87,6 +88,8 @@ void init_actions() {
     action_type_table['A'] = AT_OVERRIDE;
     action_jump_table['$'] = &make_DOLLAR_action;
     action_type_table['$'] = AT_MOVE;
+    action_jump_table['0'] = &make_0_action;
+    action_type_table['0'] = AT_MOVE;
     action_jump_table['f'] = &make_f_action;
     action_type_table['f'] = AT_MOVE;
     action_jump_table['F'] = &make_F_action;
@@ -134,10 +137,13 @@ void resolve_action_stack() {
     //interpret result
     if (ctx.action == AT_MOVE) {
         //TODO jank
-        editor_move_to(ctx.jump_row, ctx.jump_col);
-        EditorMode mode = Buffer_get_mode(buf);
-        if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
-            editor_repaint(RP_LINES, &ctx);
+        RepaintType repaint = editor_move_to(ctx.jump_row, ctx.jump_col);
+        if (repaint == RP_NONE) {
+            EditorMode mode = Buffer_get_mode(buf);
+            if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+                EditorContext_normalize(&ctx);
+                editor_repaint(RP_LINES, &ctx);
+            }
         }
     }
     else if (ctx.action == AT_OVERRIDE) {
@@ -145,13 +151,13 @@ void resolve_action_stack() {
     }
     else if (ctx.action == AT_ESCAPE) {
         // Escape key.
-        size_t mode = Buffer_get_mode(buf);
+        EditorMode mode = Buffer_get_mode(buf);
         if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
             Buffer_exit_visual(buf);
         }
     }
     else {
-        size_t mode = Buffer_get_mode(buf);
+        EditorMode mode = Buffer_get_mode(buf);
         if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
             Buffer_exit_visual(buf);
         }
@@ -242,10 +248,29 @@ void clear_action_stack() {
     Vector_clear(&action_stack, 10);
 }
 
+/**
+ * Return a C string representing the action stack (or null if no stack).
+ * DO NOT FREE THIS!
+ */
+char* format_action_stack() {
+    if (action_stack.size == 0) { return NULL; }
+
+    static String* ret = NULL;
+    if (ret == NULL) { ret = alloc_String(10); }
+    else { String_clear(ret); }
+
+    for (int i = 0; i < action_stack.size; ++i) {
+        EditorAction* act = (EditorAction*) action_stack.elements[i];
+        Strcats(&ret, act->value->data);
+    }
+    return ret->data;
+}
+
 int NumberAction_update(EditorAction* this, char input, int control) {
     int val = input - '0';
     if (val >= 0 && val < 10) {
-        *this->num_value = *this->num_value * 10 + val;
+        String_push(&this->value, input);
+        this->num_value = this->num_value * 10 + val;
         return 1;
     }
     return 0;
@@ -255,7 +280,7 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
     if (this->child == NULL) {
         return;
     }
-    for (int i = 0; i < *this->num_value; ++i) {
+    for (int i = 0; i < this->num_value; ++i) {
         // TODO: repeating
         (*this->child->resolve)(this->child, ctx);
         if (ctx->action == AT_OVERRIDE) break;
@@ -269,8 +294,9 @@ EditorAction* make_NumberAction(char input) {
         ret->update = &NumberAction_update;
         ret->resolve = &NumberAction_resolve;
         ret->child = NULL;
-        ret->num_value = malloc(sizeof(size_t));
-        *ret->num_value = val;
+        ret->value = alloc_String(10);
+        String_push(&ret->value, input);
+        ret->num_value = val;
         return ret;
     }
     return NULL;
@@ -722,7 +748,7 @@ EditorAction* make_A_action() {
 
 void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
-        Buffer* buf = ctx->buffer;
+    Buffer* buf = ctx->buffer;
     char* line = *Buffer_get_line(buf, ctx->jump_row);
     size_t line_len = strlen(line);
     size_t max_char = line_len;
@@ -742,6 +768,20 @@ EditorAction* make_DOLLAR_action() {
     ret->resolve = &DOLLAR_action_resolve;
     ret->child = NULL;
     ret->value = make_String("$");
+    return ret;
+}
+
+void _0_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    ctx->jump_col = 0;
+}
+
+EditorAction* make_0_action() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->resolve = &_0_action_resolve;
+    ret->child = NULL;
+    ret->value = make_String("0");
     return ret;
 }
 

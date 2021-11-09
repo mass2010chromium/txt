@@ -6,8 +6,8 @@
 struct EditorAction {
     union {
         String* value;
-        size_t* num_value;
     };
+    size_t num_value;
     /**
      * Return 1: Keep me on the stack
      * Return 2: I absorbed this char and am complete; resolve now!
@@ -40,6 +40,12 @@ void init_actions();
 int process_action(char, int);
 
 void clear_action_stack();
+
+/**
+ * Return a C string representing the action stack (or null if no stack).
+ * DO NOT FREE THIS!
+ */
+char* format_action_stack();
 
 /**
  * Try to make an EditorAction corresponding to "numbers" (repeat).

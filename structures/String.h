@@ -32,6 +32,11 @@ char* String_to_cstr(String* data);
  */
 String* alloc_String(size_t);
 
+#define static_String(name, init_sz) \
+static String* name = NULL; \
+if (name == NULL) { name = alloc_String(init_sz); } \
+else { String_clear(name); }
+
 /**
  * Reallocates the space allocated for some String* to
  * accomodate some new size_t, if needed. Also updates the max_length

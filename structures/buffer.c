@@ -274,7 +274,7 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
     Buffer_push_undo(buf, modify_first_row);
     String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
 
-    fprintf(stderr, "end: %ld %ld\n", last_row, Buffer_get_num_lines(buf));
+    print("end: %ld %ld\n", last_row, Buffer_get_num_lines(buf));
     if (last_row < Buffer_get_num_lines(buf)) {
         // Remove last row, merge with first row
         Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
@@ -291,7 +291,7 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         Vector_delete(&buf->lines, last_row);
 
         Strcat(&modify_first_row->new_content, last_row_fragment);
-        fprintf(stderr, "Save end: %ld %ld %s\n", target_len, delete_to, last_row_fragment->data);
+        print("Save end: %ld %ld %s\n", target_len, delete_to, last_row_fragment->data);
         free(last_row_fragment);
     }
 

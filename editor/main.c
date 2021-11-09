@@ -14,9 +14,13 @@
 #include "editor_actions.h"
 #include "../common.h"
 
-extern struct winsize window_size;
-extern Buffer* current_buffer;
-extern Vector/*Buffer* */ buffers;
+const char* EDITOR_MODE_STR[5] = {
+    "NORMAL",
+    "INSERT",
+    "COMMAND",
+    "VISUAL",
+    "VISUAL LINE",
+};
 
 void signal_handler(int signum) {
     if (signum == SIGINT) {
@@ -82,6 +86,8 @@ int esc_action(int control) {
 }
 
 void process_input(char input, int control) {
+    static String* bottom_bar_info = NULL;
+    if (bottom_bar_info == NULL) { bottom_bar_info = alloc_String(20); }
     if (current_mode == EM_INSERT) {
         display_bottom_bar("-- INSERT --", NULL);
         if (input == BYTE_ESC) {
@@ -131,12 +137,11 @@ void process_input(char input, int control) {
             }
         }
         move_to_current();
-        if (current_mode == EM_NORMAL) {
-            display_bottom_bar("-- NORMAL --", NULL);
-        }
-        else if (current_mode == EM_INSERT) {
-            display_bottom_bar("-- INSERT --", NULL);
-        }
+        String_clear(bottom_bar_info);
+        Strcats(&bottom_bar_info, "-- ");
+        Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
+        Strcats(&bottom_bar_info, " --");
+        display_bottom_bar(bottom_bar_info->data, format_action_stack());
     }
     else if (current_mode == EM_COMMAND) {
         if (input == BYTE_ESC) {

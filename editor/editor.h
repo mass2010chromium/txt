@@ -66,6 +66,19 @@ void move_cursor(size_t y, size_t x);   /** Prints an escape code to move the lo
  */
 char* line_pos(char* buf, ssize_t x);
 
+/**
+ * Prepare a buffer to write out to the screen, respecting tab width.
+ * Replaces tabs with spaces; Drops newlines.
+ *
+ * Parameters:
+ *      write_buffer: String to push into to return.
+ *      buf: data to write out. (C string, no control chars)
+ *      start: Screenwidth position to start at.
+ *      count: Number of characters in 'buf' to write out.
+ * 
+ * Return:
+ *      New "effective screen position" (for tabbing purpoises)
+ */
 size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count);
 
 /**
@@ -150,23 +163,18 @@ void editor_move_down();
 void editor_move_EOL();
 void editor_move_left();
 void editor_move_right();
-void editor_fix_view();
+RepaintType editor_fix_view();
 void editor_align_tab();
 
 /**
  * Moves the editor view to (row, col) in the file. 0-indexed.
+ * 
  */
-void editor_move_to(ssize_t row, ssize_t col);
+RepaintType editor_move_to(ssize_t row, ssize_t col);
 
 /**
  * Repaints part of the editor, depending on the action type
  * and position information contained in `ctx`.
+ * NOTE: MUST TAKE A NORMALIZED CONTEXT!
  */
 void editor_repaint(RepaintType repaint, EditorContext* ctx);
-
-
-/**
- * Moves the cursor to the start of the next word.
- * (Used for vim's "w" command)
- */
-void editor_skip_word();

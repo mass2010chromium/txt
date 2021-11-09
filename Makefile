@@ -19,4 +19,4 @@ bin:
 
 .PHONY: clean
 clean:
-	rm -f editor/*.o structures/*.o bin/* main test buffertest
+	rm -f editor/*.o structures/*.o bin/*
