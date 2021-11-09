@@ -143,6 +143,8 @@ UTEST(Buffer, search_char_forward_success) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, search_char_forward_fail) {
@@ -155,6 +157,8 @@ UTEST(Buffer, search_char_forward_fail) {
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, search_char_backward_success) {
@@ -167,6 +171,8 @@ UTEST(Buffer, search_char_backward_success) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(0, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, search_char_backward_edge) {
@@ -179,6 +185,8 @@ UTEST(Buffer, search_char_backward_edge) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(3, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, search_char_backward_fail) {
@@ -191,6 +199,8 @@ UTEST(Buffer, search_char_backward_fail) {
     ASSERT_EQ(-1, result);
     ASSERT_EQ(strlen("Hello, World!") - 1, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
 }
 //Bool order: (cross_lines, direction)
 UTEST(Buffer, find_str_forward_inline) {
@@ -203,6 +213,8 @@ UTEST(Buffer, find_str_forward_inline) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(3, ctx.jump_row);
     ASSERT_EQ(2, ctx.jump_col);
+
+    Buffer_destroy(&buf);
 }
 UTEST(Buffer, find_str_backward_inline) {
     Buffer buf;
@@ -214,6 +226,8 @@ UTEST(Buffer, find_str_backward_inline) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(3, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, find_str_forward_multiline) {
@@ -226,6 +240,8 @@ UTEST(Buffer, find_str_forward_multiline) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(7, ctx.jump_row);
     ASSERT_EQ(2, ctx.jump_col);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, find_str_backward_multiline) {
@@ -238,6 +254,8 @@ UTEST(Buffer, find_str_backward_multiline) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(1, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, find_str_fail) {
@@ -250,6 +268,8 @@ UTEST(Buffer, find_str_fail) {
     ASSERT_EQ(-1, result);
     ASSERT_EQ(1, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, find_str_no_crossing) {
@@ -262,6 +282,8 @@ UTEST(Buffer, find_str_no_crossing) {
     ASSERT_EQ(-1, result);
     ASSERT_EQ(0, ctx.jump_row);
     ASSERT_EQ(0, ctx.jump_col);
+
+    Buffer_destroy(&buf);
 }
 
 UTEST(Buffer, skip_word) {
@@ -290,4 +312,6 @@ UTEST(Buffer, skip_word) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(7, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
 }
