@@ -1,9 +1,9 @@
 #pragma once
 #include <sys/ioctl.h>
 
-#include "buffer.h"
+#include "../structures/buffer.h"
 #include "utils.h"
-#include "common.h"
+#include "../common.h"
 
 const char BYTE_ESC;
 //const char BYTE_ENTER;     // Carriage Return

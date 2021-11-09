@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 
-#include "common.h"
+#include "../common.h"
 
 struct EditorAction {
     union {

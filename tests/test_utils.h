@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Vector.h"
+#include "../structures/Vector.h"
 
 #define ASSERT_VS_EQ(a, b) \
 do { \

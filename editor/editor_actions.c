@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "editor.h"
-#include "buffer.h"
+#include "../structures/buffer.h"
 
 EditorAction* make_h_action();
 EditorAction* make_j_action();
@@ -68,9 +68,9 @@ void init_actions() {
     action_jump_table['V'] = &make_V_action;
     action_type_table['V'] = AT_OVERRIDE;
     action_jump_table['w'] = &make_w_action;
-    action_type_table['w'] = AT_OVERRIDE;
+    action_type_table['w'] = AT_MOVE;
     action_jump_table['W'] = &make_W_action;
-    action_type_table['W'] = AT_OVERRIDE;
+    action_type_table['W'] = AT_MOVE;
     action_jump_table['u'] = &make_u_action;
     action_type_table['u'] = AT_UNDO;
     action_jump_table['p'] = &make_p_action;
@@ -293,7 +293,9 @@ EditorAction* make_j_action() {
 
 int slash_action_update(EditorAction* this, char input, int control) {
     //TO-DO: Catch special cases? Ask Jing about it
-    if (input != '\n') {
+    if (input == BYTE_ESC) {
+        return 0;
+    } else if (input != '\n') {
         String_push(&this->value, input);
         return 1;
     } else {
@@ -302,6 +304,10 @@ int slash_action_update(EditorAction* this, char input, int control) {
 }
 
 void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
+    if (this->child != NULL) {
+        (*this->child->resolve)(this->child, ctx);
+        return;
+    }
     ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
@@ -319,7 +325,9 @@ EditorAction* make_slash_action() {
 }
 
 int question_action_update(EditorAction* this, char input, int control) {
-    if (input != '\n') {
+    if (input == BYTE_ESC) {
+        return 0;
+    } else if (input != '\n') {
         String_push(&this->value, input);
         return 1;
     } else {
@@ -328,6 +336,10 @@ int question_action_update(EditorAction* this, char input, int control) {
 }
 
 void question_action_resolve(EditorAction* this, EditorContext* ctx) {
+    if (this->child != NULL) {
+        (*this->child->resolve)(this->child, ctx);
+        return;
+    }
     ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
