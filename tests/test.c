@@ -15,5 +15,6 @@ UTEST_STATE();
 
 int main(int argc, const char** argv) {
     editor_init("tests/scratchfile");
+    editor_bottom = EDITOR_WINDOW_SIZE;
     utest_main(argc, argv);
 }

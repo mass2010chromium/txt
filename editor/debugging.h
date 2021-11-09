@@ -1,7 +1,5 @@
 #pragma once
 
-#define DEBUG
-
 void __debug_init();
 void print(const char* format, ...);
 
