@@ -36,34 +36,57 @@ void signal_handler(int signum) {
 struct termios save_settings;
 struct termios set_settings;
 
+String* bottom_bar_info = NULL;
+
+void close_buffer() {
+    editor_close_buffer(current_buffer_idx);
+    if (buffers.size == 0) {
+        current_mode = EM_QUIT;
+    }
+    else {
+        display_current_buffer();
+        String_clear(bottom_bar_info);
+        Strcats(&bottom_bar_info, "-- Editing: ");
+        Strcats(&bottom_bar_info, current_buffer->name);
+        Strcats(&bottom_bar_info, " --");
+        display_bottom_bar(bottom_bar_info->data, NULL);
+    }
+}
+
+void save_buffer() {
+    Buffer_save(current_buffer);
+    String_clear(bottom_bar_info);
+    Strcats(&bottom_bar_info, "-- File saved: ");
+    Strcats(&bottom_bar_info, current_buffer->name);
+    Strcats(&bottom_bar_info, " --");
+    display_bottom_bar(bottom_bar_info->data, NULL);
+}
+
 void process_command(char* command) {
     if (strcmp(command, ":q") == 0) {
-        editor_close_buffer(current_buffer_idx);
-        if (buffers.size == 0) {
-            current_mode = EM_QUIT;
-        }
-        else {
-            display_current_buffer();
-        }
+        close_buffer();
         return;
     }
     if (strcmp(command, ":w") == 0) {
-        Buffer_save(current_buffer);
-        display_bottom_bar("-- File saved --", NULL);
+        save_buffer();
         return;
     }
     if (strcmp(command, ":wq") == 0 || strcmp(command, ":qw") == 0) {
-        Buffer_save(current_buffer);
-        display_bottom_bar("-- File saved --", NULL);
+        save_buffer();
+        close_buffer();
         return;
     }
     if (strncmp(command, ":tabnew ", 8) == 0) {
         char* rest = command + 8;
         editor_make_buffer(rest);
-        current_buffer_idx = buffers.size - 1;
-        current_buffer = buffers.elements[buffers.size - 1];
+        editor_switch_buffer(buffers.size - 1);
         display_current_buffer();
-        display_bottom_bar("-- Opened file --", NULL);
+        String_clear(bottom_bar_info);
+        Strcats(&bottom_bar_info, "-- Opened file: ");
+        Strcats(&bottom_bar_info, current_buffer->name);
+        Strcats(&bottom_bar_info, " --");
+        display_bottom_bar(bottom_bar_info->data, NULL);
+        return;
     }
     char* scan_start = command + 1;
     char* scan_end = NULL;
@@ -86,8 +109,6 @@ int esc_action(int control) {
 }
 
 void process_input(char input, int control) {
-    static String* bottom_bar_info = NULL;
-    if (bottom_bar_info == NULL) { bottom_bar_info = alloc_String(20); }
     if (current_mode == EM_INSERT) {
         display_bottom_bar("-- INSERT --", NULL);
         if (input == BYTE_ESC) {
@@ -206,6 +227,8 @@ int main(int argc, char** argv) {
         printf("Usage: %s <file>\n", argv[0]);
         exit(1);
     }
+
+    bottom_bar_info = alloc_String(20);
 
     // No terminal supports.
     if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {

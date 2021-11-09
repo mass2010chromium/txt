@@ -289,6 +289,12 @@ void editor_make_buffer(const char* filename) {
     Buffer* buffer = make_Buffer(filename);
     Vector_push(&buffers, buffer);
 }
+
+void editor_switch_buffer(size_t n) {
+    current_buffer_idx = n;
+    current_buffer = buffers.elements[n];
+    clear_screen();
+}
     
 /**
  * Performs initial setup for the editor, including making the vector of buffers,
@@ -318,14 +324,15 @@ void editor_close_buffer(int idx) {
     Buffer_destroy(buf);
     free(buf);
     if (idx == current_buffer_idx) {
+        int new_idx;
         if (idx == 0) {
-            current_buffer_idx = buffers.size-1;
+            new_idx = buffers.size - 1;
         }
         else {
-            --current_buffer_idx;
+            new_idx = current_buffer_idx - 1;
         }
-        if (current_buffer_idx >= 0) {
-            current_buffer = buffers.elements[current_buffer_idx];
+        if (new_idx >= 0) {
+            editor_switch_buffer(new_idx);
         }
     }
 }
@@ -466,19 +473,21 @@ void add_chr(char c) {
         return;
     }
     char* current_ptr = active_insert.content + active_insert.gap_start;
+    size_t n_insert;
     if (c == BYTE_TAB && EXPAND_TAB) {
     	size_t fill_target = tab_round_up(current_buffer->cursor_col);
-    	size_t n_insert = fill_target - current_buffer->cursor_col;
+    	n_insert = fill_target - current_buffer->cursor_col;
     	char spaces[n_insert];
     	memset(spaces, ' ', n_insert);
         gapBuffer_insertN(&active_insert, spaces, n_insert);
     }
     else {
-        gapBuffer_insertN(&active_insert, &c, 1);
+        n_insert = 1;
+        gapBuffer_insertN(&active_insert, &c, n_insert);
     }
     String_clear(write_line_buffer);
     Strcats(&write_line_buffer, CLEAR_LINE);
-    size_t pos = format_respect_tabspace(&write_line_buffer, current_ptr, current_buffer->cursor_col, 1);
+    size_t pos = format_respect_tabspace(&write_line_buffer, current_ptr, current_buffer->cursor_col, n_insert);
     // add might realloc. no need to null terminate the string though
     current_ptr = active_insert.content + active_insert.gap_start;
     current_buffer->cursor_col = pos;

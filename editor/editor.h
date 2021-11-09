@@ -87,6 +87,11 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
 void editor_make_buffer(const char* filename);
 
 /**
+ * Switch to an open buffer by index.
+ */
+void editor_switch_buffer(size_t n);
+
+/**
  * Performs initial setup for the editor, including making the vector of buffers,
  * creating and pushing a buffer for the given filename to that vector,
  * and configuring the size of the editor window. Defaults to `Normal` editing mode.
