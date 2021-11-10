@@ -101,11 +101,18 @@ void process_command(char* command) {
  * Get the corresponding action char.
  */
 int esc_action(int control) {
-    if (control == BYTE_UPARROW) { return 'k'; }
-    else if (control == BYTE_DOWNARROW) { return 'j'; }
-    else if (control == BYTE_LEFTARROW) { return 'h'; }
-    else if (control == BYTE_RIGHTARROW) { return 'l'; }
-    else { return BYTE_ESC; }
+    switch(control) {
+        case BYTE_UPARROW:
+            return 'k';
+        case BYTE_DOWNARROW:
+            return 'j';
+        case BYTE_LEFTARROW:
+            return 'h';
+        case BYTE_RIGHTARROW:
+            return 'l';
+        default:
+            return BYTE_ESC;
+    }
 }
 
 void process_input(char input, int control) {
@@ -117,18 +124,27 @@ void process_input(char input, int control) {
                 display_bottom_bar("ERROR: Unrecognized escape sequence", NULL);
             }
             else {
-                if (res == 'k') { editor_move_up(); }
-                else if (res == 'j') { editor_move_down(); }
-                else if (res == 'h') { editor_move_left(); }
-                else if (res == 'l') { editor_move_right(); }
-                else {
-                    end_insert();
-                    current_mode = EM_NORMAL;
-                    // TODO update data structures
-                    display_bottom_bar("-- NORMAL --", NULL);
-                    // Match vim behavior when exiting insert mode.
-                    editor_move_left();
-                    editor_align_tab();
+                switch(res) {
+                    case 'k':
+                        editor_move_up();
+                        break;
+                    case 'j':
+                        editor_move_down();
+                        break;
+                    case 'h':
+                        editor_move_left();
+                        break;
+                    case 'l':
+                        editor_move_right();
+                        break;
+                    default:
+                        end_insert();
+                        current_mode = EM_NORMAL;
+                        // TODO update data structures
+                        display_bottom_bar("-- NORMAL --", NULL);
+                        // Match vim behavior when exiting insert mode.
+                        editor_move_left();
+                        editor_align_tab();
                 }
                 move_to_current();
             }

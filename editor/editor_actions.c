@@ -6,42 +6,42 @@
 #include "editor.h"
 #include "../structures/buffer.h"
 
-EditorAction* make_h_action();
-EditorAction* make_j_action();
-EditorAction* make_k_action();
-EditorAction* make_l_action();
-EditorAction* make_i_action();
-EditorAction* make_o_action();
+EditorAction* make_h_action();  // Move left. (repeatable, no line wrap)
+EditorAction* make_j_action();  // Move down. (repeatable)
+EditorAction* make_k_action();  // Move up. (repeatable)
+EditorAction* make_l_action();  // Move right. (repeatable, no line wrap)
+EditorAction* make_i_action();  // Enter insert mode.
+EditorAction* make_o_action();  // Create a line below, and enter insert mode.
 
-EditorAction* make_v_action();
-EditorAction* make_V_action();
+EditorAction* make_v_action();  // Enter visual select mode (char).
+EditorAction* make_V_action();  // Enter visual select mode (line).
 
-EditorAction* make_w_action();
-EditorAction* make_W_action();
+EditorAction* make_w_action();  // Move forward by one "word", breaking on punctuation and space. (repeatable)
+EditorAction* make_W_action();  // Move forward by one "word", breaking on punctuation. (repeatable)
 
-EditorAction* make_u_action();
-EditorAction* make_p_action();
+EditorAction* make_u_action();  // Undo an action. (repeatable)
+EditorAction* make_p_action();  // Paste copied/cut text. (repeatable, only partially implemented)
 
-EditorAction* make_g_action();
-EditorAction* make_G_action();
+EditorAction* make_g_action();  // Go to start of buffer.
+EditorAction* make_G_action();  // Go to end of buffer. (first col)
 
-EditorAction* make_x_action();
-EditorAction* make_d_action();
+EditorAction* make_x_action();  // Delete a character (repeatable), or delete the visual selection.
+EditorAction* make_d_action();  // 'dd' to delete line (repeatable), or delete based on the result of a move command.
 
-EditorAction* make_A_action();
+EditorAction* make_A_action();  // Go to end of line and enter insert mode.
 
-EditorAction* make_f_action();
-EditorAction* make_F_action();
+EditorAction* make_f_action();  // Find a character forwards in line.
+EditorAction* make_F_action();  // Find a character backwards in line.
 
-EditorAction* make_DOLLAR_action();
-EditorAction* make_0_action();
+EditorAction* make_DOLLAR_action(); // Go to end of line.
+EditorAction* make_0_action();  // Go to start of line.
 
-EditorAction* make_slash_action();
-EditorAction* make_question_action();
-EditorAction* make_n_action();
-EditorAction* make_N_action();
+EditorAction* make_slash_action();  // Search for a word across lines, forward.
+EditorAction* make_question_action();   // Search for a word across lines, backward.
+EditorAction* make_n_action();  // Repeat previous word search.
+EditorAction* make_N_action();  // Repeat previous word search, in the reverse direction.
 
-EditorAction* make_ESC_action();
+EditorAction* make_ESC_action();    // Pop cmdstack, exit visual, etc etc.
 
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
