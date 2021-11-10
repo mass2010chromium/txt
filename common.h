@@ -9,6 +9,8 @@ typedef int EditorMode;
 #define EM_VISUAL       3
 #define EM_VISUAL_LINE  4
 
+extern const char* EDITOR_MODE_STR[5];
+
 typedef int ActionType;
 #define AT_NONE 0
 #define AT_MOVE 1
@@ -47,7 +49,7 @@ struct Buffer {
     size_t last_pos;            // TODO: update this...
     ssize_t cursor_row;         // 0-indexed Y coordinate on screen
     ssize_t cursor_col;         // 0-indexed X coordinate on screen
-    int natural_col;
+    int natural_col;            // This is int because.. if you have more than int cols, I can't save you
     ssize_t undo_index;
     Vector/*char* */ lines; //TODO: Cache/load buffered
     size_t visual_row;      // Visual mode anchors.
@@ -65,7 +67,6 @@ struct EditorContext {
     ActionType action;
     Buffer* buffer;
 };
-
 typedef struct EditorContext EditorContext;
 
 #define CP_LINE 0
@@ -75,7 +76,6 @@ struct Copy {
     Vector/* String* */ data;
     CopyType cp_type;
 };
-
 typedef struct Copy Copy;
 
 /**

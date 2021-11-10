@@ -13,10 +13,15 @@ test: _test
 .PHONY: _test
 _test: bin structures/buffer.o editor/utils.o editor/editor.o editor/debugging.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o
 	gcc tests/test.c structures/buffer.o editor/utils.o editor/editor.o editor/debugging.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o -o bin/test -ggdb
+	cp tests/testfile tests/scratchfile
 
 bin:
 	mkdir bin
 
 .PHONY: clean
 clean:
-	rm -f editor/*.o structures/*.o bin/* main test buffertest
+	rm -f editor/*.o structures/*.o bin/*
+
+.PHONY: install
+install: all
+	sudo cp ./bin/main /usr/local/bin/txt

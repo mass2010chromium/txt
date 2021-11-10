@@ -94,6 +94,20 @@ String* Strncats(String** _a, const char* b, size_t blen) {
     return ret;
 }
 
+void Strcpys(String** _s, char* dat) {
+    size_t length = strlen(dat);
+    String* s = *_s;
+    if (s->length < length) {
+        free(s);
+        *_s = make_String(dat);
+    }
+    else {
+        strcpy(s->data, dat);
+        s->length = length;
+    }
+}
+
+
 void String_push(String** _s, char c) {
     String* s = *_s;
     if (s->length < s->max_length) {

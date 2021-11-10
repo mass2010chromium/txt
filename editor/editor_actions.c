@@ -34,9 +34,12 @@ EditorAction* make_f_action();
 EditorAction* make_F_action();
 
 EditorAction* make_DOLLAR_action();
+EditorAction* make_0_action();
 
 EditorAction* make_slash_action();
 EditorAction* make_question_action();
+EditorAction* make_n_action();
+EditorAction* make_N_action();
 
 EditorAction* make_ESC_action();
 
@@ -87,6 +90,8 @@ void init_actions() {
     action_type_table['A'] = AT_OVERRIDE;
     action_jump_table['$'] = &make_DOLLAR_action;
     action_type_table['$'] = AT_MOVE;
+    action_jump_table['0'] = &make_0_action;
+    action_type_table['0'] = AT_MOVE;
     action_jump_table['f'] = &make_f_action;
     action_type_table['f'] = AT_MOVE;
     action_jump_table['F'] = &make_F_action;
@@ -95,6 +100,10 @@ void init_actions() {
     action_type_table['/'] = AT_MOVE;
     action_jump_table['?'] = &make_question_action;
     action_type_table['?'] = AT_MOVE;
+    action_jump_table['n'] = &make_n_action;
+    action_type_table['n'] = AT_MOVE;
+    action_jump_table['N'] = &make_N_action;
+    action_type_table['N'] = AT_MOVE;
     action_jump_table[BYTE_ESC] = &make_ESC_action;
     action_type_table[BYTE_ESC] = AT_ESCAPE;
     inplace_make_Vector(&action_stack, 10);
@@ -134,10 +143,13 @@ void resolve_action_stack() {
     //interpret result
     if (ctx.action == AT_MOVE) {
         //TODO jank
-        editor_move_to(ctx.jump_row, ctx.jump_col);
-        EditorMode mode = Buffer_get_mode(buf);
-        if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
-            editor_repaint(RP_LINES, &ctx);
+        RepaintType repaint = editor_move_to(ctx.jump_row, ctx.jump_col);
+        if (repaint == RP_NONE) {
+            EditorMode mode = Buffer_get_mode(buf);
+            if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+                EditorContext_normalize(&ctx);
+                editor_repaint(RP_LINES, &ctx);
+            }
         }
     }
     else if (ctx.action == AT_OVERRIDE) {
@@ -145,13 +157,14 @@ void resolve_action_stack() {
     }
     else if (ctx.action == AT_ESCAPE) {
         // Escape key.
-        size_t mode = Buffer_get_mode(buf);
+        EditorMode mode = Buffer_get_mode(buf);
         if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
             Buffer_exit_visual(buf);
         }
+        Buffer_set_mode(buf, EM_NORMAL);
     }
     else {
-        size_t mode = Buffer_get_mode(buf);
+        EditorMode mode = Buffer_get_mode(buf);
         if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
             Buffer_exit_visual(buf);
         }
@@ -159,7 +172,6 @@ void resolve_action_stack() {
             editor_new_action();
             EditorContext_normalize(&ctx);
             RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
-            buf->cursor_row = ctx.start_row;
             if (ctx.start_col != -1) {
                 String* s = alloc_String(10);
                 char** line_p = Buffer_get_line_abs(buf, ctx.start_row);
@@ -242,10 +254,40 @@ void clear_action_stack() {
     Vector_clear(&action_stack, 10);
 }
 
+/**
+ * Return a C string representing the action stack (or null if no stack).
+ * DO NOT FREE THIS!
+ */
+char* format_action_stack() {
+    if (action_stack.size == 0) { return NULL; }
+
+    static String* ret = NULL;
+    if (ret == NULL) { ret = alloc_String(10); }
+    else { String_clear(ret); }
+
+    for (int i = 0; i < action_stack.size; ++i) {
+        EditorAction* act = (EditorAction*) action_stack.elements[i];
+        Strcats(&ret, act->value->data);
+    }
+    return ret->data;
+}
+
+EditorAction* make_DefaultAction() {
+    EditorAction* ret = malloc(sizeof(EditorAction));
+    ret->update = NULL;
+    ret->child = NULL;
+    ret->resolve = NULL;
+    ret->repeat = NULL;
+    ret->value = alloc_String(1);
+    ret->num_value = 0;
+    return ret;
+}
+
 int NumberAction_update(EditorAction* this, char input, int control) {
     int val = input - '0';
     if (val >= 0 && val < 10) {
-        *this->num_value = *this->num_value * 10 + val;
+        String_push(&this->value, input);
+        this->num_value = this->num_value * 10 + val;
         return 1;
     }
     return 0;
@@ -255,8 +297,12 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
     if (this->child == NULL) {
         return;
     }
-    for (int i = 0; i < *this->num_value; ++i) {
-        // TODO: repeating
+    if (this->child->repeat) {
+        if ((*this->child->repeat)(this->child, ctx, this->num_value)) {
+            return;
+        }
+    }
+    for (int i = 0; i < this->num_value; ++i) {
         (*this->child->resolve)(this->child, ctx);
         if (ctx->action == AT_OVERRIDE) break;
     }
@@ -265,12 +311,11 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
 EditorAction* make_NumberAction(char input) {
     int val = input - '0';
     if (val > 0 && val < 10) {  // Number action does not begin with 0.
-        EditorAction* ret = malloc(sizeof(EditorAction));
+        EditorAction* ret = make_DefaultAction();
         ret->update = &NumberAction_update;
         ret->resolve = &NumberAction_resolve;
-        ret->child = NULL;
-        ret->num_value = malloc(sizeof(size_t));
-        *ret->num_value = val;
+        String_push(&ret->value, input);
+        ret->num_value = val;
         return ret;
     }
     return NULL;
@@ -283,11 +328,9 @@ void j_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_j_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &j_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("j");
+    String_push(&ret->value, 'j');
     return ret;
 }
 
@@ -295,6 +338,9 @@ int slash_action_update(EditorAction* this, char input, int control) {
     //TO-DO: Catch special cases? Ask Jing about it
     if (input == BYTE_ESC) {
         return 0;
+    } else if (input == BYTE_BACKSPACE) {
+        String_pop(this->value);
+        return Strlen(this->value) > 0;
     } else if (input != '\n') {
         String_push(&this->value, input);
         return 1;
@@ -303,30 +349,41 @@ int slash_action_update(EditorAction* this, char input, int control) {
     }
 }
 
+bool prev_search_order;
+String* prev_search_str = NULL;
+
 void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
     if (this->child != NULL) {
         (*this->child->resolve)(this->child, ctx);
         return;
     }
-    ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
+        prev_search_order = true;
+        if (prev_search_str == NULL) { prev_search_str = make_String(this->value->data + 1); }
+        else { Strcpys(&prev_search_str, this->value->data + 1); }
         Buffer_find_str(ctx->buffer, ctx, str, true, true);
+        if (ctx->action == AT_DELETE && ctx->jump_col > 0) {
+            --ctx->jump_col;
+        }
+        ctx->action = AT_MOVE;
     }
 }
 
 EditorAction* make_slash_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &slash_action_update;
     ret->resolve = &slash_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("/");
+    String_push(&ret->value, '/');
     return ret;
 }
 
 int question_action_update(EditorAction* this, char input, int control) {
     if (input == BYTE_ESC) {
         return 0;
+    } else if (input == BYTE_BACKSPACE) {
+        String_pop(this->value);
+        return Strlen(this->value) > 0;
     } else if (input != '\n') {
         String_push(&this->value, input);
         return 1;
@@ -343,16 +400,46 @@ void question_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     if (Strlen(this->value) > 1) {
         char* str = this->value->data + 1;
+        prev_search_order = false;
+        if (prev_search_str == NULL) { prev_search_str = make_String(this->value->data + 1); }
+        else { Strcpys(&prev_search_str, this->value->data + 1); }
         Buffer_find_str(ctx->buffer, ctx, str, true, false);
     }
 }
 
 EditorAction* make_question_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &question_action_update;
     ret->resolve = &question_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("?");
+    String_push(&ret->value, '?');
+    return ret;
+}
+
+void n_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (prev_search_str != NULL) {
+        Buffer_find_str(ctx->buffer, ctx, prev_search_str->data, true, prev_search_order);
+    }
+}
+
+EditorAction* make_n_action() {
+    EditorAction* ret = make_DefaultAction();
+    ret->resolve = &n_action_resolve;
+    String_push(&ret->value, 'n');
+    return ret;
+}
+
+void N_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    if (prev_search_str != NULL) {
+        Buffer_find_str(ctx->buffer, ctx, prev_search_str->data, true, !prev_search_order);
+    }
+}
+
+EditorAction* make_N_action() {
+    EditorAction* ret = make_DefaultAction();
+    ret->resolve = &N_action_resolve;
+    String_push(&ret->value, 'N');
     return ret;
 }
 
@@ -369,11 +456,10 @@ void f_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_f_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &f_action_update;
     ret->resolve = &f_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("f");
+    String_push(&ret->value, 'f');
     return ret;
 }
 
@@ -390,11 +476,10 @@ void F_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_F_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &F_action_update;
     ret->resolve = &F_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("F");
+    String_push(&ret->value, 'F');
     return ret;
 }
 
@@ -405,11 +490,9 @@ void k_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_k_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &k_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("k");
+    String_push(&ret->value, 'k');
     return ret;
 }
 
@@ -419,11 +502,9 @@ void h_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_h_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &h_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("h");
+    String_push(&ret->value, 'h');
     return ret;
 }
 
@@ -433,11 +514,9 @@ void l_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_l_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &l_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("l");
+    String_push(&ret->value, 'l');
     return ret;
 }
 
@@ -450,25 +529,24 @@ void i_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_i_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &i_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("i");
+    String_push(&ret->value, 'i');
     return ret;
 }
 
 void w_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
     Buffer_skip_word(ctx->buffer, ctx, false);
+    if (ctx->action == AT_DELETE && ctx->jump_col > 0) {
+        --ctx->jump_col;
+    }
+    ctx->action = AT_MOVE;
 }
 
 EditorAction* make_w_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &w_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("w");
+    String_push(&ret->value, 'w');
     return ret;
 }
 
@@ -478,11 +556,9 @@ void W_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_W_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &W_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("W");
+    String_push(&ret->value, 'w');
     return ret;
 }
 
@@ -508,11 +584,9 @@ void v_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_v_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &v_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("v");
+    String_push(&ret->value, 'v');
     return ret;
 }
 
@@ -541,11 +615,9 @@ void V_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_V_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &V_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("V");
+    String_push(&ret->value, 'V');
     return ret;
 }
 
@@ -560,11 +632,9 @@ void o_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_o_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &o_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("o");
+    String_push(&ret->value, 'o');
     return ret;
 }
 
@@ -574,11 +644,9 @@ void u_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_u_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &u_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("u");
+    String_push(&ret->value, 'u');
     return ret;
 }
 
@@ -588,11 +656,9 @@ void p_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_p_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &p_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("p");
+    String_push(&ret->value, 'p');
     return ret;
 }
 
@@ -619,11 +685,10 @@ void g_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_g_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &g_action_update;
     ret->resolve = &g_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("g");
+    String_push(&ret->value, 'g');
     return ret;
 }
 
@@ -634,11 +699,9 @@ void G_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_G_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &G_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("G");
+    String_push(&ret->value, 'G');
     return ret;
 }
 
@@ -657,12 +720,20 @@ void x_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
+int x_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        ctx->action = AT_DELETE;
+        ctx->jump_col += n - 1;
+        return 1;
+    }
+    return 0;
+}
+
 EditorAction* make_x_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &x_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("x");
+    ret->repeat = &x_action_repeat;
+    String_push(&ret->value, 'x');
     return ret;
 }
 
@@ -680,12 +751,12 @@ void d_action_resolve(EditorAction* this, EditorContext* ctx) {
         if (strcmp(this->value->data, "dd") == 0) {
             ctx->action = AT_DELETE;
             ctx->start_col = -1;    // Delete the whole line
-            ctx->jump_row += 1;
             ctx->jump_col = 0;
         }
     }
     // TODO implement move-delete
     else {
+        ctx->action = AT_DELETE;    // Signal intent to delete.
         (*this->child->resolve)(this->child, ctx);
         if (ctx->action == AT_OVERRIDE) return;
         if (ctx->action != AT_MOVE) return; // ERROR
@@ -693,12 +764,26 @@ void d_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
+int d_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        if (this->child == NULL) {
+            if (strcmp(this->value->data, "dd") == 0) {
+                ctx->action = AT_DELETE;
+                ctx->start_col = -1;
+                ctx->jump_row += n - 1;
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 EditorAction* make_d_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
+    EditorAction* ret = make_DefaultAction();
     ret->update = &d_action_update;
     ret->resolve = &d_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("d");
+    ret->repeat = &d_action_repeat;
+    String_push(&ret->value, 'd');
     return ret;
 }
 
@@ -712,18 +797,16 @@ void A_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_A_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &A_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("A");
+    String_push(&ret->value, 'A');
     return ret;
 }
 
 void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
-        Buffer* buf = ctx->buffer;
-    char* line = *Buffer_get_line(buf, ctx->jump_row);
+    Buffer* buf = ctx->buffer;
+    char* line = *Buffer_get_line_abs(buf, ctx->jump_row);
     size_t line_len = strlen(line);
     size_t max_char = line_len;
     // Save newlines, but don't count them towards line length for cursor purposes.
@@ -737,11 +820,20 @@ void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_DOLLAR_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &DOLLAR_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("$");
+    String_push(&ret->value, '$');
+    return ret;
+}
+
+void _0_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_MOVE;
+    ctx->jump_col = 0;
+}
+
+EditorAction* make_0_action() {
+    EditorAction* ret = make_DefaultAction();
+    ret->resolve = &_0_action_resolve;
     return ret;
 }
 
@@ -750,10 +842,8 @@ void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_ESC_action() {
-    EditorAction* ret = malloc(sizeof(EditorAction));
-    ret->update = NULL;
+    EditorAction* ret = make_DefaultAction();
     ret->resolve = &ESC_action_resolve;
-    ret->child = NULL;
-    ret->value = make_String("<esc>");
+    Strcats(&ret->value, "<esc>");
     return ret;
 }

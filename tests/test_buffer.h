@@ -3,18 +3,7 @@
 #include "../common.h"
 #include "../structures/buffer.h"
 #include "test_utils.h"
-
-char* infile_dat[8] = {
-"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
-"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
-"cccccccccccccccccccccccccccccc\n",
-"dddddddddddddddddddddddddddddd\n",
-"eeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n",
-"ffffffffffffffffffffffffffffff\n",
-"",
-NULL
-};
-#define TESTFILE_LEN 7
+#include "buffer_private.h"
 
 UTEST(Buffer_util, read_file_break_lines) {
     Vector ret;
@@ -97,6 +86,7 @@ UTEST(Buffer, get_line) {
     for (size_t i = 0; i < window_size; ++i) {
         char** linep = Buffer_get_line(&buf, i);
         ASSERT_NE(NULL, linep);
+        ASSERT_EQ(Buffer_get_line_abs(&buf, i+scroll_amount), linep);
         ASSERT_STREQ(infile_dat[i], *linep);
     }
 
@@ -107,6 +97,7 @@ UTEST(Buffer, get_line) {
     for (size_t i = 0; i < window_size; ++i) {
         char** linep = Buffer_get_line(&buf, i);
         ASSERT_NE(NULL, linep);
+        ASSERT_EQ(Buffer_get_line_abs(&buf, i+scroll_amount), linep);
         ASSERT_STREQ(infile_dat[i+scroll_amount], *linep);
     }
 
@@ -117,6 +108,7 @@ UTEST(Buffer, get_line) {
     for (size_t i = 0; i < window_size; ++i) {
         char** linep = Buffer_get_line(&buf, i);
         ASSERT_NE(NULL, linep);
+        ASSERT_EQ(Buffer_get_line_abs(&buf, i+scroll_amount), linep);
         ASSERT_STREQ(infile_dat[i+scroll_amount], *linep);
     }
 
@@ -127,7 +119,177 @@ UTEST(Buffer, get_line) {
     for (size_t i = 0; i < window_size; ++i) {
         char** linep = Buffer_get_line(&buf, i);
         ASSERT_NE(NULL, linep);
+        ASSERT_EQ(Buffer_get_line_abs(&buf, i+scroll_amount), linep);
         ASSERT_STREQ(infile_dat[i+scroll_amount], *linep);
+    }
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, get_line_index) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+    size_t window_size = 4;
+    ssize_t scroll_delta = 0;
+    size_t scroll_amount = 0;
+
+    for (size_t i = 0; i < window_size; ++i) {
+        size_t linep = Buffer_get_line_index(&buf, i);
+        ASSERT_EQ(i + scroll_amount, linep);
+    }
+
+    scroll_delta = 2;
+    scroll_amount += scroll_delta;
+    Buffer_scroll(&buf, window_size, scroll_delta);
+
+    for (size_t i = 0; i < window_size; ++i) {
+        size_t linep = Buffer_get_line_index(&buf, i);
+        ASSERT_EQ(i + scroll_amount, linep);
+    }
+
+    scroll_delta = -1;
+    scroll_amount += scroll_delta;
+    Buffer_scroll(&buf, window_size, scroll_delta);
+
+    for (size_t i = 0; i < window_size; ++i) {
+        size_t linep = Buffer_get_line_index(&buf, i);
+        ASSERT_EQ(i + scroll_amount, linep);
+    }
+
+    scroll_delta = -3;
+    scroll_amount = 0;
+    Buffer_scroll(&buf, window_size, scroll_delta);
+
+    for (size_t i = 0; i < window_size; ++i) {
+        size_t linep = Buffer_get_line_index(&buf, i);
+        ASSERT_EQ(i + scroll_amount, linep);
+    }
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, set_line_abs) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+
+    Buffer_set_line_abs(&buf, 1, "mmm\n");  // This does a free... ...
+    ASSERT_STREQ("mmm\n", *Buffer_get_line(&buf, 1));
+    ASSERT_STREQ("mmm\n", *Buffer_get_line_abs(&buf, 1));
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, undo_sanity) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+
+    Edit* insert_content = make_Insert(0, 0, 0, "contents");
+    Buffer_push_undo(&buf, insert_content);
+
+    ASSERT_EQ(1, buf.undo_buffer.size);
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, undo_insert1) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+
+    Edit* insert_content;
+    char** target;
+
+    insert_content = make_Insert(0, 0, -1, "lol contents");
+    // Should delete the first row, ignoring the new contents.
+    Buffer_undo_Edit(&buf, insert_content);
+    Edit_destroy(insert_content);
+    free(insert_content);
+    ASSERT_EQ(6, Buffer_get_num_lines(&buf));
+
+    target = infile_dat + 1;
+    for (int i = 0; i < 6; ++i) {
+        ASSERT_STREQ(target[i], *Buffer_get_line(&buf, i));
+        ASSERT_STREQ(target[i], *Buffer_get_line_abs(&buf, i));
+    }
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, undo_insert2) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+
+    Edit* insert_content;
+    char** target;
+
+    insert_content = make_Insert(0, 1, -1, "lol contents");
+    // Should delete the second row, ignoring the new contents.
+    Buffer_undo_Edit(&buf, insert_content);
+    Edit_destroy(insert_content);
+    free(insert_content);
+    ASSERT_EQ(6, Buffer_get_num_lines(&buf));
+
+    target = infile_dat;
+    for (int i = 0; i < 1; ++i) {
+        ASSERT_STREQ(target[i], *Buffer_get_line(&buf, i));
+        ASSERT_STREQ(target[i], *Buffer_get_line_abs(&buf, i));
+    }
+    
+    target = infile_dat + 1;
+    for (int i = 1; i < 6; ++i) {
+        ASSERT_STREQ(target[i], *Buffer_get_line(&buf, i));
+        ASSERT_STREQ(target[i], *Buffer_get_line_abs(&buf, i));
+    }
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, undo_insert3) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+
+    Edit* insert_content;
+    char** target;
+
+    insert_content = make_Insert(0, 6, -1, "lol contents");
+    // Should delete the last row, ignoring the new contents.
+    Buffer_undo_Edit(&buf, insert_content);
+    Edit_destroy(insert_content);
+    free(insert_content);
+    ASSERT_EQ(6, Buffer_get_num_lines(&buf));
+
+    target = infile_dat;
+    for (int i = 0; i < 6; ++i) {
+        ASSERT_STREQ(target[i], *Buffer_get_line(&buf, i));
+        ASSERT_STREQ(target[i], *Buffer_get_line_abs(&buf, i));
+    }
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, undo_insert4) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/testfile");
+
+    Edit* insert_content;
+    char** target;
+
+    insert_content = make_Insert(0, 5, -1, "lol contents");
+    // Should delete the second to row, ignoring the new contents.
+    Buffer_undo_Edit(&buf, insert_content);
+    Edit_destroy(insert_content);
+    free(insert_content);
+    ASSERT_EQ(6, Buffer_get_num_lines(&buf));
+
+    target = infile_dat;
+    for (int i = 0; i < 5; ++i) {
+        ASSERT_STREQ(target[i], *Buffer_get_line(&buf, i));
+        ASSERT_STREQ(target[i], *Buffer_get_line_abs(&buf, i));
+    }
+    
+    target = infile_dat + 1;
+    for (int i = 5; i < 6; ++i) {
+        ASSERT_STREQ(target[i], *Buffer_get_line(&buf, i));
+        ASSERT_STREQ(target[i], *Buffer_get_line_abs(&buf, i));
     }
 
     Buffer_destroy(&buf);

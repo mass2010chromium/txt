@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "debugging.h"
 #include "../structures/Deque.h"
 #include "../structures/Vector.h"
 #include "../structures/String.h"

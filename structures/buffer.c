@@ -187,6 +187,7 @@ void Buffer_exit_visual(Buffer* buf) {
     ctx.jump_row = buf->visual_row;
     ctx.jump_col = buf->visual_col;
     ctx.buffer = buf;
+    EditorContext_normalize(&ctx);
     editor_repaint(RP_LINES, &ctx);
 }
 
@@ -266,7 +267,12 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
         Buffer_push_undo(buf, modify_row);
         // Delete to jump col, inclusive
-        String_delete_range(modify_row->new_content, range->start_col, range->jump_col+1);
+        size_t line_len = Strlen(modify_row->new_content);
+        if (line_len > 0 && modify_row->new_content->data[line_len-1] == '\n') {
+            line_len -= 1;
+        }
+        size_t max_del = min_u(range->jump_col+1, line_len);
+        String_delete_range(modify_row->new_content, range->start_col, max_del);
         Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
         return RP_LINES;
     }
@@ -274,7 +280,7 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
     Buffer_push_undo(buf, modify_first_row);
     String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
 
-    fprintf(stderr, "end: %ld %ld\n", last_row, Buffer_get_num_lines(buf));
+    print("end: %ld %ld\n", last_row, Buffer_get_num_lines(buf));
     if (last_row < Buffer_get_num_lines(buf)) {
         // Remove last row, merge with first row
         Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
@@ -291,7 +297,7 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         Vector_delete(&buf->lines, last_row);
 
         Strcat(&modify_first_row->new_content, last_row_fragment);
-        fprintf(stderr, "Save end: %ld %ld %s\n", target_len, delete_to, last_row_fragment->data);
+        print("Save end: %ld %ld %s\n", target_len, delete_to, last_row_fragment->data);
         free(last_row_fragment);
     }
 

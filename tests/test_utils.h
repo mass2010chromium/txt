@@ -2,6 +2,19 @@
 
 #include "../structures/Vector.h"
 
+static char* infile_dat[8] = {
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+"cccccccccccccccccccccccccccccc\n",
+"dddddddddddddddddddddddddddddd\n",
+"eeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n",
+"ffffffffffffffffffffffffffffff\n",
+"",
+NULL
+};
+
+#define TESTFILE_LEN 7
+
 #define ASSERT_VS_EQ(a, b) \
 do { \
     ASSERT_EQ((a)->size, (b)->size); \

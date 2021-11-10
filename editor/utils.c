@@ -70,8 +70,8 @@ void normalize_context(EditorContext* ret, ssize_t r1, ssize_t c1,
         ret->start_col = -1;
         ret->jump_col = -1;
     }
-    fprintf(stderr, "pre: %ld %ld %ld %ld\n", r1, c1, r2, c2);
-    fprintf(stderr, "normalized: %ld %ld %ld %ld\n", ret->start_row, ret->start_col, ret->jump_row, ret->jump_col);
+    print("pre: %ld %ld %ld %ld\n", r1, c1, r2, c2);
+    print("normalized: %ld %ld %ld %ld\n", ret->start_row, ret->start_col, ret->jump_row, ret->jump_col);
 }
 
 void EditorContext_normalize(EditorContext* self) {

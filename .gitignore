@@ -6,6 +6,10 @@ test
 main
 buffertest
 
+# logs/tempfiles
+log.txt
+tests/scratchfile
+
 # Prerequisites
 *.d
 
