@@ -86,6 +86,7 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
             Vector_push(&buf->lines, strdup(""));
             n_read = 0;
         }
+        (void) n_read;
     }
     buf->swapfile = NULL;
     buf->name = strdup(filename);
@@ -593,7 +594,7 @@ int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
             found_space = true;
         }
         current_pos++;
-        if (line[current_pos] == NULL && current_row + 1 < Buffer_get_num_lines(buf)) {
+        if (line[current_pos] == '\0' && current_row + 1 < Buffer_get_num_lines(buf)) {
             line = *(Buffer_get_line_abs(buf, current_row + 1));
             current_row++;
             current_pos = 0;

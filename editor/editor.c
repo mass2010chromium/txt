@@ -154,12 +154,18 @@ void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
+/**
+ * Suppose I am at position <start>, and I press tab.
+ * Where should I end up?
+ */
 size_t tab_round_up(size_t start) {
     return ((start / TAB_WIDTH) + 1) * TAB_WIDTH;
 }
 
 /*
  * Position on screen in the line for a position in the string.
+ * Always left aligns tabs.
+ *
  * buf: the line
  * ptr: a position in the line. line_pos_ptr(buf, buf) == 0.
  */
