@@ -182,7 +182,7 @@ void Buffer_exit_visual(Buffer* buf) {
     Buffer_set_mode(buf, EM_NORMAL);
 
     EditorContext ctx;
-    ctx.start_row = buf->cursor_row;
+    ctx.start_row = Buffer_get_line_index(buf, buf->cursor_row);
     ctx.start_col = buf->cursor_col;
     ctx.jump_row = buf->visual_row;
     ctx.jump_col = buf->visual_col;
