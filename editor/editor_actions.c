@@ -225,7 +225,7 @@ int process_action(char c, int control) {
     }
     EditorAction* new_action = make_NumberAction(c);
     if (new_action == NULL) {
-        EditorAction* (*factory) (void) = action_jump_table[c];
+        EditorAction* (*factory) (void) = action_jump_table[(int) c];
         if (factory != NULL) {
             new_action = (*factory)();
         }
