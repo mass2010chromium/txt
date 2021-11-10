@@ -483,14 +483,18 @@ int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t li
         offset = 0;
     }
     char* line = *(Buffer_get_line_abs(buf, line_num));
-    char* search = line + offset;
+    char* search = line + offset + 1;
     if (!direction) {
         //This will search the entire line if searching backwards
         search = line;
     }
     char* result = strstr(search, str);
     if (result != NULL) {
-        if (direction || search_full || result < line + offset) {
+        if (direction) {
+            ctx->jump_row = line_num;
+            ctx->jump_col = result - line;
+            return 0;
+        } else if (!direction && (search_full || result < line + offset)) {
             ctx->jump_row = line_num;
             ctx->jump_col = result - line;
             return 0;
@@ -565,21 +569,29 @@ int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction) 
 
 int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
     size_t current_pos = ctx->jump_col + 1;
-    char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
+    size_t current_row = ctx->jump_row;
+    char* line = *(Buffer_get_line_abs(buf, current_row));
     char start_char = line[current_pos - 1];
     char c;
     bool found_space = false;
     while ((c = line[current_pos])) {
         if (!skip_punct && ispunct(c) && c != start_char && c != '_') {
             ctx->jump_col = current_pos;
+            ctx->jump_row = current_row;
             return 0;
         } else if (found_space && isalnum(c)) {
             ctx->jump_col = current_pos;
+            ctx->jump_row = current_row;
             return 0;
         } else if (isspace(c)) {
             found_space = true;
         }
         current_pos++;
+        if (line[current_pos] == NULL && current_row + 1 < Buffer_get_num_lines(buf)) {
+            line = *(Buffer_get_line_abs(buf, current_row + 1));
+            current_row++;
+            current_pos = 0;
+        }
     }
     return -1;
 }

@@ -286,6 +286,20 @@ UTEST(Buffer, find_str_no_crossing) {
     Buffer_destroy(&buf);
 }
 
+UTEST(Buffer, find_str_at_cursor) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/text0.txt");
+    EditorContext ctx;
+    ctx.jump_row = 0;
+    ctx.jump_col = 4;
+    int result = Buffer_find_str(&buf, &ctx, "fish", false, true);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_row);
+    ASSERT_EQ(13, ctx.jump_col);
+
+    Buffer_destroy(&buf);
+}
+
 UTEST(Buffer, skip_word) {
     Buffer buf;
     EditorContext ctx;
@@ -297,7 +311,7 @@ UTEST(Buffer, skip_word) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(5, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
-    //Skip to next word when starting on space char
+    //Skip to next word when starting on punct char
     result = Buffer_skip_word(&buf, &ctx, false);
     ASSERT_EQ(0, result);
     ASSERT_EQ(7, ctx.jump_col);
@@ -312,6 +326,20 @@ UTEST(Buffer, skip_word) {
     ASSERT_EQ(0, result);
     ASSERT_EQ(7, ctx.jump_col);
     ASSERT_EQ(0, ctx.jump_row);
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, skip_word_multiline) {
+    Buffer buf;
+    inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
+    EditorContext ctx;
+    ctx.jump_row = 0;
+    ctx.jump_col = 0;
+    int result = Buffer_skip_word(&buf, &ctx, true);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(1, ctx.jump_row);
 
     Buffer_destroy(&buf);
 }
