@@ -5,15 +5,16 @@
 #include "utils.h"
 #include "../common.h"
 
-const char BYTE_ESC;
-//const char BYTE_ENTER;     // Carriage Return
-const char BYTE_ENTER;     // Line Feed
-const char BYTE_BACKSPACE;
-const char BYTE_UPARROW;
-const char BYTE_LEFTARROW;
-const char BYTE_RIGHTARROW;
-const char BYTE_DOWNARROW;
-const char BYTE_DELETE;
+#define BYTE_ESC        '\033'
+//#define BYTE_ENTER      '\015'      // Carriage Return
+#define BYTE_TAB        '\011'      // Tab
+#define BYTE_ENTER      '\012'      // Line Feed
+#define BYTE_BACKSPACE  '\177'
+#define BYTE_UPARROW    '\110'
+#define BYTE_LEFTARROW  '\113'
+#define BYTE_RIGHTARROW '\115'
+#define BYTE_DOWNARROW  '\120'
+#define BYTE_DELETE     '\123'
 
 EditorMode current_mode;
 
@@ -141,7 +142,7 @@ void display_bottom_bar(char* left, char* right);
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  */
-void display_buffer_rows(size_t start, size_t end);
+char* display_buffer_rows(size_t start, size_t end);
 
 /**
  * Displays all rows in the current buffer by calling display_buffer_rows

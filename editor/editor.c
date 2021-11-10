@@ -9,20 +9,11 @@
 #include "utils.h"
 #include "debugging.h"
 
-const char BYTE_ESC         = '\033';
-//const char BYTE_ENTER       = '\015';     // Carriage Return
-const char BYTE_TAB         = '\011';     // Tab
-const char BYTE_ENTER       = '\012';     // Line Feed
-const char BYTE_BACKSPACE   = '\177';
-const char BYTE_UPARROW     = '\110';
-const char BYTE_LEFTARROW   = '\113';
-const char BYTE_RIGHTARROW  = '\115';
-const char BYTE_DOWNARROW   = '\120';
-const char BYTE_DELETE      = '\123';
-
 int TAB_WIDTH = 4;
 bool PRESERVE_INDENT = true;
 bool EXPAND_TAB = true;
+
+bool SCREEN_WRITE = true;
 
 Copy active_copy = {0};
 
@@ -35,6 +26,13 @@ String* command_buffer = NULL;
 GapBuffer active_insert = {0};
 size_t editor_top;
 size_t editor_bottom;
+
+static inline ssize_t _write(const char* string, size_t n) {
+    if (SCREEN_WRITE) {
+        return write(STDOUT_FILENO, string, n);
+    }
+    return 0;
+}
 
 /**
  * Callback function that gets called whenever the terminal size changes.
@@ -79,14 +77,14 @@ const char* CLEAR_LINE = "\033[0K";
  * control chars in an attempt to make it work on tmux wsl 20.04.
  */
 void clear_line() {
-    write(STDOUT_FILENO, CLEAR_LINE, strlen(CLEAR_LINE));
+    _write(CLEAR_LINE, strlen(CLEAR_LINE));
 }
 
 /**
  * Clear the entire screen by writing a control character.
  */
 void clear_screen() {
-    write(STDOUT_FILENO, "\033[2J", 4);
+    _write("\033[2J", 4);
 }
 
 const char* SET_HIGHLIGHT = "\033[7m";
@@ -108,7 +106,7 @@ int get_cursor_pos(size_t *y, size_t *x) {
     *y = 0;
     *x = 0;
    
-    write(STDOUT_FILENO, "\033[6n", 4);
+    _write("\033[6n", 4);
    
     for ( i = 0, ch = 0; ch != 'R'; i++ ) {
         ret = read(STDIN_FILENO, &ch, 1);
@@ -146,7 +144,7 @@ int get_cursor_pos(size_t *y, size_t *x) {
 void move_cursor(size_t y, size_t x) {
     char buf[60] = {0};
     sprintf(buf, "\033[%lu;%luH", y+1, x+1);
-    write(STDOUT_FILENO, buf, strlen(buf));
+    _write(buf, strlen(buf));
 }
 
 /**
@@ -156,12 +154,18 @@ void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
+/**
+ * Suppose I am at position <start>, and I press tab.
+ * Where should I end up?
+ */
 size_t tab_round_up(size_t start) {
     return ((start / TAB_WIDTH) + 1) * TAB_WIDTH;
 }
 
 /*
  * Position on screen in the line for a position in the string.
+ * Always left aligns tabs.
+ *
  * buf: the line
  * ptr: a position in the line. line_pos_ptr(buf, buf) == 0.
  */
@@ -278,7 +282,7 @@ String* write_line_buffer = NULL;
 size_t write_respect_tabspace(const char* buf, size_t start, size_t count) {
     String_clear(write_line_buffer);
     size_t ret = format_respect_tabspace(&write_line_buffer, buf, start, count);
-    write(STDOUT_FILENO, write_line_buffer->data, Strlen(write_line_buffer));
+    _write(write_line_buffer->data, Strlen(write_line_buffer));
     return ret;
 }
 
@@ -479,7 +483,7 @@ void add_chr(char c) {
     current_buffer->natural_col = current_buffer->cursor_col;
     format_respect_tabspace(&write_line_buffer, active_insert.content + active_insert.gap_end, pos,
                             active_insert.total_size - active_insert.gap_end);
-    write(STDOUT_FILENO, write_line_buffer->data, Strlen(write_line_buffer));
+    _write(write_line_buffer->data, Strlen(write_line_buffer));
     move_to_current();
 }
 
@@ -516,13 +520,13 @@ void display_bottom_bar(char* left, char* right) {
     size_t x, y;
     get_cursor_pos(&y, &x);
     move_cursor(window_size.ws_row-1, 0);
-    write(STDOUT_FILENO, left, strlen(left));
-    write(STDOUT_FILENO, "\0", 1);
+    _write(left, strlen(left));
+    _write("\0", 1);
     clear_line();
     if (right != NULL) {
         size_t off = strlen(right) + 1;
         move_cursor(window_size.ws_row-1, window_size.ws_col - off);
-        write(STDOUT_FILENO, right, strlen(right));
+        _write(right, strlen(right));
     }
     print("Displayed bottom bar [%s]\n", left);
     move_cursor(y, x);
@@ -545,7 +549,7 @@ void display_line_highlight(const char* line) {
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  */
-void display_buffer_rows(size_t start, size_t end) {
+char* display_buffer_rows(size_t start, size_t end) {
     print("display: %lu %lu\n", start, end);
     move_cursor(start-1, 0);
     static_String(output_buffer, 100);
@@ -641,8 +645,9 @@ void display_buffer_rows(size_t start, size_t end) {
         }
     }
     Strcats(&output_buffer, RESET_HIGHLIGHT);
-    write(STDOUT_FILENO, output_buffer->data, Strlen(output_buffer));
+    _write(output_buffer->data, Strlen(output_buffer));
     move_to_current();
+    return output_buffer->data;
 }
 
 void display_current_buffer() {

@@ -225,7 +225,7 @@ int process_action(char c, int control) {
     }
     EditorAction* new_action = make_NumberAction(c);
     if (new_action == NULL) {
-        EditorAction* (*factory) (void) = action_jump_table[c];
+        EditorAction* (*factory) (void) = action_jump_table[(int) c];
         if (factory != NULL) {
             new_action = (*factory)();
         }
@@ -304,7 +304,7 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
     }
     for (int i = 0; i < this->num_value; ++i) {
         (*this->child->resolve)(this->child, ctx);
-        if (ctx->action == AT_OVERRIDE) break;
+        if (ctx->action == AT_OVERRIDE || ctx->action == AT_ESCAPE) break;
     }
 }
 
@@ -758,7 +758,7 @@ void d_action_resolve(EditorAction* this, EditorContext* ctx) {
     else {
         ctx->action = AT_DELETE;    // Signal intent to delete.
         (*this->child->resolve)(this->child, ctx);
-        if (ctx->action == AT_OVERRIDE) return;
+        if (ctx->action == AT_OVERRIDE || ctx->action == AT_ESCAPE) return;
         if (ctx->action != AT_MOVE) return; // ERROR
         ctx->action = AT_DELETE;
     }
