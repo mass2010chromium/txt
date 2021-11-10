@@ -489,8 +489,9 @@ int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t li
         offset = 0;
     }
     char* line = *(Buffer_get_line_abs(buf, line_num));
+    //TODO: don't find word if cursor is on top of it
     char* search = line + offset + 1;
-    if (!direction) {
+    if (!direction || search_full) {
         //This will search the entire line if searching backwards
         search = line;
     }
