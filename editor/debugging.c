@@ -1,7 +1,5 @@
 #include "debugging.h"
 
-//#define DEBUG 1
-
 #ifdef DEBUG
 #include <stdio.h>
 #include <stdarg.h>

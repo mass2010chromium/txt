@@ -5,7 +5,7 @@
 
 #include "buffer.h"
 #include "gap_buffer.h"
-#include "utils.h"
+#include "../editor/utils.h"
 
 GapBuffer* make_GapBuffer(const char* content, size_t gap_size) {
     GapBuffer* ret = malloc(sizeof(GapBuffer));

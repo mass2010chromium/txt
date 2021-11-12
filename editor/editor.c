@@ -6,27 +6,14 @@
 #include <errno.h>
 
 #include "editor.h"
+#include "utils.h"
 #include "debugging.h"
-
-const char BYTE_ESC         = '\033';
-//const char BYTE_ENTER       = '\015';     // Carriage Return
-const char BYTE_TAB         = '\011';     // Tab
-const char BYTE_ENTER       = '\012';     // Line Feed
-const char BYTE_BACKSPACE   = '\177';
-const char BYTE_UPARROW     = '\110';
-const char BYTE_LEFTARROW   = '\113';
-const char BYTE_RIGHTARROW  = '\115';
-const char BYTE_DOWNARROW   = '\120';
-const char BYTE_DELETE      = '\123';
 
 int TAB_WIDTH = 4;
 bool PRESERVE_INDENT = true;
+bool EXPAND_TAB = true;
 
-typedef int EditorMode;
-const EditorMode EM_QUIT    = -1;
-const EditorMode EM_NORMAL  = 0;
-const EditorMode EM_INSERT  = 1;
-const EditorMode EM_COMMAND = 2;
+bool SCREEN_WRITE = true;
 
 Copy active_copy = {0};
 
@@ -39,6 +26,13 @@ String* command_buffer = NULL;
 GapBuffer active_insert = {0};
 size_t editor_top;
 size_t editor_bottom;
+
+static inline ssize_t _write(const char* string, size_t n) {
+    if (SCREEN_WRITE) {
+        return write(STDOUT_FILENO, string, n);
+    }
+    return 0;
+}
 
 /**
  * Callback function that gets called whenever the terminal size changes.
@@ -76,30 +70,25 @@ int editor_undo() {
     return num_undo;
 }
 
+const char* CLEAR_LINE = "\033[0K";
 /**
  * Clear the current line of text.
  * I'm doing this by writing the empty space char instead of using
  * control chars in an attempt to make it work on tmux wsl 20.04.
  */
 void clear_line() {
-//     size_t x, y;
-//     get_cursor_pos(&y, &x);
-//     int n = window_size.ws_col - x;
-//     char* buf = malloc(n + 1);
-//     buf[n] = 0;
-//     memset(buf, ' ', n);
-//     write(STDOUT_FILENO, buf, n);
-//     free(buf);
-//     move_cursor(y, x);
-    write(STDOUT_FILENO, "\033[0K", 4);
+    _write(CLEAR_LINE, strlen(CLEAR_LINE));
 }
 
 /**
  * Clear the entire screen by writing a control character.
  */
 void clear_screen() {
-    write(STDOUT_FILENO, "\033[2J", 4);
+    _write("\033[2J", 4);
 }
+
+const char* SET_HIGHLIGHT = "\033[7m";
+const char* RESET_HIGHLIGHT = "\033[0m";
 
 /**
  * Adapted from https://stackoverflow.com/questions/50884685/how-to-get-cursor-position-in-c-using-ansi-code
@@ -117,7 +106,7 @@ int get_cursor_pos(size_t *y, size_t *x) {
     *y = 0;
     *x = 0;
    
-    write(STDOUT_FILENO, "\033[6n", 4);
+    _write("\033[6n", 4);
    
     for ( i = 0, ch = 0; ch != 'R'; i++ ) {
         ret = read(STDIN_FILENO, &ch, 1);
@@ -155,7 +144,7 @@ int get_cursor_pos(size_t *y, size_t *x) {
 void move_cursor(size_t y, size_t x) {
     char buf[60] = {0};
     sprintf(buf, "\033[%lu;%luH", y+1, x+1);
-    write(STDOUT_FILENO, buf, strlen(buf));
+    _write(buf, strlen(buf));
 }
 
 /**
@@ -165,8 +154,18 @@ void move_to_current() {
     move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
 }
 
+/**
+ * Suppose I am at position <start>, and I press tab.
+ * Where should I end up?
+ */
+size_t tab_round_up(size_t start) {
+    return ((start / TAB_WIDTH) + 1) * TAB_WIDTH;
+}
+
 /*
  * Position on screen in the line for a position in the string.
+ * Always left aligns tabs.
+ *
  * buf: the line
  * ptr: a position in the line. line_pos_ptr(buf, buf) == 0.
  */
@@ -174,7 +173,7 @@ size_t line_pos_ptr(const char* buf, const char* ptr) {
     size_t pos_x = 0;
     for (; buf != ptr; ++buf) {
         if (*buf == BYTE_TAB) {
-            pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
+            pos_x = tab_round_up(pos_x);
         }
         else {
             ++pos_x;
@@ -199,7 +198,7 @@ char* line_pos(char* buf, ssize_t x) {
         }
         if (*buf == BYTE_TAB) {
             // Tabbing behavior. Jump to the end of the tab.
-            pos_x = ((pos_x / TAB_WIDTH)+1) * TAB_WIDTH;
+            pos_x = tab_round_up(pos_x);
             if (pos_x > x) {
                 // Case of tab? If a tab jumps over, we return the tab.
                 return buf;
@@ -225,27 +224,16 @@ char line_pos_char(char* buf, size_t x) {
 }
 
 /**
- * Get the character corresponding to sceen pos (y, x). Zero indexed.
- */
-char screen_pos_char(size_t y, size_t x) {
-    return line_pos_char(*get_line_in_buffer(y), x);
-}
-
-/**
- * convenience function for getting current screen pos.
- */
-char current_screen_pos_char() {
-    return screen_pos_char(current_buffer->cursor_row, current_buffer->cursor_col);
-}
-
-/**
  * Compute the 'screen length' of a buffer. Accounts for tabs.
  */
 size_t strlen_tab(const char* buf) {
     size_t ret = 0;
     for (; *buf; ++buf) {
         if (*buf == BYTE_TAB) {
-            ret = ((ret / TAB_WIDTH) + 1) * TAB_WIDTH;
+            ret = tab_round_up(ret);
+            continue;
+        }
+        if (*buf == BYTE_ENTER) {
             continue;
         }
         ++ret;
@@ -254,24 +242,48 @@ size_t strlen_tab(const char* buf) {
 }
 
 /**
- * Write a buffer out to the screen, respecting tab width.
- * Replaces tabs with spaces.
+ * Prepare a buffer to write out to the screen, respecting tab width.
+ * Replaces tabs with spaces; Drops newlines.
+ *
+ * Parameters:
+ *      write_buffer: String to push into to return.
+ *      buf: data to write out. (C string, no control chars)
+ *      start: Screenwidth position to start at.
+ *      count: Number of characters in 'buf' to write out.
+ * 
+ * Return:
+ *      New "effective screen position" (for tabbing purpoises)
  */
-void write_respect_tabspace(char* buf, size_t start, size_t count) {
-    static String* write_buffer = NULL;
-    if (write_buffer == NULL) write_buffer = alloc_String(count);
-    else String_clear(write_buffer);
+size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count) {
+    size_t zero_size = Strlen(*write_buffer);
     for (size_t i = 0; i < count; ++i) {
         if (buf[i] == BYTE_TAB) {
-            size_t x = Strlen(write_buffer) + start;
-            for (int j = x; j < ((x / TAB_WIDTH) + 1) * TAB_WIDTH; ++j) {
-                String_push(&write_buffer, ' ');
+            size_t x = Strlen(*write_buffer) - zero_size + start;
+            for (size_t j = x; j < tab_round_up(x); ++j) {
+                String_push(write_buffer, ' ');
             }
             continue;
         }
-        String_push(&write_buffer, buf[i]);
+        else if (buf[i] == BYTE_ENTER) {
+            continue;
+        }
+        String_push(write_buffer, buf[i]);
     }
-    write(STDOUT_FILENO, write_buffer->data, Strlen(write_buffer));
+    return Strlen(*write_buffer) - zero_size + start;
+}
+
+/**
+ * Write a buffer out to the screen, respecting tab width.
+ * Replaces tabs with spaces.
+ * 
+ * Drops newlines.
+ */
+String* write_line_buffer = NULL;
+size_t write_respect_tabspace(const char* buf, size_t start, size_t count) {
+    String_clear(write_line_buffer);
+    size_t ret = format_respect_tabspace(&write_line_buffer, buf, start, count);
+    _write(write_line_buffer->data, Strlen(write_line_buffer));
+    return ret;
 }
 
 /**
@@ -281,6 +293,12 @@ void editor_make_buffer(const char* filename) {
     Buffer* buffer = make_Buffer(filename);
     Vector_push(&buffers, buffer);
 }
+
+void editor_switch_buffer(size_t n) {
+    current_buffer_idx = n;
+    current_buffer = buffers.elements[n];
+    clear_screen();
+}
     
 /**
  * Performs initial setup for the editor, including making the vector of buffers,
@@ -288,6 +306,7 @@ void editor_make_buffer(const char* filename) {
  * and configuring the size of the editor window. Defaults to `Normal` editing mode.
  */
 void editor_init(const char* filename) {
+    write_line_buffer = alloc_String(100);
     current_mode = EM_NORMAL;
     command_buffer = alloc_String(10);
     inplace_make_Vector(&buffers, 10);
@@ -309,14 +328,15 @@ void editor_close_buffer(int idx) {
     Buffer_destroy(buf);
     free(buf);
     if (idx == current_buffer_idx) {
+        int new_idx;
         if (idx == 0) {
-            current_buffer_idx = buffers.size-1;
+            new_idx = buffers.size - 1;
         }
         else {
-            --current_buffer_idx;
+            new_idx = current_buffer_idx - 1;
         }
-        if (current_buffer_idx >= 0) {
-            current_buffer = buffers.elements[current_buffer_idx];
+        if (new_idx >= 0) {
+            editor_switch_buffer(new_idx);
         }
     }
 }
@@ -328,21 +348,6 @@ char** get_line_in_buffer(size_t y) {
     return Buffer_get_line(current_buffer, y);
 }
 
-//TODO rewrite this?
-size_t screen_pos_to_file_pos(size_t y, size_t x, size_t* line_start) {
-    size_t start = current_buffer->top_left_file_pos;
-    size_t end = y-1;
-    if (end > current_buffer->lines.size) {
-        end = current_buffer->lines.size - current_buffer->top_row;
-    }
-    for (size_t r = 0; r < end; ++r) {
-        start += strlen(*get_line_in_buffer(r));
-    }
-    *line_start = start;
-    start += (x - 1);
-    return start;
-}
-
 void begin_insert() {
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     char* head = line_pos(line, current_buffer->cursor_col);
@@ -351,6 +356,11 @@ void begin_insert() {
     // active_insert = make_Edit(current_buffer->undo_index, 
     //                     Buffer_get_line_index(current_buffer, current_buffer->cursor_row),
     //                     0, line);
+    EditorMode mode = Buffer_get_mode(current_buffer);
+    if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+        Buffer_exit_visual(current_buffer);
+    }
+    Buffer_set_mode(current_buffer, EM_INSERT);
 }
 
 /**
@@ -364,8 +374,8 @@ void push_current_action(char* new_content) {
     // TODO: make constructor, check correctness
     Edit* action = malloc(sizeof(Edit));
     action->undo_index = current_buffer->undo_index;
-    action->start_row = current_buffer->cursor_row;
-    action->start_col = 0;
+    action->start_row = line_num;
+    action->start_col = -1;
     action->old_content = *line_p;
     if (new_content == NULL) {
         Vector_delete(&current_buffer->lines, line_num);
@@ -384,41 +394,6 @@ void end_insert() {
     // consumes the content pointer. no need to free
     push_current_action(content);
     gapBuffer_destroy(&active_insert);
-}
-
-/**
- * Delete a character under the cursor (except newlines).
- * DEPRECATED, kept for future reference for now
- */
-int del_chr() {
-    size_t y_pos = current_buffer->cursor_row;
-    size_t x_pos = current_buffer->cursor_col;
-    char** lineptr = (char**) get_line_in_buffer(y_pos);
-    char* line = *lineptr;
-    if (strlen(line) == 0) {
-        return 0;
-    }
-    else if (strlen(line) == 1 && line[0] == '\n') {
-        return 0;
-    }
-    Edit* delete_action = make_Edit(current_buffer->undo_index, 
-                        Buffer_get_line_index(current_buffer, y_pos), 0, line);
-    char* current_ptr = line_pos(delete_action->new_content->data, x_pos);
-    size_t rest = Strlen(delete_action->new_content)
-                    - (current_ptr - delete_action->new_content->data);
-    char buf[2] = {0, 0};
-    buf[0] = String_delete(delete_action->new_content, current_ptr - delete_action->new_content->data);
-    clear_line();
-    write_respect_tabspace(current_ptr, x_pos, rest);
-    free(line);
-    *lineptr = strdup(delete_action->new_content->data);
-    Buffer_push_undo(current_buffer, delete_action);
-    char hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-    for (int i = 0; i < TAB_WIDTH && (hover_ch == 0 || hover_ch == '\n'); ++i) {
-        editor_move_left();
-        hover_ch = line_pos_char(*lineptr, current_buffer->cursor_col);
-    }
-    return 1;
 }
 
 int editor_backspace() {
@@ -481,19 +456,34 @@ void add_chr(char c) {
         write_respect_tabspace(rest, 0, rest_len);
         free(content);
 
+        editor_fix_view();
         move_to_current();
+        print("newline: col=%ld\n", current_buffer->cursor_col);
         return;
     }
     char* current_ptr = active_insert.content + active_insert.gap_start;
-    gapBuffer_insertN(&active_insert, &c, 1);
-    clear_line();
-    write_respect_tabspace(current_ptr, current_buffer->cursor_col, 1);
+    size_t n_insert;
+    if (c == BYTE_TAB && EXPAND_TAB) {
+    	size_t fill_target = tab_round_up(current_buffer->cursor_col);
+    	n_insert = fill_target - current_buffer->cursor_col;
+    	char spaces[n_insert];
+    	memset(spaces, ' ', n_insert);
+        gapBuffer_insertN(&active_insert, spaces, n_insert);
+    }
+    else {
+        n_insert = 1;
+        gapBuffer_insertN(&active_insert, &c, n_insert);
+    }
+    String_clear(write_line_buffer);
+    Strcats(&write_line_buffer, CLEAR_LINE);
+    size_t pos = format_respect_tabspace(&write_line_buffer, current_ptr, current_buffer->cursor_col, n_insert);
     // add might realloc. no need to null terminate the string though
     current_ptr = active_insert.content + active_insert.gap_start;
-    current_buffer->cursor_col = line_pos_ptr(active_insert.content, current_ptr);
+    current_buffer->cursor_col = pos;
     current_buffer->natural_col = current_buffer->cursor_col;
-    write_respect_tabspace(active_insert.content + active_insert.gap_end, current_buffer->cursor_col,
+    format_respect_tabspace(&write_line_buffer, active_insert.content + active_insert.gap_end, pos,
                             active_insert.total_size - active_insert.gap_end);
+    _write(write_line_buffer->data, Strlen(write_line_buffer));
     move_to_current();
 }
 
@@ -517,10 +507,9 @@ void editor_newline(int side, const char* head, const char* initial) {
         // HACK new action just to insert. TODO
         // lack of start info -- gapbuffer tracks a lot of nice metadata implicitly, but not the insert status.
         Vector_insert(&current_buffer->lines, line_num, strdup(""));
-        Edit* newline_edit = make_Insert(current_buffer->undo_index, line_num, 0, "");
+        Edit* newline_edit = make_Insert(current_buffer->undo_index, line_num, -1, "");
         Buffer_push_undo(current_buffer, newline_edit);
         current_buffer->cursor_row += 1;
-        current_buffer->cursor_col = 0;
         current_buffer->cursor_col = start_len;
         current_buffer->natural_col = start_len;
         display_buffer_rows(y_pos+1, editor_bottom);
@@ -531,46 +520,134 @@ void display_bottom_bar(char* left, char* right) {
     size_t x, y;
     get_cursor_pos(&y, &x);
     move_cursor(window_size.ws_row-1, 0);
-    write(STDOUT_FILENO, left, strlen(left));
-    write(STDOUT_FILENO, "\0", 1);
+    _write(left, strlen(left));
+    _write("\0", 1);
     clear_line();
     if (right != NULL) {
-        size_t off = strlen(right);
-        move_cursor(window_size.ws_row, window_size.ws_col - off);
-        write(STDOUT_FILENO, right, strlen(right));
+        size_t off = strlen(right) + 1;
+        move_cursor(window_size.ws_row-1, window_size.ws_col - off);
+        _write(right, strlen(right));
     }
     print("Displayed bottom bar [%s]\n", left);
     move_cursor(y, x);
 }
 
+void format_line_highlight(String** buf, const char* line) {
+    Strcats(buf, SET_HIGHLIGHT);
+    Strcats(buf, line);
+    Strcats(buf, RESET_HIGHLIGHT);
+}
+
+void display_line_highlight(const char* line) {
+    static String* buf = NULL;
+    if (buf == NULL) { buf = alloc_String(10); }
+    else { String_clear(buf); }
+    format_line_highlight(&buf, line);
+    write_respect_tabspace(buf->data, 0, Strlen(buf));
+}
+
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  */
-void display_buffer_rows(size_t start, size_t end) {
+char* display_buffer_rows(size_t start, size_t end) {
+    print("display: %lu %lu\n", start, end);
+    move_cursor(start-1, 0);
+    static_String(output_buffer, 100);
+    bool highlight_mode = false;
+
     //TODO handle line overruns
-    //TODO only redraw changes
+    size_t cur_idx = Buffer_get_line_index(current_buffer, current_buffer->cursor_row);
+    EditorContext visual_bounds = { .start_row = -1, .jump_row = -1 };
+    EditorMode mode = Buffer_get_mode(current_buffer);
+    if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+        // NOTE: EDITOR MUST NOT BE IN INSERT MODE!
+        size_t cur_col = -1;
+        if (mode == EM_VISUAL) {
+            char* cur_line = *Buffer_get_line_abs(current_buffer, cur_idx);
+            cur_col = line_pos(cur_line, current_buffer->cursor_col) - cur_line;
+        }
+        normalize_context(&visual_bounds,
+                          current_buffer->visual_row, current_buffer->visual_col,
+                          cur_idx, cur_col);
+        size_t start_line = Buffer_get_line_index(current_buffer, start-1);
+        if (start_line > visual_bounds.start_row && start_line <= visual_bounds.jump_row) {
+            highlight_mode = true;
+        }
+    }
+
     for (size_t i = start; i <= end; ++i) {
-        move_cursor(i-1, 0);
-        clear_line();
-        if (Buffer_get_line_index(current_buffer, i-1) < current_buffer->lines.size) {
+        if (highlight_mode) { Strcats(&output_buffer, RESET_HIGHLIGHT); }
+        Strcats(&output_buffer, CLEAR_LINE);
+        if (highlight_mode) { Strcats(&output_buffer, SET_HIGHLIGHT); }
+
+        size_t line_idx = Buffer_get_line_index(current_buffer, i-1);
+        if (line_idx < current_buffer->lines.size) {
             char* str;
             if (active_insert.content != NULL && current_buffer->cursor_row == i-1) {
                 str = gapBuffer_get_content(&active_insert);
-                if (strlen(str) != 0) {
-                    write_respect_tabspace(str, 0, strlen(str));
-                }
+                format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 free(str);
             }
             else {
-                str = *get_line_in_buffer(i-1);
-                if (strlen(str) != 0) {
-                    write_respect_tabspace(str, 0, strlen(str));
+                str = *Buffer_get_line_abs(current_buffer, line_idx);
+                if (line_idx == visual_bounds.start_row) {
+                    if (visual_bounds.start_col == -1) {
+                        Strcats(&output_buffer, SET_HIGHLIGHT);
+                        format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                        if (line_idx == visual_bounds.jump_row) {
+                            Strcats(&output_buffer, RESET_HIGHLIGHT);
+                        }
+                        else {
+                            highlight_mode = true;
+                        }
+                    }
+                    else {
+                        size_t pos = format_respect_tabspace(&output_buffer,
+                                                    str, 0, visual_bounds.start_col);
+                        Strcats(&output_buffer, SET_HIGHLIGHT);
+                        if (line_idx == visual_bounds.jump_row) {
+                            pos = format_respect_tabspace(&output_buffer,
+                                        str + visual_bounds.start_col, pos, 
+                                        visual_bounds.jump_col - visual_bounds.start_col + 1);
+                            Strcats(&output_buffer, RESET_HIGHLIGHT);
+                            format_respect_tabspace(&output_buffer,
+                                        str + visual_bounds.jump_col + 1, pos, 
+                                        strlen(str + visual_bounds.jump_col + 1));
+                        }
+                        else {
+                            format_respect_tabspace(&output_buffer,
+                                        str + visual_bounds.start_col, pos, 
+                                        strlen(str + visual_bounds.start_col));
+                            highlight_mode = true;
+                        }
+                    }
+                }
+                else if (line_idx == visual_bounds.jump_row) {
+                    if (visual_bounds.jump_col == -1) {
+                        format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                        Strcats(&output_buffer, RESET_HIGHLIGHT);
+                        highlight_mode = false;
+                    }
+                    else {
+                        size_t pos = format_respect_tabspace(&output_buffer,
+                                                str, 0, visual_bounds.jump_col + 1);
+                        Strcats(&output_buffer, RESET_HIGHLIGHT);
+                        format_respect_tabspace(&output_buffer,
+                                                str + visual_bounds.jump_col + 1, pos, 
+                                                strlen(str + visual_bounds.jump_col + 1));
+                    }
+                }
+                else if (strlen(str) != 0) {
+                    format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 }
             }
-
+            String_push(&output_buffer, '\n');
         }
     }
+    Strcats(&output_buffer, RESET_HIGHLIGHT);
+    _write(output_buffer->data, Strlen(output_buffer));
     move_to_current();
+    return output_buffer->data;
 }
 
 void display_current_buffer() {
@@ -607,7 +684,6 @@ void editor_move_up() {
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t col = strlen_tab(line);
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
     if (!insert && col > 0) --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
@@ -626,7 +702,6 @@ void editor_move_down() {
     editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     size_t col = strlen_tab(line);
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --col;
     if (!insert && col > 0) --col;
     if (col > current_buffer->natural_col) { col = current_buffer->natural_col; }
     current_buffer->cursor_col = col;
@@ -722,7 +797,7 @@ void editor_move_right() {
     current_buffer->natural_col = current_buffer->cursor_col;
 }
 
-void editor_fix_view() {
+RepaintType editor_fix_view() {
     //TODO more than 1
     ssize_t bottom_limit = ((ssize_t) editor_bottom) - 1;
     ssize_t buffer_limit = (ssize_t) current_buffer->lines.size - 1;
@@ -740,13 +815,21 @@ void editor_fix_view() {
         Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -delta);
         display = true;
     }
-    if (display) {
-        display_current_buffer();
+    char** line_p = get_line_in_buffer(current_buffer->cursor_row);
+    while (line_p == NULL) {
+        --current_buffer->cursor_row;
+        line_p = get_line_in_buffer(current_buffer->cursor_row);
     }
-
     char* line;
-    line = *get_line_in_buffer(current_buffer->cursor_row);
-    size_t max_col = strlen_tab(line);
+    size_t max_col;
+    if (active_insert.content != NULL) {
+        line = active_insert.content;   // lol jankish
+        max_col = strlen_tab(line)+1;
+    }
+    else {
+        line = *line_p;
+        max_col = strlen_tab(line);
+    }
     if (current_buffer->cursor_col >= max_col) {
         if (max_col == 0) {
             current_buffer->cursor_col = 0;
@@ -755,6 +838,11 @@ void editor_fix_view() {
             current_buffer->cursor_col = max_col - 1;
         }
     }
+    if (display) {
+        display_current_buffer();
+        return RP_ALL;
+    }
+    return RP_NONE;
 }
 
 void editor_align_tab() {
@@ -770,19 +858,18 @@ void editor_align_tab() {
     }
 }
 
-void editor_move_to(ssize_t row, ssize_t col) {
+RepaintType editor_move_to(ssize_t row, ssize_t col) {
     if (row < 0) row = 0;
     if (col < 0) col = 0;
     ssize_t current_row = Buffer_get_line_index(current_buffer, current_buffer->cursor_row);
-    ssize_t delta = ((ssize_t) row) - current_row;
+    ssize_t delta = row - current_row;
     current_buffer->cursor_row += delta;
     current_buffer->cursor_col = 0;
-    editor_fix_view();
+    RepaintType ret = editor_fix_view();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     if (col > strlen(line)) col = strlen(line);
     col = line_pos_ptr(line, line+col);
     size_t max_col = strlen_tab(line);
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') --max_col;
     if (max_col > 0) --max_col;
     if (col > max_col) col = max_col;
     current_buffer->cursor_col = col;
@@ -791,27 +878,35 @@ void editor_move_to(ssize_t row, ssize_t col) {
         current_buffer->natural_col = current_buffer->cursor_col;
     }
     move_to_current();
+    return ret;
 }
 
+/**
+ * Repaints part of the editor, depending on the action type
+ * and position information contained in `ctx`.
+ * NOTE: MUST TAKE A NORMALIZED CONTEXT!
+ */
 void editor_repaint(RepaintType repaint, EditorContext* ctx) {
     Buffer* buf = ctx->buffer;
+    editor_fix_view();
+    move_to_current();
     if (repaint == RP_ALL) {
         display_current_buffer();
     }
     else if (repaint == RP_LINES) {
         if (ctx->start_row <= ctx->jump_row) {
-            display_buffer_rows(1 + ctx->start_row - buf->top_row, 1 + ctx->jump_row - buf->top_row);
+            display_buffer_rows(editor_top + ctx->start_row - buf->top_row,
+                                editor_top + ctx->jump_row - buf->top_row);
         }
         else {
-            display_buffer_rows(1 + ctx->jump_row - buf->top_row, 1 + ctx->start_row - buf->top_row);
+            display_buffer_rows(editor_top + ctx->jump_row - buf->top_row,
+                                editor_top + ctx->start_row - buf->top_row);
         }
     }
     else if (repaint == RP_LOWER) {
-        display_buffer_rows(1 + ctx->start_row - buf->top_row, window_size.ws_row);
+        display_buffer_rows(editor_top + ctx->start_row - buf->top_row, window_size.ws_row - editor_top);
     }
     else if (repaint == RP_UPPER) {
-        display_buffer_rows(1, 1 + ctx->start_row - buf->top_row);
+        display_buffer_rows(editor_top, editor_top + ctx->start_row - buf->top_row);
     }
-    editor_fix_view();
-    move_to_current();
 }

@@ -1,10 +1,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <sys/sendfile.h>
 
 #include "buffer.h"
-#include "utils.h"
+#include "../editor/utils.h"
+#include "../editor/editor.h"
 
 Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content) {
     Edit* ret = malloc(sizeof(Edit));
@@ -78,11 +80,13 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
         if (infile != NULL)  {
             //TODO buffer/read not the whole file
             n_read = read_file_break_lines(&buf->lines, infile);
+            fclose(infile);
         }
         else {
             Vector_push(&buf->lines, strdup(""));
             n_read = 0;
         }
+        (void) n_read;
     }
     buf->swapfile = NULL;
     buf->name = strdup(filename);
@@ -93,6 +97,9 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     buf->top_left_file_pos = 0;
     buf->last_pos = 0;
     buf->undo_index = 0;
+    buf->visual_row = 0;
+    buf->visual_col = 0;
+    buf->buffer_mode = EM_NORMAL;
 }
     
 void Buffer_destroy(Buffer* buf) {
@@ -164,6 +171,28 @@ size_t Buffer_get_num_lines(Buffer* buf) {
 }
 
 /**
+ * Get buffer mode. For now only guaranteed to be accurate for visual/visual line.
+ */
+EditorMode Buffer_get_mode(Buffer* buf) {
+    return buf->buffer_mode;
+}
+void Buffer_set_mode(Buffer* buf, EditorMode mode) {
+    buf->buffer_mode = mode;
+}
+void Buffer_exit_visual(Buffer* buf) {
+    Buffer_set_mode(buf, EM_NORMAL);
+
+    EditorContext ctx;
+    ctx.start_row = Buffer_get_line_index(buf, buf->cursor_row);
+    ctx.start_col = buf->cursor_col;
+    ctx.jump_row = buf->visual_row;
+    ctx.jump_col = buf->visual_col;
+    ctx.buffer = buf;
+    EditorContext_normalize(&ctx);
+    editor_repaint(RP_LINES, &ctx);
+}
+
+/**
  * These two get relative to screen pos.
  */
 ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y) {
@@ -200,81 +229,93 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
         for (int i = 0; i < copy->data.size; ++i) {
             String* s = copy->data.elements[i];
             buf->lines.elements[ctx->start_row+1 + i] = strdup(s->data);
-            Buffer_push_undo(buf, make_Insert(undo_idx, ctx->start_row+1 + i, 0, s->data));
+            Buffer_push_undo(buf, make_Insert(undo_idx, ctx->start_row+1 + i, -1, s->data));
         }
         return RP_LOWER;
     }
+    // TODO non line mode
     return RP_NONE;
 }
 
 /**
  * Delete a range of chars (from start to end in the given object)
+ * Expects a normalized range.
  */
 RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
-    if (range->jump_row > range->start_row ||
-            (range->jump_row == range->start_row && range->jump_col > range->start_col)) {
-        // delete forwards.
-        for (int i = 0; i < copy->data.size; ++i) {
-            free(copy->data.elements[i]);
+    // delete forwards.
+    for (int i = 0; i < copy->data.size; ++i) {
+        free(copy->data.elements[i]);
+    }
+    Vector_clear(&copy->data, 10);
+    ssize_t first_row = range->start_row;
+    ssize_t last_row = range->jump_row;
+    size_t undo_idx = range->undo_idx;
+    if (range->start_col == -1) {   // Line delete mode
+        copy->cp_type = CP_LINE;
+        for (ssize_t i = first_row; i <= last_row; ++i) {
+            char* line = *Buffer_get_line_abs(buf, i);
+            Vector_push(&copy->data, make_String(line));
+            Buffer_push_undo(buf, make_Delete(undo_idx, first_row, -1, line));
+            free(line);
         }
-        Vector_clear(&copy->data, 10);
-        ssize_t first_row = range->start_row;
-        ssize_t last_row = range->jump_row;
-        size_t undo_idx = range->undo_idx;
-        if (range->start_col == -1) {   // Line delete mode
-            copy->cp_type = CP_LINE;
-            for (ssize_t i = first_row; i < last_row; ++i) {
-                char* line = *Buffer_get_line_abs(buf, i);
-                Vector_push(&copy->data, make_String(line));
-                Buffer_push_undo(buf, make_Delete(undo_idx, first_row, 0, line));
-                free(line);
-            }
-            Vector_delete_range(&buf->lines, first_row, last_row);
-            if (buf->lines.size == 0) {
-                Vector_push(&buf->lines, strdup(""));
-            }
-            return RP_LOWER;
-        }
-        if (last_row == first_row) {
-            Edit* modify_row = make_Edit(undo_idx, first_row, 0, *Buffer_get_line_abs(buf, first_row));
-            Buffer_push_undo(buf, modify_row);
-            String_delete_range(modify_row->new_content, range->start_col, range->jump_col);
-            Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
-            return RP_LINES;
-        }
-        Edit* modify_first_row = make_Edit(undo_idx, first_row, 0, *Buffer_get_line_abs(buf, first_row));
-        Buffer_push_undo(buf, modify_first_row);
-        String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
-
-        if (last_row < Buffer_get_num_lines(buf)) {
-            Edit* delete_last_row = make_Delete(undo_idx, last_row, 0, *Buffer_get_line_abs(buf, last_row));
-            Buffer_push_undo(buf, delete_last_row);
-            String* last_row_fragment = make_String(delete_last_row->old_content + range->jump_col);
-
-            free(*Buffer_get_line_abs(buf, last_row));
-            Vector_delete(&buf->lines, last_row);
-
-            Strcat(&modify_first_row->new_content, last_row_fragment);
-            free(last_row_fragment);
-        }
-
-        Buffer_set_line_abs(buf, first_row, modify_first_row->new_content->data);
-
-        if (last_row > first_row + 1) {
-            for (size_t i = last_row - 1; i > first_row; --i) {
-                char* line = *Buffer_get_line_abs(buf, i);
-                Buffer_push_undo(buf, make_Delete(undo_idx, i, 0, line));
-                free(line);
-            }
-            Vector_delete_range(&buf->lines, first_row+1, last_row);
-            if (buf->lines.size == 0) {
-                Vector_push(&buf->lines, strdup(""));
-            }
+        Vector_delete_range(&buf->lines, first_row, last_row+1);
+        if (buf->lines.size == 0) {
+            Vector_push(&buf->lines, strdup(""));
         }
         return RP_LOWER;
     }
-    // TODO implement
-    return RP_NONE;
+    if (last_row == first_row) {
+        Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
+        Buffer_push_undo(buf, modify_row);
+        // Delete to jump col, inclusive
+        size_t line_len = Strlen(modify_row->new_content);
+        if (line_len > 0 && modify_row->new_content->data[line_len-1] == '\n') {
+            line_len -= 1;
+        }
+        size_t max_del = min_u(range->jump_col+1, line_len);
+        String_delete_range(modify_row->new_content, range->start_col, max_del);
+        Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
+        return RP_LINES;
+    }
+    Edit* modify_first_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
+    Buffer_push_undo(buf, modify_first_row);
+    String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
+
+    print("end: %ld %ld\n", last_row, Buffer_get_num_lines(buf));
+    if (last_row < Buffer_get_num_lines(buf)) {
+        // Remove last row, merge with first row
+        Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
+        Buffer_push_undo(buf, delete_last_row);
+        // Delete to jump col, inclusive.
+        size_t target_len = strlen(delete_last_row->old_content);
+        size_t delete_to = range->jump_col + 1;
+        if (target_len < delete_to) {
+            delete_to = target_len;
+        }
+        String* last_row_fragment = make_String(delete_last_row->old_content + delete_to);
+
+        free(*Buffer_get_line_abs(buf, last_row));
+        Vector_delete(&buf->lines, last_row);
+
+        Strcat(&modify_first_row->new_content, last_row_fragment);
+        print("Save end: %ld %ld %s\n", target_len, delete_to, last_row_fragment->data);
+        free(last_row_fragment);
+    }
+
+    Buffer_set_line_abs(buf, first_row, modify_first_row->new_content->data);
+
+    if (last_row > first_row + 1) {
+        for (size_t i = last_row - 1; i > first_row; --i) {
+            char* line = *Buffer_get_line_abs(buf, i);
+            Buffer_push_undo(buf, make_Delete(undo_idx, i, -1, line));
+            free(line);
+        }
+        Vector_delete_range(&buf->lines, first_row+1, last_row);
+        if (buf->lines.size == 0) {
+            Vector_push(&buf->lines, strdup(""));
+        }
+    }
+    return RP_LOWER;
 }
 
 int Buffer_save(Buffer* buf) {
@@ -322,6 +363,11 @@ void Buffer_push_undo(Buffer* buf, Edit* ed) {
         free(ed_old);
     }
     Deque_push(&buf->undo_buffer, ed);
+    for (size_t i = 0; i < buf->redo_buffer.size; ++i) {
+        Edit* redo_edit = (Edit*) buf->redo_buffer.elements[i];
+        Edit_destroy(redo_edit);
+        free(redo_edit);
+    }
     Vector_clear(&buf->redo_buffer, 100);
 }
 
@@ -334,18 +380,50 @@ void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
     if (ed->old_content == NULL) {
         // Insert action. Undo by deleting.
         char* lineptr = buf->lines.elements[index];
-        Vector_delete(&buf->lines, index);
-        free(lineptr);
-        return;
+        if (ed->start_col == -1) {  // Line insert
+            Vector_delete(&buf->lines, index);
+            free(lineptr);
+            return;
+        }
+        size_t current_len = strlen(lineptr);
+        size_t remove_len = Strlen(ed->new_content);
+        size_t ending = current_len - ed->start_col - remove_len;
+        memmove(lineptr + ed->start_col, lineptr + ed->start_col + remove_len, ending);
     }
-    if (ed->new_content == NULL) {
+    else if (ed->new_content == NULL) {
         // Delete action. Undo by inserting.
-        Vector_insert(&buf->lines, index, strdup(ed->old_content));
-        return;
+        if (ed->start_col == -1) {  // Line delete
+            Vector_insert(&buf->lines, index, strdup(ed->old_content));
+            return;
+        }
+        char* to_insert = ed->old_content;
+        size_t insert_len = strlen(to_insert);
+        char** lineptr = (char**) &(buf->lines.elements[index]);
+        size_t current_len = strlen(*lineptr);
+        *lineptr = realloc(*lineptr, current_len + insert_len + 1);
+        size_t ending = current_len - ed->start_col;
+        memmove(*lineptr + insert_len + ed->start_col, *lineptr + ed->start_col, ending);
+        memcpy(*lineptr + ed->start_col, to_insert, insert_len);
     }
-    char** lineptr = (char**) &(buf->lines.elements[index]);
-    free(*lineptr);
-    *lineptr = strdup(ed->old_content);
+    else {
+        char** lineptr = (char**) &(buf->lines.elements[index]);
+        if (ed->start_col == -1) {  // Line replace
+            free(*lineptr);
+            *lineptr = strdup(ed->old_content);
+            return;
+        }
+        size_t current_len = strlen(*lineptr);
+        char* to_insert = ed->old_content;
+        size_t insert_len = strlen(to_insert);
+        String* to_remove = ed->new_content;
+        size_t remove_len = Strlen(to_remove);
+        if (insert_len > remove_len) {
+            *lineptr = realloc(*lineptr, current_len + insert_len - remove_len);
+        }
+        size_t ending = current_len - ed->start_col - remove_len;
+        memmove(*lineptr + insert_len + ed->start_col, *lineptr + remove_len + ed->start_col, ending);
+        memcpy(*lineptr + ed->start_col, to_insert, insert_len);
+    }
 }
 
 /*
@@ -383,25 +461,54 @@ int Buffer_redo(Buffer*, size_t undo_index);
  *
  * Return: 0 = OK, 1 = NOT_FOUND, -1 = error
  */
-int Buffer_find_str(Buffer* this, char* str, bool cross_lines, bool direction, EditorContext* ret) {
-    //TODO: direction false
+int Buffer_find_str(Buffer* buf, EditorContext* ctx, char* str, bool cross_lines, bool direction) {
+    // printf("find_str called, searching for: %s\n", str);
+    if (!cross_lines) {
+        return Buffer_find_str_inline(buf, ctx, str, ctx->jump_row, ctx->jump_col, direction);
+    }
+    int boundary = Buffer_get_num_lines(buf);
+    int offset = 1;
+    if (!direction) {
+        boundary = -1;
+        offset = -1;
+    }
+    int col_offset = ctx->jump_col;
+    for (int i = (int) ctx->jump_row; i != boundary; i += offset) {
+        int result = Buffer_find_str_inline(buf, ctx, str, i, col_offset, direction);
+        if (result == 0) {
+            return result;
+        }
+        col_offset = -1;
+    }
+    return -1;  // TODO
+}
 
-    char* line = this->lines.elements[ret->start_row];
-    char* search = line + ret->start_col;
+int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t line_num, ssize_t offset, bool direction) {
+    bool search_full = false;
+    if (offset == -1) {
+        search_full = true;
+        offset = 0;
+    }
+    char* line = *(Buffer_get_line_abs(buf, line_num));
+    //TODO: don't find word if cursor is on top of it
+    char* search = line + offset + 1;
+    if (!direction || search_full) {
+        //This will search the entire line if searching backwards
+        search = line;
+    }
     char* result = strstr(search, str);
-    if (result == NULL) {
-        if (!cross_lines) {
-            return 1;
+    if (result != NULL) {
+        if (direction) {
+            ctx->jump_row = line_num;
+            ctx->jump_col = result - line;
+            return 0;
+        } else if (!direction && (search_full || result < line + offset)) {
+            ctx->jump_row = line_num;
+            ctx->jump_col = result - line;
+            return 0;
         }
     }
-    else {
-        ret->jump_row = ret->start_row;
-        ret->jump_col = result - line;
-        return 0;
-    }
-
-    size_t start_row = ret->start_row;
-    return -1;  // TODO
+    return -1;
 }
 
 /**
@@ -449,4 +556,50 @@ size_t read_file_break_lines(Vector* ret, FILE* infile) {
         }
         total_copied += num_read;
     }
+}
+
+int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction) {
+    ssize_t offset = 1;
+    if (!direction) {
+        offset = -1;
+    }
+    ssize_t current_pos = ctx->jump_col + offset;
+    char* line = *(Buffer_get_line_abs(buf, ctx->jump_row));
+    while (current_pos >= 0 && line[current_pos]) {
+        if (line[current_pos] == c) {
+            ctx->jump_col = current_pos;
+            return 0;
+        }
+        current_pos += offset;
+    }
+    return -1;
+}
+
+int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
+    size_t current_pos = ctx->jump_col + 1;
+    size_t current_row = ctx->jump_row;
+    char* line = *(Buffer_get_line_abs(buf, current_row));
+    char start_char = line[current_pos - 1];
+    char c;
+    bool found_space = false;
+    while ((c = line[current_pos])) {
+        if (!skip_punct && ispunct(c) && c != start_char && c != '_') {
+            ctx->jump_col = current_pos;
+            ctx->jump_row = current_row;
+            return 0;
+        } else if (found_space && isalnum(c)) {
+            ctx->jump_col = current_pos;
+            ctx->jump_row = current_row;
+            return 0;
+        } else if (isspace(c)) {
+            found_space = true;
+        }
+        current_pos++;
+        if (line[current_pos] == '\0' && current_row + 1 < Buffer_get_num_lines(buf)) {
+            line = *(Buffer_get_line_abs(buf, current_row + 1));
+            current_row++;
+            current_pos = 0;
+        }
+    }
+    return -1;
 }

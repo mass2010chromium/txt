@@ -1,13 +1,13 @@
 #pragma once
 #include <stddef.h>
 
-#include "common.h"
+#include "../common.h"
 
 struct EditorAction {
     union {
         String* value;
-        size_t* num_value;
     };
+    size_t num_value;
     /**
      * Return 1: Keep me on the stack
      * Return 2: I absorbed this char and am complete; resolve now!
@@ -19,8 +19,11 @@ struct EditorAction {
 
     /**
      * Override this to provide custom repeat logic (or optimized repeat logic).
+     *
+     * Return 0: Use default repeat (loop) (Or null)
+     * Return 1: Custom repeat processed.
      */
-    void (*repeat) (struct EditorAction* this, size_t);
+    int (*repeat) (struct EditorAction* this, EditorContext*, size_t);
 };
 
 typedef struct EditorAction EditorAction;
@@ -40,6 +43,12 @@ void init_actions();
 int process_action(char, int);
 
 void clear_action_stack();
+
+/**
+ * Return a C string representing the action stack (or null if no stack).
+ * DO NOT FREE THIS!
+ */
+char* format_action_stack();
 
 /**
  * Try to make an EditorAction corresponding to "numbers" (repeat).

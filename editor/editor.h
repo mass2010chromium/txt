@@ -1,24 +1,20 @@
 #pragma once
 #include <sys/ioctl.h>
 
-#include "buffer.h"
+#include "../structures/buffer.h"
 #include "utils.h"
+#include "../common.h"
 
-const char BYTE_ESC;
-//const char BYTE_ENTER;     // Carriage Return
-const char BYTE_ENTER;     // Line Feed
-const char BYTE_BACKSPACE;
-const char BYTE_UPARROW;
-const char BYTE_LEFTARROW;
-const char BYTE_RIGHTARROW;
-const char BYTE_DOWNARROW;
-const char BYTE_DELETE;
-
-typedef int EditorMode;
-extern const EditorMode EM_QUIT;
-extern const EditorMode EM_NORMAL;
-extern const EditorMode EM_INSERT;
-extern const EditorMode EM_COMMAND;
+#define BYTE_ESC        '\033'
+//#define BYTE_ENTER      '\015'      // Carriage Return
+#define BYTE_TAB        '\011'      // Tab
+#define BYTE_ENTER      '\012'      // Line Feed
+#define BYTE_BACKSPACE  '\177'
+#define BYTE_UPARROW    '\110'
+#define BYTE_LEFTARROW  '\113'
+#define BYTE_RIGHTARROW '\115'
+#define BYTE_DOWNARROW  '\120'
+#define BYTE_DELETE     '\123'
 
 EditorMode current_mode;
 
@@ -72,9 +68,29 @@ void move_cursor(size_t y, size_t x);   /** Prints an escape code to move the lo
 char* line_pos(char* buf, ssize_t x);
 
 /**
+ * Prepare a buffer to write out to the screen, respecting tab width.
+ * Replaces tabs with spaces; Drops newlines.
+ *
+ * Parameters:
+ *      write_buffer: String to push into to return.
+ *      buf: data to write out. (C string, no control chars)
+ *      start: Screenwidth position to start at.
+ *      count: Number of characters in 'buf' to write out.
+ * 
+ * Return:
+ *      New "effective screen position" (for tabbing purpoises)
+ */
+size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count);
+
+/**
  * Creates a buffer for the given file and pushes it to the vector of buffers.
  */
 void editor_make_buffer(const char* filename);
+
+/**
+ * Switch to an open buffer by index.
+ */
+void editor_switch_buffer(size_t n);
 
 /**
  * Performs initial setup for the editor, including making the vector of buffers,
@@ -126,7 +142,7 @@ void display_bottom_bar(char* left, char* right);
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  */
-void display_buffer_rows(size_t start, size_t end);
+char* display_buffer_rows(size_t start, size_t end);
 
 /**
  * Displays all rows in the current buffer by calling display_buffer_rows
@@ -153,16 +169,18 @@ void editor_move_down();
 void editor_move_EOL();
 void editor_move_left();
 void editor_move_right();
-void editor_fix_view();
+RepaintType editor_fix_view();
 void editor_align_tab();
 
 /**
  * Moves the editor view to (row, col) in the file. 0-indexed.
+ * 
  */
-void editor_move_to(ssize_t row, ssize_t col);
+RepaintType editor_move_to(ssize_t row, ssize_t col);
 
 /**
  * Repaints part of the editor, depending on the action type
  * and position information contained in `ctx`.
+ * NOTE: MUST TAKE A NORMALIZED CONTEXT!
  */
 void editor_repaint(RepaintType repaint, EditorContext* ctx);

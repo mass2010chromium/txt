@@ -1,5 +1,15 @@
 #pragma once
-#include "utils.h"
+#include "editor/utils.h"
+
+typedef int EditorMode;
+#define EM_QUIT         -1
+#define EM_NORMAL       0
+#define EM_INSERT       1
+#define EM_COMMAND      2
+#define EM_VISUAL       3
+#define EM_VISUAL_LINE  4
+
+extern const char* EDITOR_MODE_STR[5];
 
 typedef int ActionType;
 #define AT_NONE 0
@@ -9,6 +19,7 @@ typedef int ActionType;
 #define AT_REDO 4
 #define AT_OVERRIDE 5
 #define AT_PASTE 6
+#define AT_ESCAPE 7
 
 typedef int RepaintType;
 #define RP_NONE 0
@@ -21,7 +32,7 @@ typedef int RepaintType;
 struct Edit {
     size_t undo_index;
     size_t start_row;
-    size_t start_col;
+    ssize_t start_col;  // -1 means entire row modification
     char* old_content;
     String* new_content;
 };
@@ -38,11 +49,12 @@ struct Buffer {
     size_t last_pos;            // TODO: update this...
     ssize_t cursor_row;         // 0-indexed Y coordinate on screen
     ssize_t cursor_col;         // 0-indexed X coordinate on screen
-    int natural_col;
+    int natural_col;            // This is int because.. if you have more than int cols, I can't save you
     ssize_t undo_index;
     Vector/*char* */ lines; //TODO: Cache/load buffered
-    ssize_t visual_row;     // visual mode anchor. -1 means inactive
-    ssize_t visual_col;     // visual mode anchor. -1 means line mode
+    size_t visual_row;      // Visual mode anchors.
+    size_t visual_col;
+    EditorMode buffer_mode;
 };
 typedef struct Buffer Buffer;
 
@@ -55,7 +67,6 @@ struct EditorContext {
     ActionType action;
     Buffer* buffer;
 };
-
 typedef struct EditorContext EditorContext;
 
 #define CP_LINE 0
@@ -65,5 +76,15 @@ struct Copy {
     Vector/* String* */ data;
     CopyType cp_type;
 };
-
 typedef struct Copy Copy;
+
+/**
+ * "Normalize" a set of row, col pairs such that
+ * (ret->start_row, ret->start_col) comes "before"
+ * (ret->jump_row, ret->jump_col).
+ *
+ * If c1 or c2 is negative, both jump columns are set to -1.
+ */
+void normalize_context(EditorContext* ret, ssize_t r1, ssize_t c1,
+                                           ssize_t r2, ssize_t c2);
+void EditorContext_normalize(EditorContext* self);

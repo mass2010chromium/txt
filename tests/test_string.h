@@ -1,17 +1,17 @@
 #pragma once
 
-#include "../String.h"
+#include "../structures/String.h"
 
 UTEST(String, make_String) {
     char* ref = "asdfbsdfcsdfdsdf";
     String* s = make_String(ref);
-    ASSERT_EQ(0, strcmp(ref, s->data));
+    ASSERT_STREQ(ref, s->data);
     ASSERT_EQ(strlen(ref), Strlen(s));
     free(s);
 
     ref = "";
     s = make_String(ref);
-    ASSERT_EQ(0, strcmp(ref, s->data));
+    ASSERT_STREQ(ref, s->data);
     ASSERT_EQ(strlen(ref), Strlen(s));
     free(s);
 }
@@ -19,13 +19,13 @@ UTEST(String, make_String) {
 UTEST(String, convert_String) {
     char* ref = "asdfbsdfcsdfdsdf";
     String* s = convert_String(strdup(ref));
-    ASSERT_EQ(0, strcmp(ref, s->data));
+    ASSERT_STREQ(ref, s->data);
     ASSERT_EQ(strlen(ref), Strlen(s));
     free(s);
 
     ref = "";
     s = convert_String(strdup(ref));
-    ASSERT_EQ(0, strcmp(ref, s->data));
+    ASSERT_STREQ(ref, s->data);
     ASSERT_EQ(strlen(ref), Strlen(s));
     free(s);
 }
@@ -36,7 +36,7 @@ UTEST(String, Strcats) {
     String* s = make_String(ref);
     String* res = Strcats(&s, mod);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdfesdffsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdfesdffsdf", s->data);
     ASSERT_EQ(24, Strlen(s));
     free(s);
 
@@ -45,7 +45,7 @@ UTEST(String, Strcats) {
     s = make_String(ref);
     res = Strcats(&s, mod);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdf", s->data);
     ASSERT_EQ(16, Strlen(s));
     free(s);
 
@@ -54,7 +54,7 @@ UTEST(String, Strcats) {
     s = make_String(ref);
     res = Strcats(&s, mod);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdf", s->data);
     ASSERT_EQ(16, Strlen(s));
     free(s);
 
@@ -63,7 +63,7 @@ UTEST(String, Strcats) {
     s = make_String(ref);
     res = Strcats(&s, mod);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 }
@@ -79,7 +79,7 @@ UTEST(String, Strncats) {
     s = make_String(ref);
     res = Strncats(&s, mod, 8);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdfesdffsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdfesdffsdf", s->data);
     ASSERT_EQ(24, Strlen(s));
     free(s);
 
@@ -88,7 +88,7 @@ UTEST(String, Strncats) {
     s = make_String(ref);
     res = Strncats(&s, mod, 5);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdfesdff", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdfesdff", s->data);
     ASSERT_EQ(21, Strlen(s));
     free(s);
 
@@ -97,7 +97,7 @@ UTEST(String, Strncats) {
     s = make_String(ref);
     res = Strncats(&s, mod, 0);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdf", s->data);
     ASSERT_EQ(16, Strlen(s));
     free(s);
 
@@ -106,7 +106,7 @@ UTEST(String, Strncats) {
     s = make_String(ref);
     res = Strncats(&s, mod, 8);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdf", s->data));
+    ASSERT_STREQ("asdfbsdf", s->data);
     ASSERT_EQ(8, Strlen(s));
     free(s);
 
@@ -115,7 +115,7 @@ UTEST(String, Strncats) {
     s = make_String(ref);
     res = Strncats(&s, mod, 0);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 
@@ -124,7 +124,7 @@ UTEST(String, Strncats) {
     s = make_String(ref);
     res = Strncats(&s, mod, 0);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 }
@@ -136,9 +136,9 @@ UTEST(String, Strcat) {
     String* s2 = make_String(mod);
     String* res = Strcat(&s, s2);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdfesdffsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdfesdffsdf", s->data);
     ASSERT_EQ(24, Strlen(s));
-    ASSERT_EQ(0, strcmp(mod, s2->data));
+    ASSERT_STREQ(mod, s2->data);
     free(s);
     free(s2);
 
@@ -148,9 +148,9 @@ UTEST(String, Strcat) {
     s2 = make_String(mod);
     res = Strcat(&s, s2);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdf", s->data);
     ASSERT_EQ(16, Strlen(s));
-    ASSERT_EQ(0, strcmp(mod, s2->data));
+    ASSERT_STREQ(mod, s2->data);
     free(s);
     free(s2);
 
@@ -160,9 +160,9 @@ UTEST(String, Strcat) {
     s2 = make_String(mod);
     res = Strcat(&s, s2);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("asdfbsdfcsdfdsdf", s->data));
+    ASSERT_STREQ("asdfbsdfcsdfdsdf", s->data);
     ASSERT_EQ(16, Strlen(s));
-    ASSERT_EQ(0, strcmp(mod, s2->data));
+    ASSERT_STREQ(mod, s2->data);
     free(s);
     free(s2);
 
@@ -172,9 +172,9 @@ UTEST(String, Strcat) {
     s2 = make_String(mod);
     res = Strcat(&s, s2);
     ASSERT_EQ(s, res);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
-    ASSERT_EQ(0, strcmp(mod, s2->data));
+    ASSERT_STREQ(mod, s2->data);
     free(s);
     free(s2);
 }
@@ -184,14 +184,14 @@ UTEST(String, String_push) {
     String* s = make_String(ref);
     String_push(&s, 'b');
     ASSERT_EQ(strlen(ref)+1, Strlen(s));
-    ASSERT_EQ(0, strcmp("asdfb", s->data));
+    ASSERT_STREQ("asdfb", s->data);
     free(s);
 
     ref = "";
     s = make_String(ref);
     String_push(&s, 'm');
     ASSERT_EQ(strlen(ref)+1, Strlen(s));
-    ASSERT_EQ(0, strcmp("m", s->data));
+    ASSERT_STREQ("m", s->data);
     free(s);
 
     ref = "";
@@ -200,7 +200,7 @@ UTEST(String, String_push) {
         String_push(&s, 'm');
     }
     ASSERT_EQ(strlen(ref)+10, Strlen(s));
-    ASSERT_EQ(0, strcmp("mmmmmmmmmm", s->data));
+    ASSERT_STREQ("mmmmmmmmmm", s->data);
     free(s);
 
     ref = "";
@@ -212,7 +212,7 @@ UTEST(String, String_push) {
         cmp[i] = i;
     }
     ASSERT_EQ(strlen(ref)+10, Strlen(s));
-    ASSERT_EQ(0, strcmp(cmp, s->data));
+    ASSERT_STREQ(cmp, s->data);
     free(s);
     free(cmp);
 
@@ -225,7 +225,7 @@ UTEST(String, String_push) {
         String_push(&s, 'm');
     }
     ASSERT_EQ(strlen(ref)+1024, Strlen(s));
-    ASSERT_EQ(0, strcmp(cmp, s->data));
+    ASSERT_STREQ(cmp, s->data);
     free(s);
     free(cmp);
 }
@@ -239,7 +239,7 @@ UTEST(String, String_delete) {
     s = make_String(ref);
     res = String_delete(s, 4);
     ASSERT_EQ('b', res);
-    ASSERT_EQ(0, strcmp("asdfsdf", s->data));
+    ASSERT_STREQ("asdfsdf", s->data);
     ASSERT_EQ(7, Strlen(s));
     free(s);
 
@@ -247,7 +247,7 @@ UTEST(String, String_delete) {
     s = make_String(ref);
     res = String_delete(s, 0);
     ASSERT_EQ('a', res);
-    ASSERT_EQ(0, strcmp("sdfbsdf", s->data));
+    ASSERT_STREQ("sdfbsdf", s->data);
     ASSERT_EQ(7, Strlen(s));
     free(s);
 
@@ -255,7 +255,7 @@ UTEST(String, String_delete) {
     s = make_String(ref);
     res = String_delete(s, 7);
     ASSERT_EQ('f', res);
-    ASSERT_EQ(0, strcmp("asdfbsd", s->data));
+    ASSERT_STREQ("asdfbsd", s->data);
     ASSERT_EQ(7, Strlen(s));
     free(s);
 
@@ -265,7 +265,7 @@ UTEST(String, String_delete) {
         res = String_pop(s);
         ASSERT_EQ(ref[i], res);
     }
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 }
@@ -274,13 +274,13 @@ UTEST(String, String_clear) {
     char* ref = "asdfbsdfcsdfdsdf";
     String* s = make_String(ref);
     String_clear(s);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 
     ref = "";
     s = make_String(ref);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 }
@@ -293,28 +293,28 @@ UTEST(String, String_delete_range) {
     ref = "asdf1234";
     s = make_String(ref);
     String_delete_range(s, 2, 6);
-    ASSERT_EQ(0, strcmp("as34", s->data));
+    ASSERT_STREQ("as34", s->data);
     ASSERT_EQ(4, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_delete_range(s, 0, 2);
-    ASSERT_EQ(0, strcmp("df1234", s->data));
+    ASSERT_STREQ("df1234", s->data);
     ASSERT_EQ(6, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_delete_range(s, 1, 8);
-    ASSERT_EQ(0, strcmp("a", s->data));
+    ASSERT_STREQ("a", s->data);
     ASSERT_EQ(1, Strlen(s));
     free(s);
 
     ref = "asdfbsdf";
     s = make_String(ref);
     String_delete_range(s, 0, 8);
-    ASSERT_EQ(0, strcmp("", s->data));
+    ASSERT_STREQ("", s->data);
     ASSERT_EQ(0, Strlen(s));
     free(s);
 }
@@ -326,28 +326,28 @@ UTEST(String, String_insert) {
     ref = "asdf1234";
     s = make_String(ref);
     String_insert(&s, 2, '|');
-    ASSERT_EQ(0, strcmp("as|df1234", s->data));
+    ASSERT_STREQ("as|df1234", s->data);
     ASSERT_EQ(9, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_insert(&s, 0, '|');
-    ASSERT_EQ(0, strcmp("|asdf1234", s->data));
+    ASSERT_STREQ("|asdf1234", s->data);
     ASSERT_EQ(9, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_insert(&s, 8, '|');
-    ASSERT_EQ(0, strcmp("asdf1234|", s->data));
+    ASSERT_STREQ("asdf1234|", s->data);
     ASSERT_EQ(9, Strlen(s));
     free(s);
 
     ref = "";
     s = make_String(ref);
     String_insert(&s, 0, '|');
-    ASSERT_EQ(0, strcmp("|", s->data));
+    ASSERT_STREQ("|", s->data);
     ASSERT_EQ(1, Strlen(s));
     free(s);
 }
@@ -359,49 +359,49 @@ UTEST(String, String_ninserts) {
     ref = "asdf1234";
     s = make_String(ref);
     String_ninserts(&s, 2, "[|]", 3);
-    ASSERT_EQ(0, strcmp("as[|]df1234", s->data));
+    ASSERT_STREQ("as[|]df1234", s->data);
     ASSERT_EQ(11, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_ninserts(&s, 4, "[|]", 1);
-    ASSERT_EQ(0, strcmp("asdf[1234", s->data));
+    ASSERT_STREQ("asdf[1234", s->data);
     ASSERT_EQ(9, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_ninserts(&s, 0, "[|]", 3);
-    ASSERT_EQ(0, strcmp("[|]asdf1234", s->data));
+    ASSERT_STREQ("[|]asdf1234", s->data);
     ASSERT_EQ(11, Strlen(s));
     free(s);
 
     ref = "asdf1234";
     s = make_String(ref);
     String_ninserts(&s, 8, "[|]", 3);
-    ASSERT_EQ(0, strcmp("asdf1234[|]", s->data));
+    ASSERT_STREQ("asdf1234[|]", s->data);
     ASSERT_EQ(11, Strlen(s));
     free(s);
 
     ref = "";
     s = make_String(ref);
     String_ninserts(&s, 0, "|", 1);
-    ASSERT_EQ(0, strcmp("|", s->data));
+    ASSERT_STREQ("|", s->data);
     ASSERT_EQ(1, Strlen(s));
     free(s);
 
     ref = "";
     s = make_String(ref);
     String_ninserts(&s, 0, "[|]", 3);
-    ASSERT_EQ(0, strcmp("[|]", s->data));
+    ASSERT_STREQ("[|]", s->data);
     ASSERT_EQ(3, Strlen(s));
     free(s);
 
     ref = "[|]";
     s = make_String(ref);
     String_ninserts(&s, 2, "asdf1234", 5);
-    ASSERT_EQ(0, strcmp("[|asdf1]", s->data));
+    ASSERT_STREQ("[|asdf1]", s->data);
     ASSERT_EQ(8, Strlen(s));
     free(s);
 }
