@@ -276,6 +276,7 @@ int main(int argc, char** argv) {
     char buf[30];
     buf[1] = '\0';
     display_current_buffer();
+    move_to_current();
     process_input(BYTE_ESC, 0);
     while (true) {
         ssize_t result = read(STDIN_FILENO, buf, 1);

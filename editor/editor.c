@@ -142,6 +142,7 @@ int get_cursor_pos(size_t *y, size_t *x) {
  * Zero indexed.
  */
 void move_cursor(size_t y, size_t x) {
+    print("move raw %ld %ld\n", y, x);
     char buf[60] = {0};
     sprintf(buf, "\033[%lu;%luH", y+1, x+1);
     _write(buf, strlen(buf));
@@ -151,7 +152,8 @@ void move_cursor(size_t y, size_t x) {
  * Move the cursor to the current (row, col) of the buffer.
  */
 void move_to_current() {
-    move_cursor(current_buffer->cursor_row, current_buffer->cursor_col);
+    print("move current %ld %ld\n", current_buffer->cursor_row, current_buffer->cursor_col);
+    move_cursor(current_buffer->cursor_row + editor_top - 1, current_buffer->cursor_col);
 }
 
 /**
@@ -447,7 +449,8 @@ void add_chr(char c) {
         char* rest = content + active_insert.gap_end;
         size_t rest_len = active_insert.total_size - active_insert.gap_end;
         // Save edited line, push to undo stack.
-        push_current_action(strndup(content, active_insert.gap_start));   // need to give it something to take ownership of.
+        // need to give it something to take ownership of.
+        push_current_action(strndup(content, active_insert.gap_start));
         move_to_current();
         clear_line();
 
@@ -496,7 +499,8 @@ void editor_newline(int side, const char* head, const char* initial) {
     if (side > 0) {
         int y_pos = current_buffer->cursor_row + 1;
         size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
-        inplace_make_GapBuffer(&active_insert, initial, DEFAULT_GAP_SIZE);  // Copies 'initial' to the tail of this gapbuffer. Neat!
+        // Copies 'initial' to the tail of this gapbuffer. Neat!
+        inplace_make_GapBuffer(&active_insert, initial, DEFAULT_GAP_SIZE);
         size_t start_len = 0;
         if (PRESERVE_INDENT) {
             for (const char* ptr = head; is_whitespace(*ptr); ++ptr) {
@@ -551,12 +555,13 @@ void display_line_highlight(const char* line) {
  */
 char* display_buffer_rows(size_t start, size_t end) {
     print("display: %lu %lu\n", start, end);
-    move_cursor(start-1, 0);
+    move_cursor(start-1 + (editor_top - 1), 0);
     static_String(output_buffer, 100);
     bool highlight_mode = false;
 
     //TODO handle line overruns
     size_t cur_idx = Buffer_get_line_index(current_buffer, current_buffer->cursor_row);
+    print("Buffer: %ld\n", current_buffer->cursor_row);
     EditorContext visual_bounds = { .start_row = -1, .jump_row = -1 };
     EditorMode mode = Buffer_get_mode(current_buffer);
     if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
@@ -651,7 +656,7 @@ char* display_buffer_rows(size_t start, size_t end) {
 }
 
 void display_current_buffer() {
-    display_buffer_rows(editor_top, editor_bottom);
+    display_buffer_rows(1, editor_bottom-editor_top+1);
 }
 
 void left_align_tab(char* line) {
@@ -799,7 +804,7 @@ void editor_move_right() {
 
 RepaintType editor_fix_view() {
     //TODO more than 1
-    ssize_t bottom_limit = ((ssize_t) editor_bottom) - 1;
+    ssize_t bottom_limit = ((ssize_t) editor_bottom) - editor_top;
     ssize_t buffer_limit = (ssize_t) current_buffer->lines.size - 1;
     bool display = false;
     if (buffer_limit < bottom_limit) bottom_limit = buffer_limit;
@@ -809,8 +814,8 @@ RepaintType editor_fix_view() {
         Buffer_scroll(current_buffer, editor_bottom+1-editor_top, delta);
         display = true;
     }
-    if (current_buffer->cursor_row < (ssize_t) (editor_top-1)) {
-        ssize_t delta = (ssize_t) (editor_top-1) - current_buffer->cursor_row;
+    if (current_buffer->cursor_row < 0) {
+        ssize_t delta = -current_buffer->cursor_row;
         current_buffer->cursor_row += delta;
         Buffer_scroll(current_buffer, editor_bottom+1-editor_top, -delta);
         display = true;
@@ -895,18 +900,18 @@ void editor_repaint(RepaintType repaint, EditorContext* ctx) {
     }
     else if (repaint == RP_LINES) {
         if (ctx->start_row <= ctx->jump_row) {
-            display_buffer_rows(editor_top + ctx->start_row - buf->top_row,
-                                editor_top + ctx->jump_row - buf->top_row);
+            display_buffer_rows(1 + ctx->start_row - buf->top_row,
+                                1 + ctx->jump_row - buf->top_row);
         }
         else {
-            display_buffer_rows(editor_top + ctx->jump_row - buf->top_row,
-                                editor_top + ctx->start_row - buf->top_row);
+            display_buffer_rows(1 + ctx->jump_row - buf->top_row,
+                                1 + ctx->start_row - buf->top_row);
         }
     }
     else if (repaint == RP_LOWER) {
-        display_buffer_rows(editor_top + ctx->start_row - buf->top_row, window_size.ws_row - editor_top);
+        display_buffer_rows(1 + ctx->start_row - buf->top_row, window_size.ws_row - editor_top);
     }
     else if (repaint == RP_UPPER) {
-        display_buffer_rows(editor_top, editor_top + ctx->start_row - buf->top_row);
+        display_buffer_rows(1, 1 + ctx->start_row - buf->top_row);
     }
 }
