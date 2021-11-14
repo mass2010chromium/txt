@@ -153,7 +153,7 @@ void display_bottom_bar(char* left, char* right);
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  */
-char* display_buffer_rows(size_t start, size_t end);
+char* display_buffer_rows(ssize_t start, ssize_t end);
 
 /**
  * Displays all rows in the current buffer by calling display_buffer_rows

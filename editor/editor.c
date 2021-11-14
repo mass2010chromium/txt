@@ -516,7 +516,7 @@ int editor_backspace() {
 
             free(_content);
 
-            display_buffer_rows(y_pos+1, editor_bottom - editor_top);
+            display_buffer_rows(y_pos, editor_bottom - editor_top);
             return 1;
         }
         return 0;
@@ -611,7 +611,7 @@ void editor_newline(int side, const char* head, const char* initial) {
         current_buffer->cursor_row += 1;
         current_buffer->cursor_col = start_len;
         current_buffer->natural_col = start_len;
-        display_buffer_rows(y_pos+1, editor_bottom - editor_top);
+        display_buffer_rows(y_pos, editor_bottom - editor_top);
     }
 }
 
@@ -651,12 +651,14 @@ void display_line_highlight(const char* line) {
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  * Return value is for debugging.
  */
-char* display_buffer_rows(size_t start, size_t end) {
+char* display_buffer_rows(ssize_t start, ssize_t end) {
+    if (start < 0) { start = 0; }
+    if (end > (editor_bottom - editor_top)) { end = editor_bottom - editor_top; }
     if (!editor_display) {
         return "";
     }
     print("display: %lu %lu\n", start, end);
-    move_cursor(start-1 + editor_top, 0);
+    move_cursor(start + editor_top, 0);
     static_String(output_buffer, 100);
     bool highlight_mode = false;
 
@@ -675,22 +677,22 @@ char* display_buffer_rows(size_t start, size_t end) {
         normalize_context(&visual_bounds,
                           current_buffer->visual_row, current_buffer->visual_col,
                           cur_idx, cur_col);
-        size_t start_line = Buffer_get_line_index(current_buffer, start-1);
+        size_t start_line = Buffer_get_line_index(current_buffer, start);
         if (start_line > visual_bounds.start_row && start_line <= visual_bounds.jump_row) {
             highlight_mode = true;
         }
     }
 
-    for (size_t i = start; i <= end; ++i) {
+    for (size_t i = start; i < end; ++i) {
         if (highlight_mode) { Strcats(&output_buffer, RESET_HIGHLIGHT); }
         Strcats(&output_buffer, CLEAR_LINE);
         if (highlight_mode) { Strcats(&output_buffer, SET_HIGHLIGHT); }
 
-        size_t line_idx = Buffer_get_line_index(current_buffer, i-1);
+        size_t line_idx = Buffer_get_line_index(current_buffer, i);
         if (line_idx < current_buffer->lines.size) {
-            format_left_bar(&output_buffer, i-1);
+            format_left_bar(&output_buffer, i);
             char* str;
-            if (active_insert.content != NULL && current_buffer->cursor_row == i-1) {
+            if (active_insert.content != NULL && current_buffer->cursor_row == i) {
                 str = gapBuffer_get_content(&active_insert);
                 format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 free(str);
@@ -758,7 +760,7 @@ char* display_buffer_rows(size_t start, size_t end) {
 }
 
 void display_current_buffer() {
-    display_buffer_rows(1, editor_bottom-editor_top);
+    display_buffer_rows(0, editor_bottom-editor_top);
 }
 
 void left_align_tab(char* line) {
@@ -1006,20 +1008,20 @@ void editor_repaint(RepaintType repaint, EditorContext* ctx) {
     }
     else if (repaint == RP_LINES) {
         if (ctx->start_row <= ctx->jump_row) {
-            display_buffer_rows(1 + ctx->start_row - buf->top_row,
+            display_buffer_rows(ctx->start_row - buf->top_row,
                                 1 + ctx->jump_row - buf->top_row);
         }
         else {
-            display_buffer_rows(1 + ctx->jump_row - buf->top_row,
+            display_buffer_rows(ctx->jump_row - buf->top_row,
                                 1 + ctx->start_row - buf->top_row);
         }
     }
     else if (repaint == RP_LOWER) {
         print("repaint lower\n");
-        display_buffer_rows(1 + ctx->start_row - buf->top_row, editor_bottom - editor_top);
+        display_buffer_rows(ctx->start_row - buf->top_row, editor_bottom - editor_top);
     }
     else if (repaint == RP_UPPER) {
         print("repaint upper\n");
-        display_buffer_rows(1, 1 + ctx->start_row - buf->top_row);
+        display_buffer_rows(0, 1 + ctx->start_row - buf->top_row);
     }
 }

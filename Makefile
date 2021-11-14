@@ -10,6 +10,8 @@ all: bin editor/main.o $(objects)
 editor: all
 	./bin/main
 
+editor/editor_actions.o: editor/editor_actions.c $(wildcard editor/actions/*.c)
+
 valgrind_test: _test
 	valgrind --leak-check=full --show-leak-kinds=definite,indirect,possible bin/test
 

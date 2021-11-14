@@ -266,16 +266,22 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         return RP_LOWER;
     }
     if (last_row == first_row) {
-        Edit* modify_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
-        Buffer_push_undo(buf, modify_row);
-        // Delete to jump col, inclusive
-        size_t line_len = Strlen(modify_row->new_content);
-        if (line_len > 0 && modify_row->new_content->data[line_len-1] == '\n') {
-            line_len -= 1;
-        }
-        size_t max_del = min_u(range->jump_col+1, line_len);
-        String_delete_range(modify_row->new_content, range->start_col, max_del);
-        Buffer_set_line_abs(buf, first_row, modify_row->new_content->data);
+        size_t start_c = range->start_col;
+        size_t end_c = range->jump_col + 1;
+
+        char** line_p = Buffer_get_line_abs(buf, first_row);
+        Edit* edit = malloc(sizeof(Edit));
+        edit->undo_index = undo_idx;
+        edit->start_row = first_row;
+        edit->start_col = start_c;
+        edit->old_content = strndup(*line_p + start_c, end_c - start_c);
+        edit->new_content = NULL;
+        Buffer_push_undo(buf, edit);
+
+        char* line = *line_p;
+        size_t line_len = strlen(line);
+        size_t rest = line_len - end_c;
+        memmove(line + start_c, line + end_c, rest+1);
         return RP_LINES;
     }
     Edit* modify_first_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));

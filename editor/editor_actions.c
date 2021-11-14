@@ -7,48 +7,58 @@
 #include "editor.h"
 #include "../structures/buffer.h"
 
+// basic_actions.c
 EditorAction* make_h_action();  // Move left. (repeatable, no line wrap)
 EditorAction* make_j_action();  // Move down. (repeatable)
 EditorAction* make_k_action();  // Move up. (repeatable)
 EditorAction* make_l_action();  // Move right. (repeatable, no line wrap)
 EditorAction* make_i_action();  // Enter insert mode.
-EditorAction* make_o_action();  // Create a line below, and enter insert mode.
+EditorAction* make_ESC_action();    // Pop cmdstack, exit visual, etc etc.
 
+
+// editing_actions.c
+EditorAction* make_0_action();  // Go to start of line.
+EditorAction* make_DOLLAR_action(); // Go to end of line.
+
+EditorAction* make_o_action();  // Create a line below, and enter insert mode.
+EditorAction* make_A_action();  // Go to end of line and enter insert mode.
+
+EditorAction* make_g_action();  // "Go" command. (`gg` goes to start, `gt` / `gT` move between tabs)
+EditorAction* make_G_action();  // Go to end of buffer. (first col)
+
+EditorAction* make_x_action();  // Delete a character (repeatable), or delete the visual selection.
+EditorAction* make_r_action();  // Replace character(s) under cursor.
+EditorAction* make_d_action();  // 'dd' to delete line (repeatable), or delete based on the result of a move command.
+EditorAction* make_D_action();  // Shortcut for `d$`.
+
+
+// visual_actions.c
 EditorAction* make_v_action();  // Enter visual select mode (char).
 EditorAction* make_V_action();  // Enter visual select mode (line).
 
-EditorAction* make_w_action();  // Move forward by one "word", breaking on punctuation and space. (repeatable)
-EditorAction* make_W_action();  // Move forward by one "word", breaking on punctuation. (repeatable)
 
 EditorAction* make_u_action();  // Undo an action. (repeatable)
 EditorAction* make_p_action();  // Paste copied/cut text. (repeatable, only partially implemented)
 
-EditorAction* make_g_action();  // Go to start of buffer.
-EditorAction* make_G_action();  // Go to end of buffer. (first col)
 
-EditorAction* make_x_action();  // Delete a character (repeatable), or delete the visual selection.
-EditorAction* make_d_action();  // 'dd' to delete line (repeatable), or delete based on the result of a move command.
-
-EditorAction* make_A_action();  // Go to end of line and enter insert mode.
-
+// search_actions.c
 EditorAction* make_f_action();  // Find a character forwards in line.
 EditorAction* make_F_action();  // Find a character backwards in line.
-
-EditorAction* make_DOLLAR_action(); // Go to end of line.
-EditorAction* make_D_action();  // Shortcut for `d$`.
-EditorAction* make_0_action();  // Go to start of line.
+EditorAction* make_w_action();  // Move forward by one "word", breaking on punctuation and space. (repeatable)
+EditorAction* make_W_action();  // Move forward by one "word", breaking on punctuation. (repeatable)
 
 EditorAction* make_slash_action();  // Search for a word across lines, forward.
 EditorAction* make_question_action();   // Search for a word across lines, backward.
 EditorAction* make_n_action();  // Repeat previous word search.
 EditorAction* make_N_action();  // Repeat previous word search, in the reverse direction.
 
+
 EditorAction* make_m_action();  // Set mark.
 EditorAction* make_BACKTICK_action();   // Go to mark.
 
-EditorAction* make_COLON_action();  // command mode.
 
-EditorAction* make_ESC_action();    // Pop cmdstack, exit visual, etc etc.
+// command_action.c
+EditorAction* make_COLON_action();  // command mode.
 
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
@@ -71,8 +81,26 @@ void init_actions() {
     action_type_table['l'] = AT_MOVE;
     action_jump_table['i'] = &make_i_action;
     action_type_table['i'] = AT_OVERRIDE;
+    action_jump_table[BYTE_ESC] = &make_ESC_action;
+    action_type_table[BYTE_ESC] = AT_ESCAPE;
+
+    action_jump_table['0'] = &make_0_action;
+    action_type_table['0'] = AT_MOVE;
+    action_jump_table['$'] = &make_DOLLAR_action;
+    action_type_table['$'] = AT_MOVE;
     action_jump_table['o'] = &make_o_action;
     action_type_table['o'] = AT_OVERRIDE;
+    action_jump_table['A'] = &make_A_action;
+    action_type_table['A'] = AT_OVERRIDE;
+    action_jump_table['x'] = &make_x_action;
+    action_type_table['x'] = AT_DELETE;
+    action_jump_table['r'] = &make_r_action;
+    action_type_table['r'] = AT_OVERRIDE;
+    action_jump_table['d'] = &make_d_action;
+    action_type_table['d'] = AT_DELETE;
+    action_jump_table['D'] = &make_D_action;
+    action_type_table['D'] = AT_DELETE;
+
     action_jump_table['v'] = &make_v_action;
     action_type_table['v'] = AT_OVERRIDE;
     action_jump_table['V'] = &make_V_action;
@@ -89,18 +117,6 @@ void init_actions() {
     action_type_table['g'] = AT_MOVE;
     action_jump_table['G'] = &make_G_action;
     action_type_table['G'] = AT_MOVE;
-    action_jump_table['x'] = &make_x_action;
-    action_type_table['x'] = AT_DELETE;
-    action_jump_table['d'] = &make_d_action;
-    action_type_table['d'] = AT_DELETE;
-    action_jump_table['D'] = &make_D_action;
-    action_type_table['D'] = AT_DELETE;
-    action_jump_table['A'] = &make_A_action;
-    action_type_table['A'] = AT_OVERRIDE;
-    action_jump_table['$'] = &make_DOLLAR_action;
-    action_type_table['$'] = AT_MOVE;
-    action_jump_table['0'] = &make_0_action;
-    action_type_table['0'] = AT_MOVE;
     action_jump_table['f'] = &make_f_action;
     action_type_table['f'] = AT_MOVE;
     action_jump_table['F'] = &make_F_action;
@@ -119,8 +135,6 @@ void init_actions() {
     action_type_table['`'] = AT_MOVE;
     action_jump_table[':'] = &make_COLON_action;
     action_type_table[':'] = AT_COMMAND;
-    action_jump_table[BYTE_ESC] = &make_ESC_action;
-    action_type_table[BYTE_ESC] = AT_ESCAPE;
     action_stack = make_Vector(10);
 }
 
@@ -212,6 +226,7 @@ ActionType resolve_action_stack() {
         }
         else if (ctx.action == AT_UNDO) {
             int num_undo = Buffer_undo(buf, ctx.undo_idx);
+            // TODO kinda janky...
             buf->undo_index = ctx.undo_idx-1;
             if (buf->undo_index < 0) buf->undo_index = 0;
             if (num_undo > 0) {
@@ -226,25 +241,6 @@ ActionType resolve_action_stack() {
     }
     clear_action_stack();
     return ctx.action;
-}
-
-
-/**
- * Get the corresponding action char.
- */
-int esc_action(int control) {
-    switch(control) {
-        case BYTE_UPARROW:
-            return 'k';
-        case BYTE_DOWNARROW:
-            return 'j';
-        case BYTE_LEFTARROW:
-            return 'h';
-        case BYTE_RIGHTARROW:
-            return 'l';
-        default:
-            return BYTE_ESC;
-    }
 }
 
 /**
@@ -368,65 +364,9 @@ EditorAction* make_NumberAction(char input) {
     return NULL;
 }
 
-void j_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    ctx->jump_row += 1;
-    ctx->jump_col = ctx->buffer->natural_col;
-}
-
-EditorAction* make_j_action() {
-    EditorAction* ret = make_DefaultAction("j");
-    ret->resolve = &j_action_resolve;
-    return ret;
-}
-
-void k_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    ctx->jump_row -= 1;
-    ctx->jump_col = ctx->buffer->natural_col;
-}
-
-EditorAction* make_k_action() {
-    EditorAction* ret = make_DefaultAction("k");
-    ret->resolve = &k_action_resolve;
-    return ret;
-}
-
-void h_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    ctx->jump_col -= 1;
-}
-
-EditorAction* make_h_action() {
-    EditorAction* ret = make_DefaultAction("h");
-    ret->resolve = &h_action_resolve;
-    return ret;
-}
-
-void l_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    ctx->jump_col += 1;
-}
-
-EditorAction* make_l_action() {
-    EditorAction* ret = make_DefaultAction("l");
-    ret->resolve = &l_action_resolve;
-    return ret;
-}
-
-void i_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_OVERRIDE;
-    editor_new_action();
-    current_mode = EM_INSERT;
-    begin_insert();
-    editor_align_tab();
-}
-
-EditorAction* make_i_action() {
-    EditorAction* ret = make_DefaultAction("i");
-    ret->resolve = &i_action_resolve;
-    return ret;
-}
+#include "actions/basic_actions.c"
+#include "actions/editing_actions.c"
+#include "actions/visual_actions.c"
 
 void w_action_resolve(EditorAction* this, EditorContext* ctx) {
     Buffer_skip_word(ctx->buffer, ctx, false);
@@ -453,79 +393,6 @@ EditorAction* make_W_action() {
     return ret;
 }
 
-void v_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_OVERRIDE;
-    Buffer* buf = ctx->buffer;
-    // TODO: num->v
-    EditorMode mode = Buffer_get_mode(buf);
-    if (mode == EM_VISUAL) {
-        // exit visual mode.
-        Buffer_exit_visual(buf);
-        return;
-    }
-    Buffer_set_mode(buf, EM_VISUAL);
-    if (mode == EM_NORMAL) {
-        buf->visual_row = ctx->jump_row;
-        buf->visual_col = ctx->jump_col;
-        editor_repaint(RP_LINES, ctx);
-        return;
-    }
-    ctx->jump_row = buf->visual_row;
-    editor_repaint(RP_LINES, ctx);
-}
-
-EditorAction* make_v_action() {
-    EditorAction* ret = make_DefaultAction("v");
-    ret->resolve = &v_action_resolve;
-    return ret;
-}
-
-
-void V_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_OVERRIDE;
-    Buffer* buf = ctx->buffer;
-    // TODO: num->v
-    EditorMode mode = Buffer_get_mode(buf);
-    if (mode == EM_VISUAL_LINE) {
-        // exit visual mode.
-        Buffer_set_mode(buf, EM_NORMAL);
-        ctx->jump_row = buf->visual_row;
-        editor_repaint(RP_LINES, ctx);
-        return;
-    }
-    Buffer_set_mode(buf, EM_VISUAL_LINE);
-    if (mode == EM_NORMAL) {
-        buf->visual_row = ctx->jump_row;
-        buf->visual_col = ctx->jump_col;
-        editor_repaint(RP_LINES, ctx);
-        return;
-    }
-    ctx->jump_row = buf->visual_row;
-    editor_repaint(RP_LINES, ctx);
-}
-
-EditorAction* make_V_action() {
-    EditorAction* ret = make_DefaultAction("V");
-    ret->resolve = &V_action_resolve;
-    return ret;
-}
-
-void o_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_OVERRIDE;
-    editor_new_action();
-    current_mode = EM_INSERT;
-    editor_move_EOL();
-    begin_insert();
-    editor_move_right();
-    add_chr('\n');
-}
-
-EditorAction* make_o_action() {
-    EditorAction* ret = make_DefaultAction("o");
-    ret->resolve = &o_action_resolve;
-    return ret;
-}
-
 void u_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_UNDO;
     ctx->undo_idx -= 1;
@@ -548,151 +415,16 @@ EditorAction* make_p_action() {
     return ret;
 }
 
-int g_action_update(EditorAction* this, char input, int control) {
-    if (input == 'g') {
-        String_push(&this->value, 'g');
-        return 2;
-    }
-    return 0;
-}
-
-void g_action_resolve(EditorAction* this, EditorContext* ctx) {
-    if (this->child == NULL) {
-        if (strcmp(this->value->data, "gg") == 0) {
-            ctx->action = AT_MOVE;
-            ctx->jump_row = 0;
-            ctx->jump_col = 0;
-        }
-    }
-    // TODO implement move-delete
-    else {
-        (*this->child->resolve)(this->child, ctx);
-    }
-}
-
-EditorAction* make_g_action() {
-    EditorAction* ret = make_DefaultAction("g");
-    ret->update = &g_action_update;
-    ret->resolve = &g_action_resolve;
-    return ret;
-}
-
-void G_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    ctx->jump_row = Buffer_get_num_lines(ctx->buffer);
-    ctx->jump_col = 0;
-}
-
-EditorAction* make_G_action() {
-    EditorAction* ret = make_DefaultAction("G");
-    ret->resolve = &G_action_resolve;
-    return ret;
-}
-
-void x_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_DELETE;
-    Buffer* buf = ctx->buffer;
-    EditorMode mode = Buffer_get_mode(buf);
-    if (mode == EM_VISUAL) {
-        ctx->jump_col = buf->visual_col;
-        ctx->jump_row = buf->visual_row;
-    }
-    else if (mode == EM_VISUAL_LINE) {
-        ctx->start_col = -1;    // Delete the whole line
-        ctx->jump_col = 0;
-        ctx->jump_row = buf->visual_row;
-    }
-}
-
-int x_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
-    if (n > 0) {
-        ctx->action = AT_DELETE;
-        ctx->jump_col += n - 1;
-        return 1;
-    }
-    return 0;
-}
-
-EditorAction* make_x_action() {
-    EditorAction* ret = make_DefaultAction("x");
-    ret->resolve = &x_action_resolve;
-    ret->repeat = &x_action_repeat;
-    return ret;
-}
-
-
-int d_action_update(EditorAction* this, char input, int control) {
-    if (input == 'd') {
-        String_push(&this->value, 'd');
-        return 2;
-    }
-    return 0;
-}
-
-void d_action_resolve(EditorAction* this, EditorContext* ctx) {
-    if (this->child == NULL) {
-        if (strcmp(this->value->data, "dd") == 0) {
-            ctx->action = AT_DELETE;
-            ctx->start_col = -1;    // Delete the whole line
-            ctx->jump_col = 0;
-        }
-    }
-    // TODO implement move-delete
-    else {
-        ctx->action = AT_DELETE;    // Signal intent to delete.
-        (*this->child->resolve)(this->child, ctx);
-        if (is_stop(ctx->action)) return;
-        if (ctx->action != AT_MOVE) return; // ERROR
-        ctx->action = AT_DELETE;
-    }
-}
-
-int d_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
-    if (n > 0) {
-        if (this->child == NULL) {
-            if (strcmp(this->value->data, "dd") == 0) {
-                ctx->action = AT_DELETE;
-                ctx->start_col = -1;
-                ctx->jump_row += n - 1;
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-EditorAction* make_d_action() {
-    EditorAction* ret = make_DefaultAction("d");
-    ret->update = &d_action_update;
-    ret->resolve = &d_action_resolve;
-    ret->repeat = &d_action_repeat;
-    return ret;
-}
-
-void A_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_OVERRIDE;
-    editor_new_action();
-    current_mode = EM_INSERT;
-    editor_move_EOL();
-    begin_insert();
-    editor_move_right();
-}
-
-EditorAction* make_A_action() {
-    EditorAction* ret = make_DefaultAction("A");
-    ret->resolve = &A_action_resolve;
-    return ret;
-}
-
 int f_action_update(EditorAction* this, char input, int control) {
     String_push(&this->value, input);
     return 2;
 }
 
 void f_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
     if (Strlen(this->value) == 2) {
-        Buffer_search_char(ctx->buffer, ctx, this->value->data[1], true);
+        int res = Buffer_search_char(ctx->buffer, ctx, this->value->data[1], true);
+        if (res == -1) { ctx->action = AT_ESCAPE; }
+        else { ctx->action = AT_MOVE; }
     }
 }
 
@@ -709,9 +441,10 @@ int F_action_update(EditorAction* this, char input, int control) {
 }
 
 void F_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
     if (Strlen(this->value) == 2) {
-        Buffer_search_char(ctx->buffer, ctx, this->value->data[1], false);
+        int res = Buffer_search_char(ctx->buffer, ctx, this->value->data[1], false);
+        if (res == -1) { ctx->action = AT_ESCAPE; }
+        else { ctx->action = AT_MOVE; }
     }
 }
 
@@ -719,60 +452,6 @@ EditorAction* make_F_action() {
     EditorAction* ret = make_DefaultAction("F");
     ret->update = &F_action_update;
     ret->resolve = &F_action_resolve;
-    return ret;
-}
-
-void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    Buffer* buf = ctx->buffer;
-    char* line = *Buffer_get_line_abs(buf, ctx->jump_row);
-    size_t line_len = strlen(line);
-    size_t max_char = line_len;
-    // Save newlines, but don't count them towards line length for cursor purposes.
-    if (line_len > 0 && line[line_len - 1] == '\n') {
-        max_char -= 1;
-    }
-    if (max_char >= 0) {
-        max_char -= 1;
-    }
-    ctx->jump_col = max_char;
-}
-
-EditorAction* make_DOLLAR_action() {
-    EditorAction* ret = make_DefaultAction("$");
-    ret->resolve = &DOLLAR_action_resolve;
-    return ret;
-}
-
-void D_action_resolve(EditorAction* this, EditorContext* ctx) {
-    DOLLAR_action_resolve(this, ctx);
-    ctx->action = AT_DELETE;
-}
-
-EditorAction* make_D_action() {
-    EditorAction* ret = make_DefaultAction("D");
-    ret->resolve = &D_action_resolve;
-    return ret;
-}
-
-void _0_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_MOVE;
-    ctx->jump_col = 0;
-}
-
-EditorAction* make_0_action() {
-    EditorAction* ret = make_DefaultAction("0");
-    ret->resolve = &_0_action_resolve;
-    return ret;
-}
-
-void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
-    ctx->action = AT_ESCAPE;
-}
-
-EditorAction* make_ESC_action() {
-    EditorAction* ret = make_DefaultAction("<esc");
-    ret->resolve = &ESC_action_resolve;
     return ret;
 }
 
@@ -964,128 +643,4 @@ void save_buffer() {
     display_bottom_bar(bottom_bar_info->data, NULL);
 }
 
-void process_command(char* command, EditorContext* ctx) {
-    if (strcmp(command, "q") == 0) {
-        close_buffer();
-        return;
-    }
-    if (strcmp(command, "w") == 0) {
-        save_buffer();
-        return;
-    }
-    if (strcmp(command, "wq") == 0 || strcmp(command, "qw") == 0) {
-        save_buffer();
-        close_buffer();
-        return;
-    }
-    char* rest;
-    if (strncmp(command, "tabnew ", 7) == 0) {
-        rest = command + 7;
-        editor_make_buffer(rest);
-        editor_switch_buffer(buffers.size - 1);
-        display_current_buffer();
-        String_clear(bottom_bar_info);
-        Strcats(&bottom_bar_info, "-- Opened file: ");
-        Strcats(&bottom_bar_info, current_buffer->name);
-        Strcats(&bottom_bar_info, " --");
-        display_bottom_bar(bottom_bar_info->data, NULL);
-        return;
-    }
-    if (strncmp(command, "norm", 4) == 0) {
-        rest = command + 4;
-        Vector* /*EditorAction* */ save_action_stack = action_stack;
-        action_stack = make_Vector(10);
-
-        editor_new_action();
-        editor_display = 0;
-        editor_macro_mode = 1;
-
-        Buffer* buf = ctx->buffer;
-        EditorMode mode = Buffer_get_mode(buf);
-        if (mode == EM_VISUAL) {
-            ctx->jump_row = buf->visual_row;
-            Buffer_exit_visual(buf);
-        }
-        else if (mode == EM_VISUAL_LINE) {
-            ctx->jump_row = buf->visual_row;
-            Buffer_exit_visual(buf);
-        }
-        else {
-            ctx->jump_row = ctx->start_row;
-        }
-        EditorContext_normalize(ctx);
-        for (size_t row = ctx->start_row; row <= ctx->jump_row; ++row) {
-            print("Norm row %ld\n", row);
-            editor_move_to(row, 0);
-            for (char* it = rest; *it; ++it) {
-                print("echo char %c\n", *it);
-                process_input(*it, 0);
-
-            }
-                if (current_mode == EM_INSERT) {
-                    end_insert();
-                    current_mode = EM_NORMAL;
-                    // TODO update data structures
-                    display_bottom_bar("-- NORMAL --", NULL);
-                    // Match vim behavior when exiting insert mode.
-                    editor_move_left();
-                    editor_align_tab();
-                    Buffer_set_mode(current_buffer, EM_NORMAL);
-                }
-
-                EditorMode mode = Buffer_get_mode(buf);
-                if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
-                    Buffer_exit_visual(buf);
-                }
-                clear_action_stack();
-        }
-
-        Vector_destroy(action_stack);
-        free(action_stack);
-        action_stack = save_action_stack;
-        
-        editor_display = 1;
-        editor_macro_mode = 0;
-        editor_repaint(RP_LINES, ctx);
-        return;
-    }
-    char* scan_start = command;
-    char* scan_end = NULL;
-    errno = 0;
-    long int result = strtol(scan_start, &scan_end, 10);
-    if (errno == 0 && result >= 0 && *scan_end == 0) {
-        editor_move_to(result, 0);
-    }
-}
-
-int COLON_action_update(EditorAction* this, char input, int control) {
-    if (input == BYTE_ESC) {
-        return 0;
-    } else if (input == BYTE_BACKSPACE) {
-        String_pop(this->value);
-        return Strlen(this->value) > 0;
-    } else if (input != '\n') {
-        String_push(&this->value, input);
-        return 1;
-    } else {
-        return 2;
-    }
-}
-
-void COLON_action_resolve(EditorAction* this, EditorContext* ctx) {
-    if (this->child != NULL) {
-        (*this->child->resolve)(this->child, ctx);
-        return;
-    }
-    ctx->action = AT_COMMAND;
-    if (Strlen(this->value) > 1) {
-        process_command(this->value->data + 1, ctx);
-    }
-}
-
-EditorAction* make_COLON_action() {
-    EditorAction* ret = make_DefaultAction(":");
-    ret->update = &COLON_action_update;
-    ret->resolve = &COLON_action_resolve;
-    return ret;
-}
+#include "actions/command_action.c"
