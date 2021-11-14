@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "editor.h"
 #include "../structures/buffer.h"
@@ -44,6 +45,8 @@ EditorAction* make_N_action();  // Repeat previous word search, in the reverse d
 
 EditorAction* make_m_action();  // Set mark.
 EditorAction* make_BACKTICK_action();   // Go to mark.
+
+EditorAction* make_COLON_action();  // command mode.
 
 EditorAction* make_ESC_action();    // Pop cmdstack, exit visual, etc etc.
 
@@ -114,12 +117,14 @@ void init_actions() {
     action_type_table['m'] = AT_OVERRIDE;
     action_jump_table['`'] = &make_BACKTICK_action;
     action_type_table['`'] = AT_MOVE;
+    action_jump_table[':'] = &make_COLON_action;
+    action_type_table[':'] = AT_COMMAND;
     action_jump_table[BYTE_ESC] = &make_ESC_action;
     action_type_table[BYTE_ESC] = AT_ESCAPE;
     inplace_make_Vector(&action_stack, 10);
 }
 
-void resolve_action_stack() {
+ActionType resolve_action_stack() {
     EditorAction* source = action_stack.elements[0];
     EditorContext ctx;
     Buffer* buf = current_buffer;
@@ -133,6 +138,12 @@ void resolve_action_stack() {
     ctx.buffer = buf;
 
     (*source->resolve)(source, &ctx);
+    // Early resolution.
+    if (ctx.action == AT_COMMAND) {
+        clear_action_stack();
+        return ctx.action;
+    }
+
     if (ctx.jump_col < 0) {
         ctx.jump_col = 0;
     }
@@ -214,6 +225,7 @@ void resolve_action_stack() {
         }
     }
     clear_action_stack();
+    return ctx.action;
 }
 
 /**
@@ -231,8 +243,7 @@ int process_action(char c, int control) {
         }
         else if (res == 2) {
             // resolve!
-            resolve_action_stack();
-            return 0;
+            return resolve_action_stack();
         }
         else if (res == 1) {
             return 0;
@@ -308,6 +319,10 @@ int NumberAction_update(EditorAction* this, char input, int control) {
     return 0;
 }
 
+static inline bool is_stop(ActionType act) {
+    return act == AT_OVERRIDE || act == AT_ESCAPE || act == AT_COMMAND;
+}
+
 void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
     if (this->child == NULL) {
         return;
@@ -319,7 +334,7 @@ void NumberAction_resolve(EditorAction* this, EditorContext* ctx) {
     }
     for (int i = 0; i < this->num_value; ++i) {
         (*this->child->resolve)(this->child, ctx);
-        if (ctx->action == AT_OVERRIDE || ctx->action == AT_ESCAPE) break;
+        if (is_stop(ctx->action)) break;
     }
 }
 
@@ -609,7 +624,7 @@ void d_action_resolve(EditorAction* this, EditorContext* ctx) {
     else {
         ctx->action = AT_DELETE;    // Signal intent to delete.
         (*this->child->resolve)(this->child, ctx);
-        if (ctx->action == AT_OVERRIDE || ctx->action == AT_ESCAPE) return;
+        if (is_stop(ctx->action)) return;
         if (ctx->action != AT_MOVE) return; // ERROR
         ctx->action = AT_DELETE;
     }
@@ -912,5 +927,96 @@ EditorAction* make_BACKTICK_action() {
     EditorAction* ret = make_DefaultAction("`");
     ret->update = &BACKTICK_action_update;
     ret->resolve = &BACKTICK_action_resolve;
+    return ret;
+}
+
+void close_buffer() {
+    editor_close_buffer(current_buffer_idx);
+    if (buffers.size == 0) {
+        current_mode = EM_QUIT;
+    }
+    else {
+        display_current_buffer();
+        String_clear(bottom_bar_info);
+        Strcats(&bottom_bar_info, "-- Editing: ");
+        Strcats(&bottom_bar_info, current_buffer->name);
+        Strcats(&bottom_bar_info, " --");
+        display_bottom_bar(bottom_bar_info->data, NULL);
+    }
+}
+
+void save_buffer() {
+    Buffer_save(current_buffer);
+    String_clear(bottom_bar_info);
+    Strcats(&bottom_bar_info, "-- File saved: ");
+    Strcats(&bottom_bar_info, current_buffer->name);
+    Strcats(&bottom_bar_info, " --");
+    display_bottom_bar(bottom_bar_info->data, NULL);
+}
+
+void process_command(char* command) {
+    if (strcmp(command, ":q") == 0) {
+        close_buffer();
+        return;
+    }
+    if (strcmp(command, ":w") == 0) {
+        save_buffer();
+        return;
+    }
+    if (strcmp(command, ":wq") == 0 || strcmp(command, ":qw") == 0) {
+        save_buffer();
+        close_buffer();
+        return;
+    }
+    if (strncmp(command, ":tabnew ", 8) == 0) {
+        char* rest = command + 8;
+        editor_make_buffer(rest);
+        editor_switch_buffer(buffers.size - 1);
+        display_current_buffer();
+        String_clear(bottom_bar_info);
+        Strcats(&bottom_bar_info, "-- Opened file: ");
+        Strcats(&bottom_bar_info, current_buffer->name);
+        Strcats(&bottom_bar_info, " --");
+        display_bottom_bar(bottom_bar_info->data, NULL);
+        return;
+    }
+    char* scan_start = command + 1;
+    char* scan_end = NULL;
+    errno = 0;
+    long int result = strtol(scan_start, &scan_end, 10);
+    if (errno == 0 && result >= 0 && *scan_end == 0) {
+        editor_move_to(result, 0);
+    }
+}
+
+int COLON_action_update(EditorAction* this, char input, int control) {
+    if (input == BYTE_ESC) {
+        return 0;
+    } else if (input == BYTE_BACKSPACE) {
+        String_pop(this->value);
+        return Strlen(this->value) > 0;
+    } else if (input != '\n') {
+        String_push(&this->value, input);
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+void COLON_action_resolve(EditorAction* this, EditorContext* ctx) {
+    if (this->child != NULL) {
+        (*this->child->resolve)(this->child, ctx);
+        return;
+    }
+    ctx->action = AT_COMMAND;
+    if (Strlen(this->value) > 1) {
+        process_command(this->value->data);
+    }
+}
+
+EditorAction* make_COLON_action() {
+    EditorAction* ret = make_DefaultAction(":");
+    ret->update = &COLON_action_update;
+    ret->resolve = &COLON_action_resolve;
     return ret;
 }

@@ -20,6 +20,7 @@ typedef int ActionType;
 #define AT_OVERRIDE 5
 #define AT_PASTE 6
 #define AT_ESCAPE 7
+#define AT_COMMAND 8
 
 typedef int RepaintType;
 #define RP_NONE 0

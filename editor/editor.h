@@ -16,6 +16,8 @@
 #define BYTE_DOWNARROW  '\120'
 #define BYTE_DELETE     '\123'
 
+String* bottom_bar_info;
+
 EditorMode current_mode;
 
 struct winsize window_size;
