@@ -669,8 +669,8 @@ char* display_buffer_rows(size_t start, size_t end) {
                     format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 }
             }
-            String_push(&output_buffer, '\n');
         }
+        String_push(&output_buffer, '\n');
     }
     Strcats(&output_buffer, RESET_HIGHLIGHT);
     _write(output_buffer->data, Strlen(output_buffer));
