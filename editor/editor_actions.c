@@ -56,7 +56,7 @@ void EditorAction_destroy(EditorAction* this) {
 
 EditorAction* (*action_jump_table[256]) (void) = {0};
 ActionType action_type_table[256] = {0};
-Vector /*EditorAction* */ action_stack = {0};
+Vector* /*EditorAction* */ action_stack = NULL;
 
 void init_actions() {
     action_jump_table['h'] = &make_h_action;
@@ -121,11 +121,11 @@ void init_actions() {
     action_type_table[':'] = AT_COMMAND;
     action_jump_table[BYTE_ESC] = &make_ESC_action;
     action_type_table[BYTE_ESC] = AT_ESCAPE;
-    inplace_make_Vector(&action_stack, 10);
+    action_stack = make_Vector(10);
 }
 
 ActionType resolve_action_stack() {
-    EditorAction* source = action_stack.elements[0];
+    EditorAction* source = action_stack->elements[0];
     EditorContext ctx;
     Buffer* buf = current_buffer;
     ctx.start_row = Buffer_get_line_index(buf, buf->cursor_row);
@@ -228,13 +228,32 @@ ActionType resolve_action_stack() {
     return ctx.action;
 }
 
+
+/**
+ * Get the corresponding action char.
+ */
+int esc_action(int control) {
+    switch(control) {
+        case BYTE_UPARROW:
+            return 'k';
+        case BYTE_DOWNARROW:
+            return 'j';
+        case BYTE_LEFTARROW:
+            return 'h';
+        case BYTE_RIGHTARROW:
+            return 'l';
+        default:
+            return BYTE_ESC;
+    }
+}
+
 /**
  * Process a char (+ control) using the current action stack.
  * 
  */
 int process_action(char c, int control) {
-    if (action_stack.size != 0) {
-        EditorAction* top = action_stack.elements[action_stack.size - 1];
+    if (action_stack->size != 0) {
+        EditorAction* top = action_stack->elements[action_stack->size - 1];
         int res = (*top->update)(top, c, control);
         if (res == 3) {
             // failure :( 
@@ -257,9 +276,9 @@ int process_action(char c, int control) {
         }
     }
     if (new_action != NULL) {
-        Vector_push(&action_stack, new_action);
-        if (action_stack.size != 1) {
-            EditorAction* prev = action_stack.elements[action_stack.size - 2];
+        Vector_push(action_stack, new_action);
+        if (action_stack->size != 1) {
+            EditorAction* prev = action_stack->elements[action_stack->size - 2];
             prev->child = new_action;
         }
         if (new_action->update == NULL) {
@@ -273,11 +292,11 @@ int process_action(char c, int control) {
 }
 
 void clear_action_stack() {
-    for (int i = 0; i < action_stack.size; ++i) {
-        EditorAction_destroy(action_stack.elements[i]);
-        free(action_stack.elements[i]);
+    for (int i = 0; i < action_stack->size; ++i) {
+        EditorAction_destroy(action_stack->elements[i]);
+        free(action_stack->elements[i]);
     }
-    Vector_clear(&action_stack, 10);
+    Vector_clear(action_stack, 10);
 }
 
 /**
@@ -285,14 +304,12 @@ void clear_action_stack() {
  * DO NOT FREE THIS!
  */
 char* format_action_stack() {
-    if (action_stack.size == 0) { return NULL; }
+    if (action_stack->size == 0) { return NULL; }
 
-    static String* ret = NULL;
-    if (ret == NULL) { ret = alloc_String(10); }
-    else { String_clear(ret); }
+    static_String(ret, 10);
 
-    for (int i = 0; i < action_stack.size; ++i) {
-        EditorAction* act = (EditorAction*) action_stack.elements[i];
+    for (int i = 0; i < action_stack->size; ++i) {
+        EditorAction* act = (EditorAction*) action_stack->elements[i];
         Strcats(&ret, act->value->data);
     }
     return ret->data;
@@ -947,22 +964,23 @@ void save_buffer() {
     display_bottom_bar(bottom_bar_info->data, NULL);
 }
 
-void process_command(char* command) {
-    if (strcmp(command, ":q") == 0) {
+void process_command(char* command, EditorContext* ctx) {
+    if (strcmp(command, "q") == 0) {
         close_buffer();
         return;
     }
-    if (strcmp(command, ":w") == 0) {
+    if (strcmp(command, "w") == 0) {
         save_buffer();
         return;
     }
-    if (strcmp(command, ":wq") == 0 || strcmp(command, ":qw") == 0) {
+    if (strcmp(command, "wq") == 0 || strcmp(command, "qw") == 0) {
         save_buffer();
         close_buffer();
         return;
     }
-    if (strncmp(command, ":tabnew ", 8) == 0) {
-        char* rest = command + 8;
+    char* rest;
+    if (strncmp(command, "tabnew ", 7) == 0) {
+        rest = command + 7;
         editor_make_buffer(rest);
         editor_switch_buffer(buffers.size - 1);
         display_current_buffer();
@@ -973,7 +991,65 @@ void process_command(char* command) {
         display_bottom_bar(bottom_bar_info->data, NULL);
         return;
     }
-    char* scan_start = command + 1;
+    if (strncmp(command, "norm", 4) == 0) {
+        rest = command + 4;
+        Vector* /*EditorAction* */ save_action_stack = action_stack;
+        action_stack = make_Vector(10);
+
+        editor_new_action();
+        editor_display = 0;
+        editor_macro_mode = 1;
+
+        Buffer* buf = ctx->buffer;
+        EditorMode mode = Buffer_get_mode(buf);
+        if (mode == EM_VISUAL) {
+            ctx->jump_row = buf->visual_row;
+            Buffer_exit_visual(buf);
+        }
+        else if (mode == EM_VISUAL_LINE) {
+            ctx->jump_row = buf->visual_row;
+            Buffer_exit_visual(buf);
+        }
+        else {
+            ctx->jump_row = ctx->start_row;
+        }
+        EditorContext_normalize(ctx);
+        for (size_t row = ctx->start_row; row <= ctx->jump_row; ++row) {
+            print("Norm row %ld\n", row);
+            editor_move_to(row, 0);
+            for (char* it = rest; *it; ++it) {
+                print("echo char %c\n", *it);
+                process_input(*it, 0);
+
+            }
+                if (current_mode == EM_INSERT) {
+                    end_insert();
+                    current_mode = EM_NORMAL;
+                    // TODO update data structures
+                    display_bottom_bar("-- NORMAL --", NULL);
+                    // Match vim behavior when exiting insert mode.
+                    editor_move_left();
+                    editor_align_tab();
+                    Buffer_set_mode(current_buffer, EM_NORMAL);
+                }
+
+                EditorMode mode = Buffer_get_mode(buf);
+                if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+                    Buffer_exit_visual(buf);
+                }
+                clear_action_stack();
+        }
+
+        Vector_destroy(action_stack);
+        free(action_stack);
+        action_stack = save_action_stack;
+        
+        editor_display = 1;
+        editor_macro_mode = 0;
+        editor_repaint(RP_LINES, ctx);
+        return;
+    }
+    char* scan_start = command;
     char* scan_end = NULL;
     errno = 0;
     long int result = strtol(scan_start, &scan_end, 10);
@@ -1003,7 +1079,7 @@ void COLON_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
     ctx->action = AT_COMMAND;
     if (Strlen(this->value) > 1) {
-        process_command(this->value->data);
+        process_command(this->value->data + 1, ctx);
     }
 }
 

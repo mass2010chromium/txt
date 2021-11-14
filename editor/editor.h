@@ -32,6 +32,14 @@ GapBuffer active_insert;
 size_t editor_top;
 size_t editor_left;
 size_t editor_bottom;
+bool editor_display;
+bool editor_macro_mode;
+
+/**
+ * Process one keypress from the user.
+ * (Should also work for simulated keypress, like from norm)
+ */
+void process_input(char input, int control);
 
 /**
  * Callback function that gets called whenever the terminal size changes.

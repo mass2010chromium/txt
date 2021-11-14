@@ -14,14 +14,6 @@
 #include "editor_actions.h"
 #include "../common.h"
 
-const char* EDITOR_MODE_STR[5] = {
-    "NORMAL",
-    "INSERT",
-    "COMMAND",
-    "VISUAL",
-    "VISUAL LINE",
-};
-
 void signal_handler(int signum) {
     if (signum == SIGINT) {
         current_mode = EM_QUIT;
@@ -35,90 +27,6 @@ void signal_handler(int signum) {
 
 struct termios save_settings;
 struct termios set_settings;
-
-String* bottom_bar_info = NULL;
-
-/**
- * Get the corresponding action char.
- */
-int esc_action(int control) {
-    switch(control) {
-        case BYTE_UPARROW:
-            return 'k';
-        case BYTE_DOWNARROW:
-            return 'j';
-        case BYTE_LEFTARROW:
-            return 'h';
-        case BYTE_RIGHTARROW:
-            return 'l';
-        default:
-            return BYTE_ESC;
-    }
-}
-
-void process_input(char input, int control) {
-    if (current_mode == EM_INSERT) {
-        display_bottom_bar("-- INSERT --", NULL);
-        if (input == BYTE_ESC) {
-            int res = esc_action(control);
-            if (res == -1) {
-                display_bottom_bar("ERROR: Unrecognized escape sequence", NULL);
-            }
-            else {
-                switch(res) {
-                    case 'k':
-                        editor_move_up();
-                        break;
-                    case 'j':
-                        editor_move_down();
-                        break;
-                    case 'h':
-                        editor_move_left();
-                        break;
-                    case 'l':
-                        editor_move_right();
-                        break;
-                    default:
-                        end_insert();
-                        current_mode = EM_NORMAL;
-                        // TODO update data structures
-                        display_bottom_bar("-- NORMAL --", NULL);
-                        // Match vim behavior when exiting insert mode.
-                        editor_move_left();
-                        editor_align_tab();
-                }
-                move_to_current();
-            }
-            Buffer_set_mode(current_buffer, EM_NORMAL);
-            return;
-        }
-        if (input == BYTE_BACKSPACE) { editor_backspace(); }
-        else { add_chr(input); }
-        move_to_current();
-    }
-    else if (current_mode == EM_NORMAL) {
-        if (input == BYTE_ESC) {
-            int res = esc_action(control);
-            if (res != -1) input = res;
-        }
-        int res = process_action(input, control);
-        if (res == -1) {
-            clear_action_stack();
-        }
-        else if (res != AT_COMMAND) {
-            move_to_current();
-            char* display = format_action_stack();
-            if (display == NULL) {
-                String_clear(bottom_bar_info);
-                Strcats(&bottom_bar_info, "-- ");
-                Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
-                Strcats(&bottom_bar_info, " --");
-                display = bottom_bar_info->data;
-            }
-            display_bottom_bar(display, NULL);
-        }
-    }
-}
 
 /**
  * Assumes the program is running in a terminal with support for Xterm's alternate screen buffer.

@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include "editor.h"
+#include "editor_actions.h"
 #include "utils.h"
 #include "debugging.h"
 
@@ -24,12 +25,78 @@ Buffer* current_buffer = NULL;
 Vector/*Buffer* */ buffers = {0};
 String* command_buffer = NULL;
 GapBuffer active_insert = {0};
-size_t editor_top;
-size_t editor_left;
-size_t editor_bottom;
+size_t editor_top = 0;
+size_t editor_left = 0;
+size_t editor_bottom = 0;
+bool editor_display = 0;
+bool editor_macro_mode = 0;
+
+String* bottom_bar_info = NULL;
+
+const char* EDITOR_MODE_STR[5] = {
+    "NORMAL",
+    "INSERT",
+    "COMMAND",
+    "VISUAL",
+    "VISUAL LINE",
+};
+
+void process_input(char input, int control) {
+    if (current_mode == EM_INSERT) {
+        display_bottom_bar("-- INSERT --", NULL);
+        if (input == BYTE_ESC) {
+            switch(control) {
+                case BYTE_UPARROW:
+                    editor_move_up();
+                    break;
+                case BYTE_DOWNARROW:
+                    editor_move_down();
+                    break;
+                case BYTE_LEFTARROW:
+                    editor_move_left();
+                    break;
+                case BYTE_RIGHTARROW:
+                    editor_move_right();
+                    break;
+                default:
+                    end_insert();
+                    current_mode = EM_NORMAL;
+                    // TODO update data structures
+                    display_bottom_bar("-- NORMAL --", NULL);
+                    // Match vim behavior when exiting insert mode.
+                    editor_move_left();
+                    editor_align_tab();
+                    Buffer_set_mode(current_buffer, EM_NORMAL);
+            }
+            move_to_current();
+            return;
+        }
+        if (input == BYTE_BACKSPACE) { editor_backspace(); }
+        else { add_chr(input); }
+        move_to_current();
+    }
+    else if (current_mode == EM_NORMAL) {
+        int res = process_action(input, control);
+        if (res == -1) {
+            clear_action_stack();
+        }
+        else if (res != AT_COMMAND) {
+            move_to_current();
+            char* display = format_action_stack();
+            if (display == NULL) {
+                String_clear(bottom_bar_info);
+                Strcats(&bottom_bar_info, "-- ");
+                Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
+                Strcats(&bottom_bar_info, " --");
+                display = bottom_bar_info->data;
+            }
+            display_bottom_bar(display, NULL);
+        }
+    }
+}
 
 static inline ssize_t _write(const char* string, size_t n) {
-    if (SCREEN_WRITE) {
+    if (SCREEN_WRITE && editor_display) {
         return write(STDOUT_FILENO, string, n);
     }
     return 0;
@@ -50,7 +117,9 @@ void editor_window_size_change() {
  * Increments the undo counter.
  */
 void editor_new_action() {
-    current_buffer->undo_index += 1;
+    if (!editor_macro_mode) {
+        current_buffer->undo_index += 1;
+    }
 }
 
 /**
@@ -153,8 +222,10 @@ void move_cursor(size_t y, size_t x) {
  * Move the cursor to the current (row, col) of the buffer.
  */
 void move_to_current() {
-    print("move current %ld %ld\n", current_buffer->cursor_row, current_buffer->cursor_col);
-    move_cursor(current_buffer->cursor_row + editor_top, current_buffer->cursor_col + editor_left);
+    if (SCREEN_WRITE && editor_display) {
+        print("move current %ld %ld\n", current_buffer->cursor_row, current_buffer->cursor_col);
+        move_cursor(current_buffer->cursor_row + editor_top, current_buffer->cursor_col + editor_left);
+    }
 }
 
 /**
@@ -249,8 +320,8 @@ size_t strlen_tab(const char* buf) {
  */
 void format_left_bar(String** write_buffer, size_t i) {
     size_t line_idx = Buffer_get_line_index(current_buffer, i);
-    char dest[editor_left];
-    int n_print = snprintf(dest, editor_left, "%lu ", line_idx);
+    char dest[editor_left+1];
+    int n_print = snprintf(dest, editor_left+1, "%lu ", line_idx);
     if (n_print > 0) {
         size_t n = min_u(n_print, editor_left);
         memmove(dest + editor_left - n, dest, n);
@@ -337,6 +408,8 @@ void editor_init(const char* filename) {
     current_buffer_idx = 0;
     editor_top = 1;
     editor_left = 5;
+    editor_display = 1;
+    editor_macro_mode = 0;
     editor_window_size_change();
 }
 
@@ -543,19 +616,21 @@ void editor_newline(int side, const char* head, const char* initial) {
 }
 
 void display_bottom_bar(char* left, char* right) {
-    size_t x, y;
-    get_cursor_pos(&y, &x);
-    move_cursor(window_size.ws_row-1, 0);
-    _write(left, strlen(left));
-    _write("\0", 1);
-    clear_line();
-    if (right != NULL) {
-        size_t off = strlen(right) + 1;
-        move_cursor(window_size.ws_row-1, window_size.ws_col - off);
-        _write(right, strlen(right));
+    if (SCREEN_WRITE && editor_display) {
+        size_t x, y;
+        get_cursor_pos(&y, &x);
+        move_cursor(window_size.ws_row-1, 0);
+        _write(left, strlen(left));
+        _write("\0", 1);
+        clear_line();
+        if (right != NULL) {
+            size_t off = strlen(right) + 1;
+            move_cursor(window_size.ws_row-1, window_size.ws_col - off);
+            _write(right, strlen(right));
+        }
+        print("Displayed bottom bar [%s]\n", left);
+        move_cursor(y, x);
     }
-    print("Displayed bottom bar [%s]\n", left);
-    move_cursor(y, x);
 }
 
 void format_line_highlight(String** buf, const char* line) {
@@ -574,8 +649,12 @@ void display_line_highlight(const char* line) {
 
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
+ * Return value is for debugging.
  */
 char* display_buffer_rows(size_t start, size_t end) {
+    if (!editor_display) {
+        return "";
+    }
     print("display: %lu %lu\n", start, end);
     move_cursor(start-1 + editor_top, 0);
     static_String(output_buffer, 100);
@@ -887,6 +966,9 @@ void editor_align_tab() {
     }
 }
 
+/**
+ * Move to arbitrary (row, col). Clips to the editor's window.
+ */
 RepaintType editor_move_to(ssize_t row, ssize_t col) {
     if (row < 0) row = 0;
     if (col < 0) col = 0;

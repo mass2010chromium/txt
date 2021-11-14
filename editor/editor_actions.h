@@ -33,7 +33,7 @@ void EditorAction_destroy(EditorAction*);
 
 extern EditorAction* (*action_jump_table[]) (void);
 extern ActionType action_type_table[];
-Vector /*EditorAction* */ action_stack;
+Vector* /*EditorAction* */ action_stack;
 
 void init_actions();
 
