@@ -39,6 +39,13 @@ struct Edit {
 };
 typedef struct Edit Edit;
 
+struct Mark {
+    ssize_t row;
+    ssize_t col;
+    bool set;
+};
+typedef struct Mark Mark;
+
 struct Buffer {
     char* name;
     FILE* file;
@@ -56,6 +63,7 @@ struct Buffer {
     size_t visual_row;      // Visual mode anchors.
     size_t visual_col;
     EditorMode buffer_mode;
+    Mark marks[256];
 };
 typedef struct Buffer Buffer;
 

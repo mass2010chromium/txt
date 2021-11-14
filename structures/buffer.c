@@ -100,6 +100,7 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
     buf->visual_row = 0;
     buf->visual_col = 0;
     buf->buffer_mode = EM_NORMAL;
+    memset(buf->marks, 0, sizeof(buf->marks));
 }
     
 void Buffer_destroy(Buffer* buf) {

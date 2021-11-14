@@ -864,17 +864,9 @@ EditorAction* make_N_action() {
     return ret;
 }
 
-struct Mark {
-    ssize_t row;
-    ssize_t col;
-    bool set;
-};
-typedef struct Mark Mark;
-
-Mark marks[256] = {0};
-
 int m_action_update(EditorAction* this, char input, int control) {
-    if (input == BYTE_ESC || input == BYTE_BACKSPACE || input == BYTE_ENTER) {
+    if (input == BYTE_ESC || input == BYTE_BACKSPACE
+            || input == BYTE_ENTER || input == '`') {
         return 3;
     }
     String_push(&this->value, input);
@@ -886,7 +878,7 @@ void m_action_resolve(EditorAction* this, EditorContext* ctx) {
     
     if (Strlen(this->value) == 2) {
         char mark_val = this->value->data[1];
-        Mark* mark = &marks[(int) mark_val];
+        Mark* mark = &ctx->buffer->marks[(int) mark_val];
         mark->row = ctx->start_row;
         mark->col = ctx->start_col;
         mark->set = 1;
@@ -901,7 +893,8 @@ EditorAction* make_m_action() {
 }
 
 int BACKTICK_action_update(EditorAction* this, char input, int control) {
-    if (input == BYTE_ESC || input == BYTE_BACKSPACE || input == BYTE_ENTER) {
+    if (input == BYTE_ESC || input == BYTE_BACKSPACE
+            || input == BYTE_ENTER || input == '`') {
         return 3;
     }
     String_push(&this->value, input);
@@ -911,7 +904,7 @@ int BACKTICK_action_update(EditorAction* this, char input, int control) {
 void BACKTICK_action_resolve(EditorAction* this, EditorContext* ctx) {
     if (Strlen(this->value) == 2) {
         char mark_val = this->value->data[1];
-        Mark* mark = &marks[(int) mark_val];
+        Mark* mark = &ctx->buffer->marks[(int) mark_val];
         if (mark->set) {
             ctx->jump_row = mark->row;
             ctx->jump_col = mark->col;
