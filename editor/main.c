@@ -105,13 +105,17 @@ void process_input(char input, int control) {
         if (res == -1) {
             clear_action_stack();
         }
-        if (res != AT_COMMAND) {
+        else if (res != AT_COMMAND) {
             move_to_current();
-            String_clear(bottom_bar_info);
-            Strcats(&bottom_bar_info, "-- ");
-            Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
-            Strcats(&bottom_bar_info, " --");
-            display_bottom_bar(bottom_bar_info->data, format_action_stack());
+            char* display = format_action_stack();
+            if (display == NULL) {
+                String_clear(bottom_bar_info);
+                Strcats(&bottom_bar_info, "-- ");
+                Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
+                Strcats(&bottom_bar_info, " --");
+                display = bottom_bar_info->data;
+            }
+            display_bottom_bar(display, NULL);
         }
     }
 }
