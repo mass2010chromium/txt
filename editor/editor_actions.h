@@ -11,6 +11,7 @@ struct EditorAction {
     /**
      * Return 1: Keep me on the stack
      * Return 2: I absorbed this char and am complete; resolve now!
+     * Return 3: ERROR! Cannot absorb char and would lead to weird behavior, cancel
      * Return zero: I can't absorb this char, try making a new action and linking
      */
     int (*update) (struct EditorAction* this, char, int);

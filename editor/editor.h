@@ -28,6 +28,7 @@ Vector/*Buffer* */ buffers;
 String* command_buffer;
 GapBuffer active_insert;
 size_t editor_top;
+size_t editor_left;
 size_t editor_bottom;
 
 /**

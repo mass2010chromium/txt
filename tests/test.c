@@ -20,5 +20,7 @@ int main(int argc, const char** argv) {
     SCREEN_WRITE = false;
     editor_init("tests/scratchfile");
     editor_bottom = EDITOR_WINDOW_SIZE;
+    editor_top = 0;
+    editor_left = 0;
     utest_main(argc, argv);
 }
