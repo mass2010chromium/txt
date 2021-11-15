@@ -3,6 +3,15 @@
 
 #include "../common.h"
 
+typedef struct Macro {
+    bool active;
+    Vector /*Keystroke* */ keypresses;
+} Macro;
+
+Macro* current_recording_macro;
+
+void Macro_push(Macro* this, char c, int control);
+
 struct EditorAction {
     union {
         String* value;
@@ -31,7 +40,7 @@ typedef struct EditorAction EditorAction;
 
 void EditorAction_destroy(EditorAction*);
 
-extern EditorAction* (*action_jump_table[]) (void);
+extern EditorAction* (*action_jump_table[]) (int);
 extern ActionType action_type_table[];
 Vector* /*EditorAction* */ action_stack;
 

@@ -43,6 +43,9 @@ const char* EDITOR_MODE_STR[5] = {
 
 void process_input(char input, int control) {
     if (current_mode == EM_INSERT) {
+        if (current_recording_macro != NULL) {
+            Macro_push(current_recording_macro, input, control);
+        }
         display_bottom_bar("-- INSERT --", NULL);
         if (input == BYTE_ESC) {
             switch(control) {

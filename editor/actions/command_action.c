@@ -147,7 +147,7 @@ void COLON_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_COLON_action() {
+EditorAction* make_COLON_action(int control) {
     EditorAction* ret = make_DefaultAction(":");
     ret->update = &COLON_action_update;
     ret->resolve = &COLON_action_resolve;
@@ -178,7 +178,7 @@ void q_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_q_action() {
+EditorAction* make_q_action(int control) {
     EditorAction* ret = make_DefaultAction("q");
     if (current_recording_macro != NULL) {
         print("Reset recording\n");
@@ -200,7 +200,7 @@ int AT_action_update(EditorAction* this, char input, int control) {
     return 2;
 }
 
-int AT_action_repeat(EditorAction* this, EditorContext* ctx, int count) {
+int AT_action_repeat(EditorAction* this, EditorContext* ctx, size_t count) {
     if (Strlen(this->value) == 2) {
         char record_val = this->value->data[1];
         Macro* macro = &keybind_macros[(int) record_val];
@@ -240,10 +240,11 @@ void AT_action_resolve(EditorAction* this, EditorContext* ctx) {
     AT_action_repeat(this, ctx, 1);
 }
 
-EditorAction* make_AT_action() {
+EditorAction* make_AT_action(int control) {
     EditorAction* ret = make_DefaultAction("@");
     ret->update = &AT_action_update;
     ret->resolve = &AT_action_resolve;
+    ret->repeat = &AT_action_repeat;
     return ret;
 }
 

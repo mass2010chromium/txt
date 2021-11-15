@@ -26,7 +26,7 @@ void v_action_resolve(EditorAction* this, EditorContext* ctx) {
     editor_repaint(RP_LINES, ctx);
 }
 
-EditorAction* make_v_action() {
+EditorAction* make_v_action(int control) {
     EditorAction* ret = make_DefaultAction("v");
     ret->resolve = &v_action_resolve;
     return ret;
@@ -56,7 +56,7 @@ void V_action_resolve(EditorAction* this, EditorContext* ctx) {
     editor_repaint(RP_LINES, ctx);
 }
 
-EditorAction* make_V_action() {
+EditorAction* make_V_action(int control) {
     EditorAction* ret = make_DefaultAction("V");
     ret->resolve = &V_action_resolve;
     return ret;

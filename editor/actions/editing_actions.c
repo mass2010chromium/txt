@@ -18,7 +18,7 @@ void _0_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col = 0;
 }
 
-EditorAction* make_0_action() {
+EditorAction* make_0_action(int control) {
     EditorAction* ret = make_DefaultAction("0");
     ret->resolve = &_0_action_resolve;
     return ret;
@@ -40,7 +40,7 @@ void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col = max_char;
 }
 
-EditorAction* make_DOLLAR_action() {
+EditorAction* make_DOLLAR_action(int control) {
     EditorAction* ret = make_DefaultAction("$");
     ret->resolve = &DOLLAR_action_resolve;
     return ret;
@@ -56,7 +56,7 @@ void o_action_resolve(EditorAction* this, EditorContext* ctx) {
     add_chr('\n');
 }
 
-EditorAction* make_o_action() {
+EditorAction* make_o_action(int control) {
     EditorAction* ret = make_DefaultAction("o");
     ret->resolve = &o_action_resolve;
     return ret;
@@ -71,7 +71,7 @@ void A_action_resolve(EditorAction* this, EditorContext* ctx) {
     editor_move_right();
 }
 
-EditorAction* make_A_action() {
+EditorAction* make_A_action(int control) {
     EditorAction* ret = make_DefaultAction("A");
     ret->resolve = &A_action_resolve;
     return ret;
@@ -111,7 +111,7 @@ void g_action_resolve(EditorAction* this, EditorContext* ctx) {
     // TODO implement repeat action override for goto tab
 }
 
-EditorAction* make_g_action() {
+EditorAction* make_g_action(int control) {
     EditorAction* ret = make_DefaultAction("g");
     ret->update = &g_action_update;
     ret->resolve = &g_action_resolve;
@@ -124,7 +124,7 @@ void G_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col = 0;
 }
 
-EditorAction* make_G_action() {
+EditorAction* make_G_action(int control) {
     EditorAction* ret = make_DefaultAction("G");
     ret->resolve = &G_action_resolve;
     return ret;
@@ -154,7 +154,7 @@ int x_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
     return 0;
 }
 
-EditorAction* make_x_action() {
+EditorAction* make_x_action(int control) {
     EditorAction* ret = make_DefaultAction("x");
     ret->resolve = &x_action_resolve;
     ret->repeat = &x_action_repeat;
@@ -201,7 +201,7 @@ int r_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
     return 1;
 }
 
-EditorAction* make_r_action() {
+EditorAction* make_r_action(int control) {
     EditorAction* ret = make_DefaultAction("r");
     ret->update = &r_action_update;
     ret->resolve = &r_action_resolve;
@@ -273,7 +273,7 @@ int d_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
     return 0;
 }
 
-EditorAction* make_d_action() {
+EditorAction* make_d_action(int control) {
     EditorAction* ret = make_DefaultAction("d");
     ret->update = &d_action_update;
     ret->resolve = &d_action_resolve;
@@ -286,7 +286,7 @@ void D_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_DELETE;
 }
 
-EditorAction* make_D_action() {
+EditorAction* make_D_action(int control) {
     EditorAction* ret = make_DefaultAction("D");
     ret->resolve = &D_action_resolve;
     return ret;
