@@ -94,7 +94,7 @@ void process_input(char input, int control) {
             Strcats(&bottom_bar_info, " -- ");
             Strcats(&bottom_bar_info, format_action_stack());
             display_bottom_bar(bottom_bar_info->data, NULL);
-            //display_top_bar();
+            // display_top_bar();
         }
     }
 }
@@ -652,20 +652,26 @@ char* truncate_filename(char* path) {
 
 void format_tabs_higlighted(String** buf) {
     Strcats(buf, SET_HIGHLIGHT);
+    size_t counter = 0;
     for (size_t i = 0; i < buffers.size; i++) {
         Buffer* current_buf = buffers.elements[i];
-        if (i == current_buffer_idx) {
+        char filename[TRUNCATE_SIZE + 2];
+        size_t tab_len = sprintf(filename, " %s ", truncate_filename(current_buf->name));
+        if (tab_len + counter > window_size.ws_col) {
+            break;
+        } else if (i == current_buffer_idx) {
             Strcats(buf, RESET_HIGHLIGHT);
-            char filename[TRUNCATE_SIZE + 2];
-            sprintf(filename, " %s ", truncate_filename(current_buf->name));
             Strcats(buf, filename);
             Strcats(buf, SET_HIGHLIGHT);
         } else {
-            char filename[TRUNCATE_SIZE + 2];
-            sprintf(filename, " %s ", truncate_filename(current_buf->name));
             Strcats(buf, filename);
         }
+        counter += tab_len;
     }
+    ssize_t diff_size = window_size.ws_col - counter;
+    char empty[diff_size];
+    memset(empty, ' ', diff_size);
+    Strncats(buf, empty, diff_size);
     Strcats(buf, RESET_HIGHLIGHT);
 }
 
@@ -816,6 +822,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
 
 void display_current_buffer() {
     display_buffer_rows(0, editor_bottom-editor_top);
+    display_top_bar();
 }
 
 void left_align_tab(char* line) {
