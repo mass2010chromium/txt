@@ -77,10 +77,40 @@ EditorAction* make_A_action() {
     return ret;
 }
 
+int g_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        if (this->child == NULL) {
+            if (Strlen(this->value) == 2) {
+                switch(this->value->data[1]) {
+                    case 't':
+                        ctx->action = AT_COMMAND;
+                        current_buffer_idx = (current_buffer_idx + n) % buffers.size;
+                        editor_switch_buffer(current_buffer_idx);
+                        display_current_buffer();
+                        return 1;
+                    case 'T':
+                        ctx->action = AT_COMMAND;
+                        current_buffer_idx = (current_buffer_idx - (n % buffers.size) + buffers.size) % buffers.size;
+                        editor_switch_buffer(current_buffer_idx);
+                        display_current_buffer();
+                        return 1;
+                    default:
+                        return 0;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 int g_action_update(EditorAction* this, char input, int control) {
     switch(input) {
         case 'g':
+            String_push(&this->value, input);
+            return 2;
         case 't':
+            String_push(&this->value, input);
+            return 2;
         case 'T':
             String_push(&this->value, input);
             return 2;
@@ -105,6 +135,13 @@ void g_action_resolve(EditorAction* this, EditorContext* ctx) {
                     current_buffer_idx = (current_buffer_idx + 1) % buffers.size;
                     editor_switch_buffer(current_buffer_idx);
                     display_current_buffer();
+                    // display_top_bar();
+                case 'T':
+                    ctx->action = AT_COMMAND;
+                    current_buffer_idx = (current_buffer_idx - 1 + buffers.size) % buffers.size;
+                    editor_switch_buffer(current_buffer_idx);
+                    display_current_buffer();
+                    // display_top_bar();
             }
         }
     }

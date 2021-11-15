@@ -150,6 +150,8 @@ void editor_newline(int, const char* head, const char* initial);
 
 void display_bottom_bar(char* left, char* right);
 
+void display_top_bar();
+
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).
  */

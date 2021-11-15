@@ -23,6 +23,7 @@ void process_command(char* command, EditorContext* ctx) {
         Strcats(&bottom_bar_info, current_buffer->name);
         Strcats(&bottom_bar_info, " --");
         display_bottom_bar(bottom_bar_info->data, NULL);
+        // display_top_bar();
         return;
     }
     if (strncmp(command, "norm", 4) == 0) {

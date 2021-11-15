@@ -18,6 +18,8 @@ bool SCREEN_WRITE = true;
 
 Copy active_copy = {0};
 
+int TRUNCATE_SIZE = 16;
+
 struct winsize window_size = {0};
 
 Buffer* current_buffer = NULL;
@@ -63,6 +65,7 @@ void process_input(char input, int control) {
                     current_mode = EM_NORMAL;
                     // TODO update data structures
                     display_bottom_bar("-- NORMAL --", NULL);
+                    // display_top_bar();
                     // Match vim behavior when exiting insert mode.
                     editor_move_left();
                     editor_align_tab();
@@ -90,6 +93,7 @@ void process_input(char input, int control) {
                 Strcats(&bottom_bar_info, " --");
                 display = bottom_bar_info->data;
             }
+            // display_top_bar();
             display_bottom_bar(display, NULL);
         }
     }
@@ -629,6 +633,54 @@ void display_bottom_bar(char* left, char* right) {
             _write(right, strlen(right));
         }
         print("Displayed bottom bar [%s]\n", left);
+        move_cursor(y, x);
+    }
+}
+
+char* truncate_filename(char* path) {
+    char* filename = strchr(path, '/');
+    if (filename == NULL) {
+        filename = path;
+    } else {
+        filename += 1;
+    }
+    char* trunc = malloc(TRUNCATE_SIZE);
+    memcpy(trunc, filename, TRUNCATE_SIZE);
+    return trunc;
+}
+
+
+void format_tabs_higlighted(String** buf) {
+    Strcats(buf, SET_HIGHLIGHT);
+    for (size_t i = 0; i < buffers.size; i++) {
+        Buffer* current_buf = buffers.elements[i];
+        if (i == current_buffer_idx) {
+            Strcats(buf, RESET_HIGHLIGHT);
+            char filename[TRUNCATE_SIZE + 2];
+            sprintf(filename, " %s ", truncate_filename(current_buf->name));
+            Strcats(buf, filename);
+            Strcats(buf, SET_HIGHLIGHT);
+        } else {
+            char filename[TRUNCATE_SIZE + 2];
+            sprintf(filename, " %s ", truncate_filename(current_buf->name));
+            Strcats(buf, filename);
+        }
+    }
+    Strcats(buf, RESET_HIGHLIGHT);
+}
+
+void display_top_bar() {
+    if (SCREEN_WRITE && editor_display) {
+        size_t x, y;
+        get_cursor_pos(&y, &x);
+        move_cursor(0, 0);
+        static String* buf = NULL;
+        if (buf == NULL) { buf = alloc_String(10); }
+        else { String_clear(buf); }
+        format_tabs_higlighted(&buf);
+        _write(buf->data, buf->length);
+        // clear_line();
+        print("Displayed top bar\n");
         move_cursor(y, x);
     }
 }
