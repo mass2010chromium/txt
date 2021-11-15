@@ -8,63 +8,65 @@
 #include "../structures/buffer.h"
 
 // basic_actions.c
-EditorAction* make_h_action();  // Move left. (repeatable, no line wrap)
-EditorAction* make_j_action();  // Move down. (repeatable)
-EditorAction* make_k_action();  // Move up. (repeatable)
-EditorAction* make_l_action();  // Move right. (repeatable, no line wrap)
-EditorAction* make_i_action();  // Enter insert mode.
-EditorAction* make_ESC_action();    // Pop cmdstack, exit visual, etc etc.
+EditorAction* make_h_action(int control);  // Move left. (repeatable, no line wrap)
+EditorAction* make_j_action(int control);  // Move down. (repeatable)
+EditorAction* make_k_action(int control);  // Move up. (repeatable)
+EditorAction* make_l_action(int control);  // Move right. (repeatable, no line wrap)
+EditorAction* make_i_action(int control);  // Enter insert mode.
+EditorAction* make_ESC_action(int control);    // Pop cmdstack, exit visual, etc etc.
 
 
 // editing_actions.c
-EditorAction* make_0_action();  // Go to start of line.
-EditorAction* make_DOLLAR_action(); // Go to end of line.
+EditorAction* make_0_action(int control);  // Go to start of line.
+EditorAction* make_DOLLAR_action(int control); // Go to end of line.
 
-EditorAction* make_o_action();  // Create a line below, and enter insert mode.
-EditorAction* make_A_action();  // Go to end of line and enter insert mode.
+EditorAction* make_o_action(int control);  // Create a line below, and enter insert mode.
+EditorAction* make_A_action(int control);  // Go to end of line and enter insert mode.
 
-EditorAction* make_g_action();  // "Go" command. (`gg` goes to start, `gt` / `gT` move between tabs)
-EditorAction* make_G_action();  // Go to end of buffer. (first col)
+EditorAction* make_g_action(int control);  // "Go" command. (`gg` goes to start, `gt` / `gT` move between tabs)
+EditorAction* make_G_action(int control);  // Go to end of buffer. (first col)
 
-EditorAction* make_x_action();  // Delete a character (repeatable), or delete the visual selection.
-EditorAction* make_r_action();  // Replace character(s) under cursor.
-EditorAction* make_d_action();  // 'dd' to delete line (repeatable), or delete based on the result of a move command.
-EditorAction* make_D_action();  // Shortcut for `d$`.
+EditorAction* make_x_action(int control);  // Delete a character (repeatable), or delete the visual selection.
+EditorAction* make_r_action(int control);  // Replace character(s) under cursor.
+EditorAction* make_d_action(int control);  // 'dd' to delete line (repeatable), or delete based on the result of a move command.
+EditorAction* make_D_action(int control);  // Shortcut for `d$`.
 
 
 // visual_actions.c
-EditorAction* make_v_action();  // Enter visual select mode (char).
-EditorAction* make_V_action();  // Enter visual select mode (line).
+EditorAction* make_v_action(int control);  // Enter visual select mode (char).
+EditorAction* make_V_action(int control);  // Enter visual select mode (line).
 
 
-EditorAction* make_u_action();  // Undo an action. (repeatable)
-EditorAction* make_p_action();  // Paste copied/cut text. (repeatable, only partially implemented)
+EditorAction* make_u_action(int control);  // Undo an action. (repeatable)
+EditorAction* make_p_action(int control);  // Paste copied/cut text. (repeatable, only partially implemented)
 
 
 // search_actions.c
-EditorAction* make_f_action();  // Find a character forwards in line.
-EditorAction* make_F_action();  // Find a character backwards in line.
-EditorAction* make_w_action();  // Move forward by one "word", breaking on punctuation and space. (repeatable)
-EditorAction* make_W_action();  // Move forward by one "word", breaking on punctuation. (repeatable)
+EditorAction* make_f_action(int control);  // Find a character forwards in line.
+EditorAction* make_F_action(int control);  // Find a character backwards in line.
+EditorAction* make_w_action(int control);  // Move forward by one "word", breaking on punctuation and space. (repeatable)
+EditorAction* make_W_action(int control);  // Move forward by one "word", breaking on punctuation. (repeatable)
 
-EditorAction* make_slash_action();  // Search for a word across lines, forward.
-EditorAction* make_question_action();   // Search for a word across lines, backward.
-EditorAction* make_n_action();  // Repeat previous word search.
-EditorAction* make_N_action();  // Repeat previous word search, in the reverse direction.
+EditorAction* make_slash_action(int control);  // Search for a word across lines, forward.
+EditorAction* make_question_action(int control);   // Search for a word across lines, backward.
+EditorAction* make_n_action(int control);  // Repeat previous word search.
+EditorAction* make_N_action(int control);  // Repeat previous word search, in the reverse direction.
 
-
-EditorAction* make_m_action();  // Set mark.
-EditorAction* make_BACKTICK_action();   // Go to mark.
+EditorAction* make_m_action(int control);  // Set mark.
+EditorAction* make_BACKTICK_action(int control);   // Go to mark.
 
 
 // command_action.c
-EditorAction* make_COLON_action();  // command mode.
+EditorAction* make_COLON_action(int control);  // command mode.
+
+EditorAction* make_q_action(int control);  // Record macro.
+EditorAction* make_AT_action(int control); // Execute macro.
 
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
 }
 
-EditorAction* (*action_jump_table[256]) (void) = {0};
+EditorAction* (*action_jump_table[256]) (int) = {0};
 ActionType action_type_table[256] = {0};
 Vector* /*EditorAction* */ action_stack = NULL;
 
@@ -135,6 +137,10 @@ void init_actions() {
     action_type_table['`'] = AT_MOVE;
     action_jump_table[':'] = &make_COLON_action;
     action_type_table[':'] = AT_COMMAND;
+    action_jump_table['q'] = &make_q_action;
+    action_type_table['q'] = AT_OVERRIDE;
+    action_jump_table['@'] = &make_AT_action;
+    action_type_table['@'] = AT_OVERRIDE;
     action_stack = make_Vector(10);
 }
 
@@ -231,8 +237,8 @@ ActionType resolve_action_stack() {
             if (buf->undo_index < 0) buf->undo_index = 0;
             if (num_undo > 0) {
                 editor_fix_view();
-                display_current_buffer();
                 move_to_current();
+                display_current_buffer();
             }
         }
         else if (ctx.action == AT_REDO) {
@@ -243,32 +249,63 @@ ActionType resolve_action_stack() {
     return ctx.action;
 }
 
+Macro keybind_macros[256] = {0};
+Macro* current_recording_macro = NULL;
+
+void inplace_make_Macro(Macro* ret) {
+    ret->active = 1;
+    inplace_make_Vector(&ret->keypresses, 10);
+}
+
+void Macro_destroy(Macro* this) {
+    this->active = 0;
+    Vector_clear_free(&this->keypresses, 10);
+    Vector_destroy(&this->keypresses);
+}
+
+void Macro_push(Macro* this, char c, int control) {
+    Keystroke* elt = malloc(sizeof(Keystroke));
+    elt->c = c;
+    elt->control = control;
+    Vector_push(&this->keypresses, elt);
+}
+
 /**
  * Process a char (+ control) using the current action stack.
- * 
  */
 int process_action(char c, int control) {
+    int retval;
+    bool record_init = (current_recording_macro != NULL);
+    bool record_override = true;
     if (action_stack->size != 0) {
         EditorAction* top = action_stack->elements[action_stack->size - 1];
         int res = (*top->update)(top, c, control);
         if (res == 3) {
             // failure :( 
             clear_action_stack();
-            return -1;
+            retval = -1;
+            goto process_action_ret;
         }
         else if (res == 2) {
             // resolve!
-            return resolve_action_stack();
+            retval = resolve_action_stack();
+            if (current_recording_macro != NULL && !record_init) {
+                // If we just started recording this time, don't record
+                //      the keypress that started the recording.
+                record_override = false;
+            }
+            goto process_action_ret;
         }
         else if (res == 1) {
-            return 0;
+            retval = 0;
+            goto process_action_ret;
         }
     }
     EditorAction* new_action = make_NumberAction(c);
     if (new_action == NULL) {
-        EditorAction* (*factory) (void) = action_jump_table[(int) c];
+        EditorAction* (*factory) (int) = action_jump_table[(int) c];
         if (factory != NULL) {
-            new_action = (*factory)();
+            new_action = (*factory)(control);
         }
     }
     if (new_action != NULL) {
@@ -280,11 +317,19 @@ int process_action(char c, int control) {
         if (new_action->update == NULL) {
             // Resolve trigger!
             resolve_action_stack();
-            return 0;
         }
-        return 0;
+        retval = 0;
     }
-    return -1;
+    else {
+        retval = -1;
+    }
+
+process_action_ret:
+    if (record_override && current_recording_macro != NULL) {
+        print("Macro record: %c %d\n", c, control);
+        Macro_push(current_recording_macro, c, control);
+    }
+    return retval;
 }
 
 void clear_action_stack() {
@@ -300,10 +345,13 @@ void clear_action_stack() {
  * DO NOT FREE THIS!
  */
 char* format_action_stack() {
-    if (action_stack->size == 0) { return NULL; }
-
     static_String(ret, 10);
-
+    
+    if (current_recording_macro != NULL) {
+        Strcats(&ret, "recording @");
+        String_push(&ret, (char) (current_recording_macro - keybind_macros));
+        String_push(&ret, ' ');
+    }
     for (int i = 0; i < action_stack->size; ++i) {
         EditorAction* act = (EditorAction*) action_stack->elements[i];
         Strcats(&ret, act->value->data);
@@ -376,7 +424,7 @@ void w_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
 }
 
-EditorAction* make_w_action() {
+EditorAction* make_w_action(int control) {
     EditorAction* ret = make_DefaultAction("w");
     ret->resolve = &w_action_resolve;
     return ret;
@@ -387,7 +435,7 @@ void W_action_resolve(EditorAction* this, EditorContext* ctx) {
     Buffer_skip_word(ctx->buffer, ctx, true);
 }
 
-EditorAction* make_W_action() {
+EditorAction* make_W_action(int control) {
     EditorAction* ret = make_DefaultAction("W");
     ret->resolve = &W_action_resolve;
     return ret;
@@ -398,7 +446,7 @@ void u_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->undo_idx -= 1;
 }
 
-EditorAction* make_u_action() {
+EditorAction* make_u_action(int control) {
     EditorAction* ret = make_DefaultAction("u");
     ret->resolve = &u_action_resolve;
     return ret;
@@ -409,7 +457,7 @@ void p_action_resolve(EditorAction* this, EditorContext* ctx) {
     Buffer_insert_copy(ctx->buffer, &active_copy, ctx);
 }
 
-EditorAction* make_p_action() {
+EditorAction* make_p_action(int control) {
     EditorAction* ret = make_DefaultAction("p");
     ret->resolve = &p_action_resolve;
     return ret;
@@ -428,7 +476,7 @@ void f_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_f_action() {
+EditorAction* make_f_action(int control) {
     EditorAction* ret = make_DefaultAction("f");
     ret->update = &f_action_update;
     ret->resolve = &f_action_resolve;
@@ -448,7 +496,7 @@ void F_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_F_action() {
+EditorAction* make_F_action(int control) {
     EditorAction* ret = make_DefaultAction("F");
     ret->update = &F_action_update;
     ret->resolve = &F_action_resolve;
@@ -491,7 +539,7 @@ void slash_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_slash_action() {
+EditorAction* make_slash_action(int control) {
     EditorAction* ret = make_DefaultAction("/");
     ret->update = &slash_action_update;
     ret->resolve = &slash_action_resolve;
@@ -527,7 +575,7 @@ void question_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_question_action() {
+EditorAction* make_question_action(int control) {
     EditorAction* ret = make_DefaultAction("?");
     ret->update = &question_action_update;
     ret->resolve = &question_action_resolve;
@@ -541,7 +589,7 @@ void n_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_n_action() {
+EditorAction* make_n_action(int control) {
     EditorAction* ret = make_DefaultAction("n");
     ret->resolve = &n_action_resolve;
     return ret;
@@ -554,7 +602,7 @@ void N_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_N_action() {
+EditorAction* make_N_action(int control) {
     EditorAction* ret = make_DefaultAction("N");
     ret->resolve = &N_action_resolve;
     return ret;
@@ -581,7 +629,7 @@ void m_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_m_action() {
+EditorAction* make_m_action(int control) {
     EditorAction* ret = make_DefaultAction("m");
     ret->update = &m_action_update;
     ret->resolve = &m_action_resolve;
@@ -612,35 +660,11 @@ void BACKTICK_action_resolve(EditorAction* this, EditorContext* ctx) {
     }
 }
 
-EditorAction* make_BACKTICK_action() {
+EditorAction* make_BACKTICK_action(int control) {
     EditorAction* ret = make_DefaultAction("`");
     ret->update = &BACKTICK_action_update;
     ret->resolve = &BACKTICK_action_resolve;
     return ret;
-}
-
-void close_buffer() {
-    editor_close_buffer(current_buffer_idx);
-    if (buffers.size == 0) {
-        current_mode = EM_QUIT;
-    }
-    else {
-        display_current_buffer();
-        String_clear(bottom_bar_info);
-        Strcats(&bottom_bar_info, "-- Editing: ");
-        Strcats(&bottom_bar_info, current_buffer->name);
-        Strcats(&bottom_bar_info, " --");
-        display_bottom_bar(bottom_bar_info->data, NULL);
-    }
-}
-
-void save_buffer() {
-    Buffer_save(current_buffer);
-    String_clear(bottom_bar_info);
-    Strcats(&bottom_bar_info, "-- File saved: ");
-    Strcats(&bottom_bar_info, current_buffer->name);
-    Strcats(&bottom_bar_info, " --");
-    display_bottom_bar(bottom_bar_info->data, NULL);
 }
 
 #include "actions/command_action.c"

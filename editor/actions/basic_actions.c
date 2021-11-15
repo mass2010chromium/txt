@@ -14,7 +14,7 @@ void h_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col -= 1;
 }
 
-EditorAction* make_h_action() {
+EditorAction* make_h_action(int control) {
     EditorAction* ret = make_DefaultAction("h");
     ret->resolve = &h_action_resolve;
     return ret;
@@ -26,7 +26,7 @@ void j_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col = ctx->buffer->natural_col;
 }
 
-EditorAction* make_j_action() {
+EditorAction* make_j_action(int control) {
     EditorAction* ret = make_DefaultAction("j");
     ret->resolve = &j_action_resolve;
     return ret;
@@ -38,7 +38,7 @@ void k_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col = ctx->buffer->natural_col;
 }
 
-EditorAction* make_k_action() {
+EditorAction* make_k_action(int control) {
     EditorAction* ret = make_DefaultAction("k");
     ret->resolve = &k_action_resolve;
     return ret;
@@ -49,7 +49,7 @@ void l_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->jump_col += 1;
 }
 
-EditorAction* make_l_action() {
+EditorAction* make_l_action(int control) {
     EditorAction* ret = make_DefaultAction("l");
     ret->resolve = &l_action_resolve;
     return ret;
@@ -63,7 +63,7 @@ void i_action_resolve(EditorAction* this, EditorContext* ctx) {
     editor_align_tab();
 }
 
-EditorAction* make_i_action() {
+EditorAction* make_i_action(int control) {
     EditorAction* ret = make_DefaultAction("i");
     ret->resolve = &i_action_resolve;
     return ret;
@@ -73,7 +73,7 @@ void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_ESCAPE;
 }
 
-EditorAction* make_ESC_action() {
+EditorAction* make_ESC_action(int control) {
     EditorAction* ret = make_DefaultAction("<esc");
     ret->resolve = &ESC_action_resolve;
     return ret;

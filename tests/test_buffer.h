@@ -501,6 +501,188 @@ UTEST(Buffer, skip_word) {
     Buffer_destroy(&buf);
 }
 
+UTEST(Buffer, skip_word_edgecases_1) {
+    Buffer buf;
+    EditorContext ctx;
+    ctx.start_col = 0;
+    ctx.start_row = 0;
+    ctx.jump_col = 0;
+    ctx.jump_row = 0;
+    inplace_make_Buffer(&buf, "./tests/word_edgecases.txt");
+
+    //Skip 'int'
+    int result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(3, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    // '* '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(5, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    // 'x '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(7, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    // '= '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(9, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    // '0'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(10, ctx.jump_col);
+    ASSERT_EQ(0, ctx.jump_row);
+    // ';\n'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(1, ctx.jump_row);
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, skip_word_edgecases_2) {
+    Buffer buf;
+    EditorContext ctx;
+    ctx.start_col = 0;
+    ctx.start_row = 0;
+    ctx.jump_col = 0;
+    ctx.jump_row = 1;
+    inplace_make_Buffer(&buf, "./tests/word_edgecases.txt");
+
+    // 'int'
+    int result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(3, ctx.jump_col);
+    ASSERT_EQ(1, ctx.jump_row);
+    // '*'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(4, ctx.jump_col);
+    ASSERT_EQ(1, ctx.jump_row);
+    // 'y'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(5, ctx.jump_col);
+    ASSERT_EQ(1, ctx.jump_row);
+    // '='
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(6, ctx.jump_col);
+    ASSERT_EQ(1, ctx.jump_row);
+    // '1234\n\n'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(3, ctx.jump_row);
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, skip_word_edgecases_3) {
+    Buffer buf;
+    EditorContext ctx;
+    ctx.start_col = 0;
+    ctx.start_row = 0;
+    ctx.jump_col = 0;
+    ctx.jump_row = 3;
+    inplace_make_Buffer(&buf, "./tests/word_edgecases.txt");
+
+    // '**'
+    int result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(2, ctx.jump_col);
+    ASSERT_EQ(3, ctx.jump_row);
+    // 'x '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(4, ctx.jump_col);
+    ASSERT_EQ(3, ctx.jump_row);
+    // '= '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(6, ctx.jump_col);
+    ASSERT_EQ(3, ctx.jump_row);
+    // '(-*'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(9, ctx.jump_col);
+    ASSERT_EQ(3, ctx.jump_row);
+    // '2'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(10, ctx.jump_col);
+    ASSERT_EQ(3, ctx.jump_row);
+    // ');\n\n'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+
+    Buffer_destroy(&buf);
+}
+
+UTEST(Buffer, skip_word_edgecases_4) {
+    Buffer buf;
+    EditorContext ctx;
+    ctx.start_col = 0;
+    ctx.start_row = 0;
+    ctx.jump_col = 0;
+    ctx.jump_row = 5;
+    inplace_make_Buffer(&buf, "./tests/word_edgecases.txt");
+
+    // '__interrupt__ '
+    int result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(14, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // 'void '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(19, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // '__func_name2__'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(33, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // '('
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(34, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // '_typename_2 '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(46, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // 't2'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(48, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // ') '
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(50, ctx.jump_col);
+    ASSERT_EQ(5, ctx.jump_row);
+    // '{};\n'
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(6, ctx.jump_row);
+    // EOF (failure)
+    result = Buffer_skip_word(&buf, &ctx, false);
+    ASSERT_EQ(-1, result);
+    ASSERT_EQ(0, ctx.jump_col);
+    ASSERT_EQ(6, ctx.jump_row);
+
+    Buffer_destroy(&buf);
+}
+
 UTEST(Buffer, skip_word_multiline) {
     Buffer buf;
     inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
