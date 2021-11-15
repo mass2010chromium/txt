@@ -1,0 +1,5 @@
+int* x = 0;
+
+**x = 2;
+
+__interrupt__ void __funcname(__typename t) {};

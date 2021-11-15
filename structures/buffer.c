@@ -583,21 +583,25 @@ int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction) 
 }
 
 int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
-    size_t current_pos = ctx->jump_col + 1;
+    size_t current_pos = ctx->jump_col;
     size_t current_row = ctx->jump_row;
     char* line = *(Buffer_get_line_abs(buf, current_row));
-    char start_char = line[current_pos - 1];
     char c;
     bool found_space = false;
     while ((c = line[current_pos])) {
-        if (!skip_punct && ispunct(c) && c != start_char && c != '_') {
-            ctx->jump_col = current_pos;
-            ctx->jump_row = current_row;
-            return 0;
-        } else if (found_space && isalnum(c)) {
-            ctx->jump_col = current_pos;
-            ctx->jump_row = current_row;
-            return 0;
+        if (!skip_punct && (ispunct(c) && c != '_') ) {
+            if (current_pos != ctx->jump_col || current_row != ctx->jump_row) {
+                ctx->jump_col = current_pos;
+                ctx->jump_row = current_row;
+                return 0;
+            }
+            found_space = true;
+        } else if (found_space && (isalnum(c) || c == '_')) {
+            if (current_pos != ctx->jump_col || current_row != ctx->jump_row) {
+                ctx->jump_col = current_pos;
+                ctx->jump_row = current_row;
+                return 0;
+            }
         } else if (isspace(c)) {
             found_space = true;
         }

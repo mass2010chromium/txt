@@ -396,12 +396,21 @@ UTEST(Buffer, find_str_forward_multiline) {
     Buffer buf;
     inplace_make_Buffer(&buf, "./tests/multi_line_text.txt");
     EditorContext ctx;
+    ctx.start_row = 0;
+    ctx.start_col = 0;
     ctx.jump_row = 0;
     ctx.jump_col = 0;
     int result = Buffer_find_str(&buf, &ctx, "zy", true, true);
     ASSERT_EQ(0, result);
     ASSERT_EQ(7, ctx.jump_row);
     ASSERT_EQ(2, ctx.jump_col);
+
+    ctx.jump_row = 0;
+    ctx.jump_col = 0;
+    result = Buffer_find_str(&buf, &ctx, "fox", true, true);
+    ASSERT_EQ(0, result);
+    ASSERT_EQ(3, ctx.jump_row);
+    ASSERT_EQ(0, ctx.jump_col);
 
     Buffer_destroy(&buf);
 }
