@@ -438,8 +438,9 @@ void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
  * Undone actions are pushed onto the redo buffer.
  * Returns the number of actions undone. (Possibly zero)
  * Postcondition: rightmost element of undo buffer has action index < undo_index, or undo buffer is empty.
+ * Saves the location of the last undo in ctx jump entries
  */
-int Buffer_undo(Buffer* buf, size_t undo_index) {
+int Buffer_undo(Buffer* buf, size_t undo_index, EditorContext* ctx) {
     int num_undo = 0;
     while (true) {
         if (Deque_empty(&buf->undo_buffer)) {
@@ -450,6 +451,8 @@ int Buffer_undo(Buffer* buf, size_t undo_index) {
             return num_undo;
         }
         num_undo += 1;
+        ctx->jump_row = ed->start_row;
+        ctx->jump_col = ed->start_col;
         Buffer_undo_Edit(buf, ed);
         Deque_pop_r(&buf->undo_buffer);
         Vector_push(&buf->redo_buffer, ed);

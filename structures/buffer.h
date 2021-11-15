@@ -71,8 +71,9 @@ void Buffer_push_undo(Buffer*, Edit*);
  * Undone actions are pushed onto the redo buffer.
  * Returns the number of actions undone. (Possibly zero)
  * Postcondition: rightmost element of undo buffer has action index < undo_index, or undo buffer is empty.
+ * Saves the location of the last undo in ctx jump entries
  */
-int Buffer_undo(Buffer*, size_t undo_index);
+int Buffer_undo(Buffer*, size_t undo_index, EditorContext* ctx);
 int Buffer_redo(Buffer*, size_t undo_index);
 
 /**
