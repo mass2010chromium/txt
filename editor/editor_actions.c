@@ -52,13 +52,15 @@ EditorAction* make_question_action();   // Search for a word across lines, backw
 EditorAction* make_n_action();  // Repeat previous word search.
 EditorAction* make_N_action();  // Repeat previous word search, in the reverse direction.
 
-
 EditorAction* make_m_action();  // Set mark.
 EditorAction* make_BACKTICK_action();   // Go to mark.
 
 
 // command_action.c
 EditorAction* make_COLON_action();  // command mode.
+
+EditorAction* make_q_action();  // Record macro.
+EditorAction* make_AT_action(); // Execute macro.
 
 void EditorAction_destroy(EditorAction* this) {
     free(this->value);
@@ -135,6 +137,10 @@ void init_actions() {
     action_type_table['`'] = AT_MOVE;
     action_jump_table[':'] = &make_COLON_action;
     action_type_table[':'] = AT_COMMAND;
+    action_jump_table['q'] = &make_q_action;
+    action_type_table['q'] = AT_OVERRIDE;
+    action_jump_table['@'] = &make_AT_action;
+    action_type_table['@'] = AT_OVERRIDE;
     action_stack = make_Vector(10);
 }
 
@@ -231,8 +237,8 @@ ActionType resolve_action_stack() {
             if (buf->undo_index < 0) buf->undo_index = 0;
             if (num_undo > 0) {
                 editor_fix_view();
-                display_current_buffer();
                 move_to_current();
+                display_current_buffer();
             }
         }
         else if (ctx.action == AT_REDO) {
@@ -243,25 +249,62 @@ ActionType resolve_action_stack() {
     return ctx.action;
 }
 
+
+typedef struct Macro {
+    bool active;
+    Vector /*Keystroke* */ keypresses;
+} Macro;
+
+Macro keybind_macros[256] = {0};
+Macro* current_recording_macro = NULL;
+
+void inplace_make_Macro(Macro* ret) {
+    ret->active = 1;
+    inplace_make_Vector(&ret->keypresses, 10);
+}
+
+void Macro_destroy(Macro* this) {
+    this->active = 0;
+    Vector_clear_free(&this->keypresses, 10);
+    Vector_destroy(&this->keypresses);
+}
+
+void Macro_push(Macro* this, char c, int control) {
+    Keystroke* elt = malloc(sizeof(Keystroke));
+    elt->c = c;
+    elt->control = control;
+    Vector_push(&this->keypresses, elt);
+}
+
 /**
  * Process a char (+ control) using the current action stack.
- * 
  */
 int process_action(char c, int control) {
+    int retval;
+    bool record_init = (current_recording_macro != NULL);
+    bool record_override = true;
     if (action_stack->size != 0) {
         EditorAction* top = action_stack->elements[action_stack->size - 1];
         int res = (*top->update)(top, c, control);
         if (res == 3) {
             // failure :( 
             clear_action_stack();
-            return -1;
+            retval = -1;
+            goto process_action_ret;
         }
         else if (res == 2) {
             // resolve!
-            return resolve_action_stack();
+            retval = resolve_action_stack();
+            if (current_recording_macro != NULL && !record_init) {
+                // If we just started recording this time, don't record
+                //      the keypress that started the recording.
+                record_override = false;
+            }
+            goto process_action_ret;
         }
         else if (res == 1) {
-            return 0;
+            retval = 0;
+            goto process_action_ret;
         }
     }
     EditorAction* new_action = make_NumberAction(c);
@@ -280,11 +323,19 @@ int process_action(char c, int control) {
         if (new_action->update == NULL) {
             // Resolve trigger!
             resolve_action_stack();
-            return 0;
         }
-        return 0;
+        retval = 0;
     }
-    return -1;
+    else {
+        retval = -1;
+    }
+
+process_action_ret:
+    if (record_override && current_recording_macro != NULL) {
+        print("Macro record: %c %d\n", c, control);
+        Macro_push(current_recording_macro, c, control);
+    }
+    return retval;
 }
 
 void clear_action_stack() {
@@ -300,10 +351,13 @@ void clear_action_stack() {
  * DO NOT FREE THIS!
  */
 char* format_action_stack() {
-    if (action_stack->size == 0) { return NULL; }
-
     static_String(ret, 10);
-
+    
+    if (current_recording_macro != NULL) {
+        Strcats(&ret, "recording @");
+        String_push(&ret, (char) (current_recording_macro - keybind_macros));
+        String_push(&ret, ' ');
+    }
     for (int i = 0; i < action_stack->size; ++i) {
         EditorAction* act = (EditorAction*) action_stack->elements[i];
         Strcats(&ret, act->value->data);
@@ -617,30 +671,6 @@ EditorAction* make_BACKTICK_action() {
     ret->update = &BACKTICK_action_update;
     ret->resolve = &BACKTICK_action_resolve;
     return ret;
-}
-
-void close_buffer() {
-    editor_close_buffer(current_buffer_idx);
-    if (buffers.size == 0) {
-        current_mode = EM_QUIT;
-    }
-    else {
-        display_current_buffer();
-        String_clear(bottom_bar_info);
-        Strcats(&bottom_bar_info, "-- Editing: ");
-        Strcats(&bottom_bar_info, current_buffer->name);
-        Strcats(&bottom_bar_info, " --");
-        display_bottom_bar(bottom_bar_info->data, NULL);
-    }
-}
-
-void save_buffer() {
-    Buffer_save(current_buffer);
-    String_clear(bottom_bar_info);
-    Strcats(&bottom_bar_info, "-- File saved: ");
-    Strcats(&bottom_bar_info, current_buffer->name);
-    Strcats(&bottom_bar_info, " --");
-    display_bottom_bar(bottom_bar_info->data, NULL);
 }
 
 #include "actions/command_action.c"

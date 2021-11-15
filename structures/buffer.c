@@ -582,28 +582,38 @@ int Buffer_search_char(Buffer* buf, EditorContext* ctx, char c, bool direction) 
     return -1;
 }
 
+/**
+ * Alphnun_, punct, or whitespace.
+ * if skip_punct, punct and word are treated the same.
+ */
+int __get_type(char c, bool skip_punct) {
+    if (isspace(c)) { return 0; }
+    if (isalnum(c) || c == '_') { return 1; }
+    if (skip_punct) return 1;
+    return 2;
+}
+
 int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
     size_t current_pos = ctx->jump_col;
     size_t current_row = ctx->jump_row;
     char* line = *(Buffer_get_line_abs(buf, current_row));
-    char c;
-    bool found_space = false;
+
+    char c = line[current_pos];
+    if (c == '\0') { return -1; }   // NOTE: the only way this can fail is if you start at EOF.
+                                    // Otherwise you can always move forward (even if the ending position is EOF).
+    int search_type = __get_type(c, skip_punct);
+    ++current_pos;
     while ((c = line[current_pos])) {
-        if (!skip_punct && (ispunct(c) && c != '_') ) {
-            if (current_pos != ctx->jump_col || current_row != ctx->jump_row) {
+        int c_type = __get_type(c, skip_punct);
+        if (c_type != search_type) {
+            if (c_type == 0) {
+                search_type = 0; // Other types "devolve" to space
+            }
+            else {
                 ctx->jump_col = current_pos;
                 ctx->jump_row = current_row;
                 return 0;
             }
-            found_space = true;
-        } else if (found_space && (isalnum(c) || c == '_')) {
-            if (current_pos != ctx->jump_col || current_row != ctx->jump_row) {
-                ctx->jump_col = current_pos;
-                ctx->jump_row = current_row;
-                return 0;
-            }
-        } else if (isspace(c)) {
-            found_space = true;
         }
         current_pos++;
         if (line[current_pos] == '\0' && current_row + 1 < Buffer_get_num_lines(buf)) {
@@ -612,5 +622,7 @@ int Buffer_skip_word(Buffer* buf, EditorContext* ctx, bool skip_punct) {
             current_pos = 0;
         }
     }
-    return -1;
+    ctx->jump_col = current_pos;
+    ctx->jump_row = current_row;
+    return 0;
 }

@@ -30,6 +30,9 @@ typedef int RepaintType;
 #define RP_UPPER 4
 
 
+/**
+ * Struct an edit to a line. TODO: bulk/group edits.
+ */
 struct Edit {
     size_t undo_index;
     size_t start_row;
@@ -39,6 +42,18 @@ struct Edit {
 };
 typedef struct Edit Edit;
 
+/**
+ * Struct representing a keypress. For macro recording and the like.
+ */
+struct Keystroke {
+    char c;
+    int control;
+};
+typedef struct Keystroke Keystroke;
+
+/**
+ * Struct representing a marked point in the text. TODO: assoc with lines, not rows.
+ */
 struct Mark {
     ssize_t row;
     ssize_t col;

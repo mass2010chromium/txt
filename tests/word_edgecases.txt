@@ -1,5 +1,6 @@
 int* x = 0;
+int*y=1234
 
-**x = 2;
+**x = (-*2);
 
-__interrupt__ void __funcname(__typename t) {};
+__interrupt__ void __func_name2__(_typename_2 t2) {};

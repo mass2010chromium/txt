@@ -82,15 +82,12 @@ void process_input(char input, int control) {
         }
         else if (res != AT_COMMAND) {
             move_to_current();
-            char* display = format_action_stack();
-            if (display == NULL) {
-                String_clear(bottom_bar_info);
-                Strcats(&bottom_bar_info, "-- ");
-                Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
-                Strcats(&bottom_bar_info, " --");
-                display = bottom_bar_info->data;
-            }
-            display_bottom_bar(display, NULL);
+            String_clear(bottom_bar_info);
+            Strcats(&bottom_bar_info, "-- ");
+            Strcats(&bottom_bar_info, EDITOR_MODE_STR[Buffer_get_mode(current_buffer)]);
+            Strcats(&bottom_bar_info, " -- ");
+            Strcats(&bottom_bar_info, format_action_stack());
+            display_bottom_bar(bottom_bar_info->data, NULL);
         }
     }
 }
@@ -640,9 +637,7 @@ void format_line_highlight(String** buf, const char* line) {
 }
 
 void display_line_highlight(const char* line) {
-    static String* buf = NULL;
-    if (buf == NULL) { buf = alloc_String(10); }
-    else { String_clear(buf); }
+    static_String(buf, 10);
     format_line_highlight(&buf, line);
     write_respect_tabspace(buf->data, 0, Strlen(buf));
 }
@@ -690,9 +685,9 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
 
         size_t line_idx = Buffer_get_line_index(current_buffer, i);
         if (line_idx < current_buffer->lines.size) {
-            format_left_bar(&output_buffer, i);
             char* str;
             if (active_insert.content != NULL && current_buffer->cursor_row == i) {
+                format_left_bar(&output_buffer, i);
                 str = gapBuffer_get_content(&active_insert);
                 format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 free(str);
@@ -702,6 +697,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                 if (line_idx == visual_bounds.start_row) {
                     if (visual_bounds.start_col == -1) {
                         Strcats(&output_buffer, SET_HIGHLIGHT);
+                        format_left_bar(&output_buffer, i);
                         format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                         if (line_idx == visual_bounds.jump_row) {
                             Strcats(&output_buffer, RESET_HIGHLIGHT);
@@ -711,6 +707,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                         }
                     }
                     else {
+                        format_left_bar(&output_buffer, i);
                         size_t pos = format_respect_tabspace(&output_buffer,
                                                     str, 0, visual_bounds.start_col);
                         Strcats(&output_buffer, SET_HIGHLIGHT);
@@ -733,11 +730,13 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                 }
                 else if (line_idx == visual_bounds.jump_row) {
                     if (visual_bounds.jump_col == -1) {
+                        format_left_bar(&output_buffer, i);
                         format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                         Strcats(&output_buffer, RESET_HIGHLIGHT);
                         highlight_mode = false;
                     }
                     else {
+                        format_left_bar(&output_buffer, i);
                         size_t pos = format_respect_tabspace(&output_buffer,
                                                 str, 0, visual_bounds.jump_col + 1);
                         Strcats(&output_buffer, RESET_HIGHLIGHT);
@@ -746,7 +745,8 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                                                 strlen(str + visual_bounds.jump_col + 1));
                     }
                 }
-                else if (strlen(str) != 0) {
+                else {
+                    format_left_bar(&output_buffer, i);
                     format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 }
             }
