@@ -331,16 +331,20 @@ void format_left_bar(String** write_buffer, size_t i) {
  *      buf: data to write out. (C string, no control chars)
  *      start: Screenwidth position to start at.
  *      count: Number of characters in 'buf' to write out.
+ *      print_start: Column to begin printing at.
+ *      print_end: Column to stop printing at.
  * 
  * Return:
  *      New "effective screen position" (for tabbing purpoises)
  */
-size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count) {
+size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count
+            /*size_t print_start, size_t print_end*/) {
     size_t zero_size = Strlen(*write_buffer);
+    size_t column = start;
     for (size_t i = 0; i < count; ++i) {
         if (buf[i] == BYTE_TAB) {
-            size_t x = Strlen(*write_buffer) - zero_size + start;
-            for (size_t j = x; j < tab_round_up(x); ++j) {
+            size_t end = tab_round_up(column);
+            for (; column < end; ++column) {
                 String_push(write_buffer, ' ');
             }
             continue;
@@ -348,9 +352,10 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
         else if (buf[i] == BYTE_ENTER) {
             continue;
         }
+        ++column;
         String_push(write_buffer, buf[i]);
     }
-    return Strlen(*write_buffer) - zero_size + start;
+    return column;
 }
 
 /**

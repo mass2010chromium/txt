@@ -99,6 +99,9 @@ int main(int argc, char** argv) {
                 read_buf[result] = 0;
                 strcat(buf, read_buf);
             }
+            else {
+                usleep(100);
+            }
         }
         if (strlen(buf) > 0) {
             int control = 0;
