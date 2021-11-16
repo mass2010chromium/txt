@@ -15,6 +15,7 @@ bool PRESERVE_INDENT = true;
 bool EXPAND_TAB = true;
 
 bool SCREEN_WRITE = true;
+EditorMode current_mode = EM_NORMAL;
 
 Copy active_copy = {0};
 
@@ -23,6 +24,7 @@ int TRUNCATE_SIZE = 16;
 struct winsize window_size = {0};
 
 Buffer* current_buffer = NULL;
+int current_buffer_idx = 0;
 
 Vector/*Buffer* */ buffers = {0};
 String* command_buffer = NULL;
