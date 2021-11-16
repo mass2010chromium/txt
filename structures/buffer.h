@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <regex.h>
 
 #include "../editor/utils.h"
 #include "../common.h"
