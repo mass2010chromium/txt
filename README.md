@@ -33,6 +33,13 @@ Requirements: gcc 9.3, valgrind
 - `structures`: generic data structures (kinda? buffer is in here for now, might move it)
 - `bin`: binaries (test, main) go here
 
+## Repository Branches
+
+- weekX-dev: Used to view diffs between week 1/2/3 and main.
+- main: up-to-date, working code. **Merge requests to main should be viewed for grading purposes.**
+- jcp-dev: Jing's weekly development branch
+- daniel-week-X: Daniel's weekly development branch.
+
 ## TODOS (major milestones):
 - more unit test
 - line wrapping

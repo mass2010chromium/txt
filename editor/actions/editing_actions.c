@@ -77,6 +77,31 @@ EditorAction* make_A_action(int control) {
     return ret;
 }
 
+int g_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        if (this->child == NULL) {
+            if (Strlen(this->value) == 2) {
+                switch(this->value->data[1]) {
+                    case 't':
+                    case 'T':
+                        ctx->action = AT_COMMAND;
+                        current_buffer_idx = n - 1;
+                        if (n > buffers.size) {
+                            current_buffer_idx = buffers.size - 1;
+                        }
+                        editor_switch_buffer(current_buffer_idx);
+                        display_current_buffer();
+                        // display_top_bar();
+                        return 1;
+                    default:
+                        return 0;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 int g_action_update(EditorAction* this, char input, int control) {
     switch(input) {
         case 'g':
@@ -105,6 +130,15 @@ void g_action_resolve(EditorAction* this, EditorContext* ctx) {
                     current_buffer_idx = (current_buffer_idx + 1) % buffers.size;
                     editor_switch_buffer(current_buffer_idx);
                     display_current_buffer();
+                    // display_top_bar();
+                    return;
+                case 'T':
+                    ctx->action = AT_COMMAND;
+                    current_buffer_idx = (current_buffer_idx - 1 + buffers.size) % buffers.size;
+                    editor_switch_buffer(current_buffer_idx);
+                    display_current_buffer();
+                    // display_top_bar();
+                    return;
             }
         }
     }
@@ -115,6 +149,7 @@ EditorAction* make_g_action(int control) {
     EditorAction* ret = make_DefaultAction("g");
     ret->update = &g_action_update;
     ret->resolve = &g_action_resolve;
+    ret->repeat = &g_action_repeat;
     return ret;
 }
 

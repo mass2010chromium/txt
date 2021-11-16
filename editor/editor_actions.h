@@ -8,7 +8,7 @@ typedef struct Macro {
     Vector /*Keystroke* */ keypresses;
 } Macro;
 
-Macro* current_recording_macro;
+extern Macro* current_recording_macro;
 
 void Macro_push(Macro* this, char c, int control);
 
@@ -42,7 +42,7 @@ void EditorAction_destroy(EditorAction*);
 
 extern EditorAction* (*action_jump_table[]) (int);
 extern ActionType action_type_table[];
-Vector* /*EditorAction* */ action_stack;
+extern Vector* /*EditorAction* */ action_stack;
 
 void init_actions();
 

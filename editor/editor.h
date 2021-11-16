@@ -16,24 +16,24 @@
 #define BYTE_DOWNARROW  '\120'
 #define BYTE_DELETE     '\123'
 
-String* bottom_bar_info;
+extern String* bottom_bar_info;
 
-EditorMode current_mode;
+extern EditorMode current_mode;
 
-struct winsize window_size;
+extern struct winsize window_size;
 
-Copy active_copy;
+extern Copy active_copy;
 
-Buffer* current_buffer;
-int current_buffer_idx;
-Vector/*Buffer* */ buffers;
-String* command_buffer;
-GapBuffer active_insert;
-size_t editor_top;
-size_t editor_left;
-size_t editor_bottom;
-bool editor_display;
-bool editor_macro_mode;
+extern Buffer* current_buffer;
+extern int current_buffer_idx;
+extern Vector/*Buffer* */ buffers;
+extern String* command_buffer;
+extern GapBuffer active_insert;
+extern size_t editor_top;
+extern size_t editor_left;
+extern size_t editor_bottom;
+extern bool editor_display;
+extern bool editor_macro_mode;
 
 /**
  * Process one keypress from the user.
@@ -138,6 +138,8 @@ void add_chr(char c);
 void editor_newline(int, const char* head, const char* initial);
 
 void display_bottom_bar(char* left, char* right);
+
+void display_top_bar();
 
 /**
  * Display rows [start, end] inclusive, in screen coords (1-indexed).

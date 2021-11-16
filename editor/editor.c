@@ -15,12 +15,16 @@ bool PRESERVE_INDENT = true;
 bool EXPAND_TAB = true;
 
 bool SCREEN_WRITE = true;
+EditorMode current_mode = EM_NORMAL;
 
 Copy active_copy = {0};
+
+int TRUNCATE_SIZE = 16;
 
 struct winsize window_size = {0};
 
 Buffer* current_buffer = NULL;
+int current_buffer_idx = 0;
 
 Vector/*Buffer* */ buffers = {0};
 String* command_buffer = NULL;
@@ -66,6 +70,7 @@ void process_input(char input, int control) {
                     current_mode = EM_NORMAL;
                     // TODO update data structures
                     display_bottom_bar("-- NORMAL --", NULL);
+                    // display_top_bar();
                     // Match vim behavior when exiting insert mode.
                     editor_move_left();
                     editor_align_tab();
@@ -91,6 +96,7 @@ void process_input(char input, int control) {
             Strcats(&bottom_bar_info, " -- ");
             Strcats(&bottom_bar_info, format_action_stack());
             display_bottom_bar(bottom_bar_info->data, NULL);
+            // display_top_bar();
         }
     }
 }
@@ -616,6 +622,60 @@ void display_bottom_bar(char* left, char* right) {
     }
 }
 
+char* truncate_filename(char* path) {
+    char* filename = strchr(path, '/');
+    if (filename == NULL) {
+        filename = path;
+    } else {
+        filename += 1;
+    }
+    char* trunc = malloc(TRUNCATE_SIZE);
+    memcpy(trunc, filename, TRUNCATE_SIZE);
+    return trunc;
+}
+
+
+void format_tabs_higlighted(String** buf) {
+    Strcats(buf, SET_HIGHLIGHT);
+    size_t counter = 0;
+    for (size_t i = 0; i < buffers.size; i++) {
+        Buffer* current_buf = buffers.elements[i];
+        char filename[TRUNCATE_SIZE + 2];
+        size_t tab_len = sprintf(filename, " %s ", truncate_filename(current_buf->name));
+        if (tab_len + counter > window_size.ws_col) {
+            break;
+        } else if (i == current_buffer_idx) {
+            Strcats(buf, RESET_HIGHLIGHT);
+            Strcats(buf, filename);
+            Strcats(buf, SET_HIGHLIGHT);
+        } else {
+            Strcats(buf, filename);
+        }
+        counter += tab_len;
+    }
+    ssize_t diff_size = window_size.ws_col - counter;
+    char empty[diff_size];
+    memset(empty, ' ', diff_size);
+    Strncats(buf, empty, diff_size);
+    Strcats(buf, RESET_HIGHLIGHT);
+}
+
+void display_top_bar() {
+    if (SCREEN_WRITE && editor_display) {
+        size_t x, y;
+        get_cursor_pos(&y, &x);
+        move_cursor(0, 0);
+        static String* buf = NULL;
+        if (buf == NULL) { buf = alloc_String(10); }
+        else { String_clear(buf); }
+        format_tabs_higlighted(&buf);
+        _write(buf->data, buf->length);
+        // clear_line();
+        print("Displayed top bar\n");
+        move_cursor(y, x);
+    }
+}
+
 void format_line_highlight(String** buf, const char* line) {
     Strcats(buf, SET_HIGHLIGHT);
     Strcats(buf, line);
@@ -747,6 +807,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
 
 void display_current_buffer() {
     display_buffer_rows(0, editor_bottom-editor_top);
+    display_top_bar();
 }
 
 void left_align_tab(char* line) {

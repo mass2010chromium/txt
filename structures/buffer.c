@@ -472,7 +472,6 @@ int Buffer_redo(Buffer*, size_t undo_index);
  * Return: 0 = OK, 1 = NOT_FOUND, -1 = error
  */
 int Buffer_find_str(Buffer* buf, EditorContext* ctx, char* str, bool cross_lines, bool direction) {
-    // printf("find_str called, searching for: %s\n", str);
     if (!cross_lines) {
         return Buffer_find_str_inline(buf, ctx, str, ctx->jump_row, ctx->jump_col, direction);
     }
@@ -500,21 +499,36 @@ int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t li
         offset = 0;
     }
     char* line = *(Buffer_get_line_abs(buf, line_num));
-    //TODO: don't find word if cursor is on top of it
-    char* search = line + offset + 1;
-    if (!direction || search_full) {
-        //This will search the entire line if searching backwards
-        search = line;
+    regex_t regex;
+    regmatch_t pmatch;
+    int status = regcomp(&regex, str, 0);
+    if (status != 0) {
+        return -2;
     }
-    char* result = strstr(search, str);
-    if (result != NULL) {
+    size_t search_offset = 0;
+    status = regexec(&regex, line, 1, &pmatch, 0);
+    ssize_t pattern_loc = -1;
+    ssize_t prev_loc = -1;
+    while (status == 0) {
+        pattern_loc = search_offset + pmatch.rm_so;
+        if (search_full || (pattern_loc > prev_loc && pattern_loc < offset)) {
+            prev_loc = pattern_loc;
+        }
         if (direction) {
+            if (search_full || pattern_loc > offset) {
+                ctx->jump_col = pattern_loc;
+                ctx->jump_row = line_num;
+                return 0;
+            }
+        }
+        search_offset += pmatch.rm_eo;
+        status = regexec(&regex, line + search_offset, 1, &pmatch, REG_NOTBOL);
+    }
+    //After loop finishes, non-negative prev_loc indicates location of last match before cursor offset
+    if (!direction) {
+        if (search_full || (prev_loc >= 0 && prev_loc < offset)) {
+            ctx->jump_col = prev_loc;
             ctx->jump_row = line_num;
-            ctx->jump_col = result - line;
-            return 0;
-        } else if (!direction && (search_full || result < line + offset)) {
-            ctx->jump_row = line_num;
-            ctx->jump_col = result - line;
             return 0;
         }
     }
