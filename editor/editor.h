@@ -54,17 +54,6 @@ void editor_window_size_change();
  */
 void editor_new_action();
 
-/**
- * Performs the latest undo action contained in the current buffer's
- * undo list, then decrements the undo counter and re-displays the buffer
- * to reflect the changes.
- * Wraps Buffer->undo.
- *
- * Return:
- *   Number of actions undone (this is kinda meaningless tho)
- */
-int editor_undo();
-
 void clear_line();      /** Clear a line of STDOUT to prep for displaying the editor. */
 void clear_screen();    /** Prints an escape code that clears the entire terminal screen. */
 

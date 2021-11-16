@@ -74,7 +74,19 @@ void ESC_action_resolve(EditorAction* this, EditorContext* ctx) {
 }
 
 EditorAction* make_ESC_action(int control) {
-    EditorAction* ret = make_DefaultAction("<esc");
-    ret->resolve = &ESC_action_resolve;
-    return ret;
+    EditorAction* ret;
+    switch(control) {
+        case BYTE_LEFTARROW:
+            return make_h_action(0);
+        case BYTE_RIGHTARROW:
+            return make_l_action(0);
+        case BYTE_DOWNARROW:
+            return make_j_action(0);
+        case BYTE_UPARROW:
+            return make_k_action(0);
+        default:
+            ret = make_DefaultAction("<esc>");
+            ret->resolve = &ESC_action_resolve;
+            return ret;
+    }
 }

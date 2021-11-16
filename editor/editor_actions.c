@@ -186,6 +186,7 @@ ActionType resolve_action_stack() {
         //TODO jank
         RepaintType repaint = editor_move_to(ctx.jump_row, ctx.jump_col);
         if (repaint == RP_NONE) {
+            // if not RP_NONE, the repaint was already requested. Maybe this code should be moved
             EditorMode mode = Buffer_get_mode(buf);
             if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
                 EditorContext_normalize(&ctx);
@@ -231,11 +232,12 @@ ActionType resolve_action_stack() {
             editor_repaint(RP_ALL, &ctx);
         }
         else if (ctx.action == AT_UNDO) {
-            int num_undo = Buffer_undo(buf, ctx.undo_idx);
+            int num_undo = Buffer_undo(buf, ctx.undo_idx, &ctx);
             // TODO kinda janky...
             buf->undo_index = ctx.undo_idx-1;
             if (buf->undo_index < 0) buf->undo_index = 0;
             if (num_undo > 0) {
+                editor_move_to(ctx.jump_row, ctx.jump_col);
                 editor_fix_view();
                 move_to_current();
                 display_current_buffer();

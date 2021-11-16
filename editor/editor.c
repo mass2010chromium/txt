@@ -126,25 +126,8 @@ void editor_new_action() {
     }
 }
 
-/**
- * Performs the latest undo action contained in the current buffer's
- * undo list, then decrements the undo counter and re-displays the buffer
- * to reflect the changes.
- * Wraps Buffer->undo.
- *
- * Return:
- *   Number of actions undone (this is kinda meaningless tho)
- */
-int editor_undo() {
-    int num_undo = Buffer_undo(current_buffer, current_buffer->undo_index);
-    if (num_undo > 0) {
-        current_buffer->undo_index -= 1;
-        display_current_buffer();
-    }
-    return num_undo;
-}
-
 const char* CLEAR_LINE = "\033[0K";
+
 /**
  * Clear the current line of text.
  * I'm doing this by writing the empty space char instead of using
