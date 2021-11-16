@@ -33,4 +33,4 @@ clean:
 .PHONY: install
 install: all
 	sudo strip ./bin/main -o /usr/local/bin/txt
-	sudo ln -sT /usr/local/bin/txt /usr/local/bin/t
+	sudo ln -sfT /usr/local/bin/txt /usr/local/bin/t

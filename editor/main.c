@@ -86,35 +86,44 @@ int main(int argc, char** argv) {
     clear_screen();
     
     char buf[30];
+    buf[0] = 0;
+    char read_buf[15];
     buf[1] = '\0';
     display_current_buffer();
     move_to_current();
     process_input(BYTE_ESC, 0);
     while (true) {
-        ssize_t result = read(STDIN_FILENO, buf, 1);
-        if (result > 0) {
+        if (strlen(buf) < 15) {
+            ssize_t result = read(STDIN_FILENO, read_buf, 14);
+            if (result > 0) {
+                read_buf[result] = 0;
+                strcat(buf, read_buf);
+            }
+        }
+        if (strlen(buf) > 0) {
             int control = 0;
+            int consume = 1;
             if (buf[0] == BYTE_ESC) {
-                result = read(STDIN_FILENO, buf+1, 28);
-                if (result > 0) {
-                    buf[result+1] = '\0';
-                    if (strcmp(buf+1, "[A") == 0) {
-                        control = BYTE_UPARROW;
-                    }
-                    else if (strcmp(buf+1, "[B") == 0) {
-                        control = BYTE_DOWNARROW;
-                    }
-                    else if (strcmp(buf+1, "[C") == 0) {
-                        control = BYTE_RIGHTARROW;
-                    }
-                    else if (strcmp(buf+1, "[D") == 0) {
-                        control = BYTE_LEFTARROW;
-                    }
+                if (strcmp(buf+1, "[A") == 0) {
+                    consume = 3;
+                    control = BYTE_UPARROW;
+                }
+                else if (strcmp(buf+1, "[B") == 0) {
+                    consume = 3;
+                    control = BYTE_DOWNARROW;
+                }
+                else if (strcmp(buf+1, "[C") == 0) {
+                    consume = 3;
+                    control = BYTE_RIGHTARROW;
+                }
+                else if (strcmp(buf+1, "[D") == 0) {
+                    consume = 3;
+                    control = BYTE_LEFTARROW;
                 }
             }
-            buf[result] = 0;
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
+            memmove(buf, buf+consume, strlen(buf) - consume + 1);
         }
         if (current_mode == EM_QUIT) {
             break;
