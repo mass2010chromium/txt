@@ -120,7 +120,7 @@ static inline ssize_t _write(const char* string, size_t n) {
 void editor_window_size_change() {
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
     editor_bottom = window_size.ws_row - 1;
-    editor_width = window_size.ws_col;
+    editor_width = window_size.ws_col - 2;
 }
 
 /**
@@ -680,7 +680,7 @@ void format_tabs_higlighted(String** buf) {
         char tabname[TRUNCATE_SIZE + 2];
         truncate_filename(current_buf->name, filename);
         size_t tab_len = sprintf(tabname, " %s ", filename);
-        if (tab_len + counter > editor_width) {
+        if (tab_len + counter > window_size.ws_col) {
             break;
         } else if (i == current_buffer_idx) {
             Strcats(buf, RESET_HIGHLIGHT);
@@ -691,7 +691,7 @@ void format_tabs_higlighted(String** buf) {
         }
         counter += tab_len;
     }
-    ssize_t diff_size = editor_width - counter;
+    ssize_t diff_size = window_size.ws_col - counter;
     char empty[diff_size];
     memset(empty, ' ', diff_size);
     Strncats(buf, empty, diff_size);
@@ -768,12 +768,13 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
         if (highlight_mode) { Strcats(&output_buffer, SET_HIGHLIGHT); }
 
         size_t line_idx = Buffer_get_line_index(current_buffer, i);
+        size_t line_size = 0;
         if (line_idx < current_buffer->lines.size) {
             char* str;
             if (active_insert.content != NULL && current_buffer->cursor_row == i) {
                 format_left_bar(&output_buffer, i);
                 str = gapBuffer_get_content(&active_insert);
-                _format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                line_size = _format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 free(str);
             }
             else {
@@ -782,7 +783,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                     if (visual_bounds.start_col == -1) {
                         Strcats(&output_buffer, SET_HIGHLIGHT);
                         format_left_bar(&output_buffer, i);
-                        _format_respect_tabspace(&output_buffer, str,
+                        line_size = _format_respect_tabspace(&output_buffer, str,
                             0, strlen(str));
                         if (line_idx == visual_bounds.jump_row) {
                             Strcats(&output_buffer, RESET_HIGHLIGHT);
@@ -801,12 +802,12 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                                 str + visual_bounds.start_col, pos, 
                                 visual_bounds.jump_col - visual_bounds.start_col + 1);
                             Strcats(&output_buffer, RESET_HIGHLIGHT);
-                            _format_respect_tabspace(&output_buffer,
+                            line_size = _format_respect_tabspace(&output_buffer,
                                         str + visual_bounds.jump_col + 1, pos, 
                                         strlen(str + visual_bounds.jump_col + 1));
                         }
                         else {
-                            _format_respect_tabspace(&output_buffer,
+                            line_size = _format_respect_tabspace(&output_buffer,
                                         str + visual_bounds.start_col, pos, 
                                         strlen(str + visual_bounds.start_col));
                             highlight_mode = true;
@@ -816,7 +817,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                 else if (line_idx == visual_bounds.jump_row) {
                     if (visual_bounds.jump_col == -1) {
                         format_left_bar(&output_buffer, i);
-                        _format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                        line_size = _format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                         Strcats(&output_buffer, RESET_HIGHLIGHT);
                         highlight_mode = false;
                     }
@@ -825,16 +826,24 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                         size_t pos = _format_respect_tabspace(&output_buffer,
                                                 str, 0, visual_bounds.jump_col + 1);
                         Strcats(&output_buffer, RESET_HIGHLIGHT);
-                        _format_respect_tabspace(&output_buffer,
+                        line_size = _format_respect_tabspace(&output_buffer,
                                                 str + visual_bounds.jump_col + 1, pos, 
                                                 strlen(str + visual_bounds.jump_col + 1));
+                        highlight_mode = false;
                     }
                 }
                 else {
                     format_left_bar(&output_buffer, i);
-                    _format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                    line_size = _format_respect_tabspace(&output_buffer, str, 0, strlen(str));
                 }
             }
+        }
+        if (line_size > current_buffer->left_col + 1 + editor_width - editor_left) {
+            if (highlight_mode) { Strcats(&output_buffer, RESET_HIGHLIGHT); }
+            String_push(&output_buffer, ' ');
+            Strcats(&output_buffer, SET_HIGHLIGHT);
+            String_push(&output_buffer, '+');
+            if (!highlight_mode) { Strcats(&output_buffer, RESET_HIGHLIGHT); }
         }
         String_push(&output_buffer, '\n');
     }
