@@ -84,9 +84,9 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
                                 size_t print_start, size_t print_end);
 
 /**
- * Creates a buffer for the given file and pushes it to the vector of buffers.
+ * Creates a buffer for the given file and inserts it in the buffer vector at the given index.
  */
-void editor_make_buffer(const char* filename);
+void editor_make_buffer(const char* filename, size_t index);
 
 /**
  * Switch to an open buffer by index.
@@ -105,6 +105,8 @@ void editor_init(const char* filename);
  * the screen to display the previous buffer in the vector, if there is one.
  */
 void editor_close_buffer(int idx);
+
+int editor_get_buffer_idx();
 
 /**
  * Returns a pointer to the line at position y in the current buffer.
