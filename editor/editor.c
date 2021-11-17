@@ -919,18 +919,7 @@ void editor_move_EOL() {
     if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') {
         max_char -= 1;
     }
-    while (line_pos(line, current_buffer->cursor_col) - line < max_char) {
-        if (active_insert.content != NULL) {
-            if (line_pos_char(line, current_buffer->cursor_col) == BYTE_TAB) {
-                right_align_tab(line);
-            }
-            ++current_buffer->cursor_col;
-        }
-        else {
-            ++current_buffer->cursor_col;
-            right_align_tab(line);
-        }
-    }
+    current_buffer->cursor_col = strlen_tab(line);
     current_buffer->natural_col = current_buffer->cursor_col;
     if (editor_fix_view_h() == RP_ALL) {
         display_current_buffer();

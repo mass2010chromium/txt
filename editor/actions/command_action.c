@@ -217,7 +217,7 @@ int AT_action_repeat(EditorAction* this, EditorContext* ctx, size_t count) {
             editor_display = 0;
             editor_macro_mode = 1;
         
-            for (int i = 0; i < count; ++i) {
+            for (size_t i = 0; i < count; ++i) {
                 Macro_exec(macro);
             }
         

@@ -40,6 +40,7 @@ void hide_altscreen() {
 }
 
 void signal_handler(int signum) {
+    sigset_t mask;
     switch (signum) {
         case SIGINT:
             current_mode = EM_QUIT;
@@ -52,7 +53,12 @@ void signal_handler(int signum) {
             print("sigstop\n");
             tcsetattr(STDIN_FILENO, TCSANOW, &save_settings);
             hide_altscreen();
+            sigemptyset(&mask);
+            sigaddset(&mask, SIGTSTP);
+            sigprocmask(SIG_UNBLOCK, &mask, NULL);
+            sigaction(SIGTSTP, &sa_old, NULL);
             kill(0, SIGTSTP);
+            sigaction(SIGTSTP, &sa, NULL);
             usleep(3000);
             print("sigcont\n");
             display_altscreen();
@@ -63,9 +69,7 @@ void signal_handler(int signum) {
 }
 
 int main(int argc, char** argv) {
-#ifdef DEBUG
     __debug_init();
-#endif
 
     if (argc < 2) {
         printf("Usage: %s <file>\n", argv[0]);
