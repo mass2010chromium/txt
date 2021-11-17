@@ -48,8 +48,8 @@ void process_command(char* command, EditorContext* ctx) {
     char* rest;
     if (strncmp(command, "tabnew ", 7) == 0) {
         rest = command + 7;
-        editor_make_buffer(rest);
-        editor_switch_buffer(buffers.size - 1);
+        editor_make_buffer(rest, editor_get_buffer_idx() + 1);
+        editor_switch_buffer(editor_get_buffer_idx() + 1);
         display_current_buffer();
         String_clear(bottom_bar_info);
         Strcats(&bottom_bar_info, "-- Opened file: ");

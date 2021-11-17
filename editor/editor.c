@@ -386,15 +386,23 @@ size_t write_respect_tabspace(const char* buf, size_t start, size_t count) {
 /**
  * Creates a buffer for the given file and pushes it to the vector of buffers.
  */
-void editor_make_buffer(const char* filename) {
+void editor_make_buffer(const char* filename, size_t index) {
     Buffer* buffer = make_Buffer(filename);
-    Vector_push(&buffers, buffer);
+    if (index > buffers.size) {
+        Vector_push(&buffers, buffer);
+    } else {
+        Vector_insert(&buffers, index, buffer);
+    }
 }
 
 void editor_switch_buffer(size_t n) {
     current_buffer_idx = n;
     current_buffer = buffers.elements[n];
     clear_screen();
+}
+
+int editor_get_buffer_idx() {
+    return current_buffer_idx;
 }
     
 /**
