@@ -89,6 +89,7 @@ struct EditorContext {
     ssize_t start_row;
     ssize_t start_col;
     ssize_t undo_idx;
+    bool sharp_move;
     ActionType action;
     Buffer* buffer;
 };

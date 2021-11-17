@@ -5,6 +5,9 @@
 #include "utils.h"
 #include "../common.h"
 
+#define BYTE_CTRLC      '\003'      // end of text
+#define BYTE_CTRLD      '\004'      // end of transmission
+#define BYTE_CTRLZ      '\032'      // substitute?
 #define BYTE_ESC        '\033'
 //#define BYTE_ENTER      '\015'      // Carriage Return
 #define BYTE_TAB        '\011'      // Tab
@@ -183,9 +186,9 @@ void editor_align_tab();
 
 /**
  * Moves the editor view to (row, col) in the file. 0-indexed.
- * 
+ * sharp: whether to update natural col or not.
  */
-RepaintType editor_move_to(ssize_t row, ssize_t col);
+RepaintType editor_move_to(ssize_t row, ssize_t col, bool sharp);
 
 /**
  * Repaints part of the editor, depending on the action type

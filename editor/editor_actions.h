@@ -50,7 +50,7 @@ void init_actions();
  * Process a char (+ control) using the current action stack.
  * 
  */
-int process_action(char, int);
+int process_action(char, int, Buffer*);
 
 void clear_action_stack();
 

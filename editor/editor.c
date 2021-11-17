@@ -88,7 +88,7 @@ void process_input(char input, int control) {
         move_to_current();
     }
     else if (current_mode == EM_NORMAL) {
-        int res = process_action(input, control);
+        int res = process_action(input, control, current_buffer);
         if (res == -1) {
             clear_action_stack();
         }
@@ -513,6 +513,8 @@ void end_insert() {
 }
 
 int editor_backspace() {
+    static_String(backspace_buf, 10);
+
     int y_pos = current_buffer->cursor_row;
     size_t line_num = Buffer_get_line_index(current_buffer, y_pos);
     if (current_buffer->cursor_col == 0) {
@@ -555,7 +557,15 @@ int editor_backspace() {
     else {
         clear_line();
         // TODO: +1??
-        write_respect_tabspace(current_ptr, current_buffer->cursor_col, strlen(current_ptr) + 1);
+        size_t line_size = _format_respect_tabspace(&backspace_buf, current_ptr,
+                                current_buffer->cursor_col, strlen(current_ptr) + 1);
+        if (line_size > current_buffer->left_col + 1 + editor_width - editor_left) {
+            String_push(&backspace_buf, ' ');
+            Strcats(&backspace_buf, SET_HIGHLIGHT);
+            String_push(&backspace_buf, '+');
+            Strcats(&backspace_buf, RESET_HIGHLIGHT);
+        }
+        _write(backspace_buf->data, Strlen(backspace_buf));
     }
     return 1;
 }
@@ -1088,7 +1098,7 @@ void editor_align_tab() {
 /**
  * Move to arbitrary (row, col). Clips to the editor's window.
  */
-RepaintType editor_move_to(ssize_t row, ssize_t col) {
+RepaintType editor_move_to(ssize_t row, ssize_t col, bool sharp) {
     if (row < 0) row = 0;
     if (col < 0) col = 0;
     ssize_t current_row = Buffer_get_line_index(current_buffer, current_buffer->cursor_row);
@@ -1105,7 +1115,7 @@ RepaintType editor_move_to(ssize_t row, ssize_t col) {
     current_buffer->cursor_col = col;
     right_align_tab(line);
     RepaintType ret2 = editor_fix_view_h();
-    if (delta == 0) {
+    if (sharp) {
         current_buffer->natural_col = current_buffer->cursor_col;
     }
     move_to_current();

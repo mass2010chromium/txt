@@ -10,6 +10,7 @@
 #include "test_buffer.h"
 #include "test_gapbuffer.h"
 #include "test_editor.h"
+#include "test_editor_actions.h"
 
 UTEST_STATE();
 
@@ -20,5 +21,6 @@ int main(int argc, const char** argv) {
     editor_bottom = EDITOR_WINDOW_SIZE;
     editor_top = 0;
     editor_left = 0;
+    init_actions();
     utest_main(argc, argv);
 }

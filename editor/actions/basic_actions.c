@@ -22,6 +22,7 @@ EditorAction* make_h_action(int control) {
 
 void j_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
+    ctx->sharp_move = false;
     ctx->jump_row += 1;
     ctx->jump_col = ctx->buffer->natural_col;
 }
@@ -34,6 +35,7 @@ EditorAction* make_j_action(int control) {
 
 void k_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
+    ctx->sharp_move = false;
     ctx->jump_row -= 1;
     ctx->jump_col = ctx->buffer->natural_col;
 }

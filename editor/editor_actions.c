@@ -144,16 +144,16 @@ void init_actions() {
     action_stack = make_Vector(10);
 }
 
-ActionType resolve_action_stack() {
+ActionType resolve_action_stack(Buffer* buf) {
     EditorAction* source = action_stack->elements[0];
     EditorContext ctx;
-    Buffer* buf = current_buffer;
     ctx.start_row = Buffer_get_line_index(buf, buf->cursor_row);
     char* start_line = *Buffer_get_line(buf, buf->cursor_row);
     ctx.start_col = line_pos(start_line, buf->cursor_col) - start_line;
     ctx.jump_row = ctx.start_row;
     ctx.jump_col = ctx.start_col;
     ctx.undo_idx = buf->undo_index+1;
+    ctx.sharp_move = true;
     ctx.action = AT_NONE;
     ctx.buffer = buf;
 
@@ -184,7 +184,7 @@ ActionType resolve_action_stack() {
     //interpret result
     if (ctx.action == AT_MOVE) {
         //TODO jank
-        RepaintType repaint = editor_move_to(ctx.jump_row, ctx.jump_col);
+        RepaintType repaint = editor_move_to(ctx.jump_row, ctx.jump_col, ctx.sharp_move);
         if (repaint == RP_NONE) {
             // if not RP_NONE, the repaint was already requested. Maybe this code should be moved
             EditorMode mode = Buffer_get_mode(buf);
@@ -240,7 +240,7 @@ ActionType resolve_action_stack() {
             buf->undo_index = ctx.undo_idx-1;
             if (buf->undo_index < 0) buf->undo_index = 0;
             if (num_undo > 0) {
-                editor_move_to(ctx.jump_row, ctx.jump_col);
+                editor_move_to(ctx.jump_row, ctx.jump_col, true);
                 editor_fix_view();
                 move_to_current();
                 display_current_buffer();
@@ -278,7 +278,7 @@ void Macro_push(Macro* this, char c, int control) {
 /**
  * Process a char (+ control) using the current action stack.
  */
-int process_action(char c, int control) {
+int process_action(char c, int control, Buffer* buf) {
     int retval;
     bool record_init = (current_recording_macro != NULL);
     bool record_override = true;
@@ -293,7 +293,7 @@ int process_action(char c, int control) {
         }
         else if (res == 2) {
             // resolve!
-            retval = resolve_action_stack();
+            retval = resolve_action_stack(buf);
             if (current_recording_macro != NULL && !record_init) {
                 // If we just started recording this time, don't record
                 //      the keypress that started the recording.
@@ -321,7 +321,7 @@ int process_action(char c, int control) {
         }
         if (new_action->update == NULL) {
             // Resolve trigger!
-            resolve_action_stack();
+            resolve_action_stack(buf);
         }
         retval = 0;
     }

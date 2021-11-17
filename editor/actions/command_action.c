@@ -85,7 +85,7 @@ void process_command(char* command, EditorContext* ctx) {
         EditorContext_normalize(ctx);
         for (size_t row = ctx->start_row; row <= ctx->jump_row; ++row) {
             print("Norm row %ld\n", row);
-            editor_move_to(row, 0);
+            editor_move_to(row, 0, true);
             Macro_exec(&macro);
             if (current_mode == EM_INSERT) {
                 end_insert();
@@ -119,7 +119,7 @@ void process_command(char* command, EditorContext* ctx) {
     errno = 0;
     long int result = strtol(scan_start, &scan_end, 10);
     if (errno == 0 && result >= 0 && *scan_end == 0) {
-        editor_move_to(result, 0);
+        editor_move_to(result, 0, true);
     }
 }
 
@@ -129,7 +129,7 @@ int COLON_action_update(EditorAction* this, char input, int control) {
     } else if (input == BYTE_BACKSPACE) {
         String_pop(this->value);
         return Strlen(this->value) > 0;
-    } else if (input != '\n') {
+    } else if (input != BYTE_ENTER) {
         String_push(&this->value, input);
         return 1;
     } else {

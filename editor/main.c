@@ -59,7 +59,7 @@ void signal_handler(int signum) {
             sigaction(SIGTSTP, &sa_old, NULL);
             kill(0, SIGTSTP);
             sigaction(SIGTSTP, &sa, NULL);
-            usleep(3000);
+        case SIGCONT:
             print("sigcont\n");
             display_altscreen();
             tcsetattr(STDIN_FILENO, TCSANOW, &set_settings);
@@ -93,13 +93,16 @@ int main(int argc, char** argv) {
     sa.sa_handler = signal_handler;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGWINCH, &sa, NULL);
-    sigaction(SIGTSTP, &sa, NULL);
+    sigaction(SIGTSTP, &sa, &sa_old);
+    sigaction(SIGCONT, &sa, NULL);
     
     tcgetattr(STDIN_FILENO, &save_settings);
     set_settings = save_settings;
-    const tcflag_t local_modes = ~(ICANON|ECHO);
-    set_settings.c_cc[VMIN] = 0;
-    set_settings.c_cc[VTIME] = 1;
+    const tcflag_t local_modes = ~(ICANON | ECHO | ISIG);
+    set_settings.c_cc[VMIN] = 1;
+    set_settings.c_cc[VTIME] = 0;
+    //set_settings.c_iflag &= ~(ICRNL | IXON);
+    set_settings.c_iflag &= ~(IXON);
     set_settings.c_lflag &= local_modes;
     tcsetattr(STDIN_FILENO, TCSANOW, &set_settings);
 
@@ -126,33 +129,50 @@ int main(int argc, char** argv) {
         if (strlen(buf) > 0) {
             int control = 0;
             int consume = 1;
-            if (buf[0] == BYTE_ESC) {
-                if (strcmp(buf+1, "[A") == 0) {
-                    consume = 3;
-                    control = BYTE_UPARROW;
-                }
-                else if (strcmp(buf+1, "[B") == 0) {
-                    consume = 3;
-                    control = BYTE_DOWNARROW;
-                }
-                else if (strcmp(buf+1, "[C") == 0) {
-                    consume = 3;
-                    control = BYTE_RIGHTARROW;
-                }
-                else if (strcmp(buf+1, "[D") == 0) {
-                    consume = 3;
-                    control = BYTE_LEFTARROW;
-                }
-                else if (strcmp(buf+1, "[3~") == 0) {
-                    consume = 4;
-                    control = CODE_DELETE;
-                }
+            switch(buf[0]) {
+                case BYTE_ESC:
+                    if (strcmp(buf+1, "[A") == 0) {
+                        consume = 3;
+                        control = BYTE_UPARROW;
+                    }
+                    else if (strcmp(buf+1, "[B") == 0) {
+                        consume = 3;
+                        control = BYTE_DOWNARROW;
+                    }
+                    else if (strcmp(buf+1, "[C") == 0) {
+                        consume = 3;
+                        control = BYTE_RIGHTARROW;
+                    }
+                    else if (strcmp(buf+1, "[D") == 0) {
+                        consume = 3;
+                        control = BYTE_LEFTARROW;
+                    }
+                    else if (strcmp(buf+1, "[3~") == 0) {
+                        consume = 4;
+                        control = CODE_DELETE;
+                    }
+                    else {
+                        print("??? %s", buf+1);
+                    }
+                    break;
+                case BYTE_CTRLC:
+                    // TODO: handle
+                    kill(0, SIGINT);
+                    break;
+                case BYTE_CTRLD:
+                    // probably do nothing.
+                    break;
+                case BYTE_CTRLZ:
+                    // TODO: handle custom maybe.
+                    kill(0, SIGTSTP);
+                    break;
             }
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
             memmove(buf, buf+consume, strlen(buf) - consume + 1);
         }
         if (current_mode == EM_QUIT) {
+            print("Quit");
             break;
         }
         if (force_repaint) {
