@@ -9,6 +9,9 @@ Like vim I guess. Command line text editor.
 - edit and save file
 - Vim commands (d, A, i, w, q, hjkl, gg, dd, G, o, $, probably a few more I forgot)
     - see `editor_actions.c`
+- Line macro and macro recording
+    - `:norm` repeat typed commands on visual selection row by row
+    - `q` record commands as they are typed, and play back
 - Preserve indent
     - probably dies on some edge cases
 - Enter visual mode (single line) by pressing `v`, or multi-line by pressing `V`.
@@ -44,5 +47,5 @@ Requirements: gcc 9.3, valgrind, POSIX OS
 
 ## TODOS (major milestones):
 - more unit test
-- line wrapping
 - non ascii char (multi space char, <1 space char)
+- Move options to config file (ex. line number, tab width, expandtab should be not be configured via code)
