@@ -11,7 +11,7 @@
 // TODO: Disable screen interaction during editor tests...
 
 UTEST(editor, make_buffer) {
-    editor_make_buffer("./tests/scratchfile");
+    editor_make_buffer("./tests/scratchfile", 1);
     editor_switch_buffer(1);
 
     Vector expected;
@@ -30,7 +30,7 @@ UTEST(editor, make_buffer) {
 
 UTEST(editor, begin_end_insert) {
     // Sanity checks for memory leaks.
-    editor_make_buffer("./tests/scratchfile");
+    editor_make_buffer("./tests/scratchfile", 1);
     editor_switch_buffer(1);
 
     begin_insert();
@@ -209,7 +209,7 @@ UTEST(editor, line_pos_ptr) {
 }
 
 UTEST(editor, editor_move_down) {
-    editor_make_buffer("./tests/scratchfile");
+    editor_make_buffer("./tests/scratchfile", 1);
     editor_switch_buffer(1);
 
     editor_move_down();

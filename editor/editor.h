@@ -60,7 +60,8 @@ void editor_new_action();
 void clear_line();      /** Clear a line of STDOUT to prep for displaying the editor. */
 void clear_screen();    /** Prints an escape code that clears the entire terminal screen. */
 
-int get_cursor_pos(size_t *y, size_t *x);   /** Gets the zero-indexed coords of the mouse cursor in the terminal. */
+/** DO NOT USE Gets the zero-indexed coords of the mouse cursor in the terminal. */
+int get_cursor_pos(size_t *y, size_t *x);
 
 void move_to_current();     /** Calls move_cursor with the current cursor position. */
 void move_cursor(size_t y, size_t x);   /** Prints an escape code to move the location of the cursor to the given coordinates. */

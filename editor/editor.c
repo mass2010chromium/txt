@@ -155,6 +155,7 @@ const char* SET_HIGHLIGHT = "\033[7m";
 const char* RESET_HIGHLIGHT = "\033[0m";
 
 /**
+ * NOTE: DO NOT USE THIS!!!! WILL BREAK BUFFERED READ AND SEGFAULT
  * Adapted from https://stackoverflow.com/questions/50884685/how-to-get-cursor-position-in-c-using-ansi-code
  * See: https://en.wikipedia.org/wiki/ANSI_escape_code (Device Status Report)
  *
@@ -645,8 +646,6 @@ void editor_newline(int side, const char* head, const char* initial) {
 
 void display_bottom_bar(char* left, char* right) {
     if (SCREEN_WRITE && editor_display) {
-        size_t x, y;
-        get_cursor_pos(&y, &x);
         move_cursor(window_size.ws_row-1, 0);
         _write(left, strlen(left));
         _write("\0", 1);
@@ -657,7 +656,7 @@ void display_bottom_bar(char* left, char* right) {
             _write(right, strlen(right));
         }
         print("Displayed bottom bar [%s]\n", left);
-        move_cursor(y, x);
+        move_to_current();
     }
 }
 
@@ -700,8 +699,6 @@ void format_tabs_higlighted(String** buf) {
 
 void display_top_bar() {
     if (SCREEN_WRITE && editor_display) {
-        size_t x, y;
-        get_cursor_pos(&y, &x);
         move_cursor(0, 0);
         static String* buf = NULL;
         if (buf == NULL) { buf = alloc_String(10); }
@@ -710,7 +707,7 @@ void display_top_bar() {
         _write(buf->data, buf->length);
         // clear_line();
         print("Displayed top bar\n");
-        move_cursor(y, x);
+        move_to_current();
     }
 }
 

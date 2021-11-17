@@ -14,19 +14,12 @@
 #include "editor_actions.h"
 #include "../common.h"
 
-void signal_handler(int signum) {
-    if (signum == SIGINT) {
-        current_mode = EM_QUIT;
-        return;
-    }
-    else if (signum == SIGWINCH) {
-        editor_window_size_change();
-        return;
-    }
-}
-
 struct termios save_settings;
-struct termios set_settings;
+struct termios set_settings = {0};
+struct sigaction sa = {0};
+struct sigaction sa_old = {0};
+
+volatile bool force_repaint = false;
 
 /**
  * Assumes the program is running in a terminal with support for Xterm's alternate screen buffer.
@@ -44,6 +37,29 @@ void display_altscreen() {
  */
 void hide_altscreen() {
     printf("\033[?1049l");
+}
+
+void signal_handler(int signum) {
+    switch (signum) {
+        case SIGINT:
+            current_mode = EM_QUIT;
+            return;
+        case SIGWINCH:
+            editor_window_size_change();
+            force_repaint = true;
+            return;
+        case SIGTSTP:
+            print("sigstop\n");
+            tcsetattr(STDIN_FILENO, TCSANOW, &save_settings);
+            hide_altscreen();
+            kill(0, SIGTSTP);
+            usleep(3000);
+            print("sigcont\n");
+            display_altscreen();
+            tcsetattr(STDIN_FILENO, TCSANOW, &set_settings);
+            force_repaint = true;
+            return;
+    }
 }
 
 int main(int argc, char** argv) {
@@ -70,10 +86,10 @@ int main(int argc, char** argv) {
     editor_init(argv[1]);
     init_actions();
 
-    struct sigaction sa = {0};
     sa.sa_handler = signal_handler;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGWINCH, &sa, NULL);
+    sigaction(SIGTSTP, &sa, NULL);
     
     tcgetattr(STDIN_FILENO, &save_settings);
     set_settings = save_settings;
@@ -134,6 +150,10 @@ int main(int argc, char** argv) {
         }
         if (current_mode == EM_QUIT) {
             break;
+        }
+        if (force_repaint) {
+            display_current_buffer();
+            force_repaint = false;
         }
     }
 
