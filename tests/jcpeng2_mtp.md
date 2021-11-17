@@ -84,3 +84,38 @@
 - Press `j $`. Verify that the cursor moves to the end of the second line.
 - Press `:wq` ENTER.
 - `cat hello2.txt` should return the string 'lo' and the string 'orld', separated by a newline. (no trailing newline)
+
+------
+
+### Test 10 - 'A' command
+- In the same directory, run the command `./bin/main hello.txt`. 
+- Press `A`. Verify that the cursor moves to the end of the first line, and enters insert mode.
+- Press ESC `:q` ENTER.
+
+### Test 11 - '0' command- In the same directory, run the command `./bin/main hello.txt`. 
+- Press `A` ESC.
+- Press `0`. Verify that the cursor moves to the start of the line.
+- Press `:q` ENTER.
+
+### Test 12 - norm macro command
+- In the same directory, run the command `./bin/main hello2.txt`. 
+- Type `:norm2x` ENTER.
+- Verify that 2 characters were deleted from the start of each line.
+    - First line is now blank; second has `ld` left.
+- `cat hello2.txt` should return the string '' and the string 'ld', separated by a newline. (no trailing newline)
+
+### Test 13 - text overflow test
+- In the same directory, run the command `./bin/main test.txt`.
+- Enter insert mode. Type until the cursor fills up a full horizontal line.
+- Observe that the buffer scrolls to the right.
+- Exit insert mode. Press `0` to go to the start of the line.
+- Observe that a highlighted `+` symbol indicates the line overflow.
+- Exit with `:wq`.
+
+### Test 14 - test `:tabnew`
+- In the same directory, run the command `./bin/main test.txt`.
+- Type `:tabnew hello.txt` ENTER.
+- Verify that the second file is opened.
+    - Should still say `hello` and `world` on separate lines.
+- Type `:q` ENTER to close the new file. Verify that the buffer switches to the first file.
+- Type `:q` ENTER to close the first file and exit.

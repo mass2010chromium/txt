@@ -3,13 +3,16 @@ CFLAGS=-ggdb -Wall
 
 objects = structures/buffer.o editor/utils.o editor/editor.o structures/Deque.o structures/Vector.o structures/String.o editor/editor_actions.o structures/gap_buffer.o 
 
-all: bin editor/main.o $(objects)
-	gcc -DDEBUG -c -o editor/debugging.o editor/debugging.c
+all: bin _debug editor/main.o $(objects)
 	gcc editor/main.o editor/debugging.o $(objects) -lm -DDEBUG -o bin/main
 
 release: bin editor/main.o $(objects)
 	gcc -c -o editor/debugging.o editor/debugging.c
 	gcc editor/main.o editor/debugging.o $(objects) -lm -o bin/txt
+
+.PHONY: _debug
+_debug:
+	gcc -DDEBUG -c -o editor/debugging.o editor/debugging.c
 
 .PHONY: editor
 editor: all
@@ -24,8 +27,7 @@ test: _test
 	bin/test
 
 .PHONY: _test
-_test: bin $(objects)
-	gcc -DDEBUG -c -o editor/debugging.o editor/debugging.c
+_test: bin _debug $(objects)
 	gcc tests/test.c editor/debugging.o $(objects) -lm -o bin/test -ggdb
 	cp tests/testfile tests/scratchfile
 

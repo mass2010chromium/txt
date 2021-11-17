@@ -296,6 +296,7 @@ char line_pos_char(char* buf, size_t x) {
 
 /**
  * Compute the 'screen length' of a buffer. Accounts for tabs.
+ * TODO: unify this with `format_respect_tabspace`.
  */
 size_t strlen_tab(const char* buf) {
     size_t ret = 0;

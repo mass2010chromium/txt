@@ -97,7 +97,7 @@ UTEST(editor, format_respect_tabspace_init) {
 UTEST(editor, format_respect_tabspace_printlimit) {
     TAB_WIDTH = 4;
     const char* test_str = "\tint*\tx =\t8;";
-    // 01234567890ABCDEF0
+    // 0123456789ABCDEF01
     //[    int*    x = 8;]
     char* expected;
     String* s = alloc_String(0);
@@ -132,7 +132,7 @@ UTEST(editor, format_respect_tabspace_exhaustive) {
     TAB_WIDTH = 4;
     const char* test_str = "\tint*\tx =\t8;";
     const char* expected_full = "    int*    x = 8;";
-    // 01234567890ABCDEF0
+    // 0123456789ABCDEF01
     //[    int*    x = 8;]
     
     String* s = alloc_String(0);
@@ -153,6 +153,31 @@ UTEST(editor, format_respect_tabspace_exhaustive) {
     TAB_WIDTH = STANDARD_TAB_WIDTH;
 }
 
+UTEST(editor, strlen_tab) {
+    TAB_WIDTH = 4;
+    char* test_str;
+    test_str = "\tint*\tx =\t8;";
+    // 0123456789ABCDEF01
+    //[    int*    x = 8;]
+    ASSERT_EQ(18, strlen_tab(test_str));
+
+    test_str = "\tint*\tx =\t8;\n";
+    ASSERT_EQ(18, strlen_tab(test_str));
+
+    test_str = "\t";
+    ASSERT_EQ(4, strlen_tab(test_str));
+
+    test_str = "\tasd\t";
+    ASSERT_EQ(8, strlen_tab(test_str));
+
+    test_str = "xx yyy";
+    ASSERT_EQ(6, strlen_tab(test_str));
+
+    test_str = "b\tasd\t\n";
+    ASSERT_EQ(8, strlen_tab(test_str));
+
+    TAB_WIDTH = STANDARD_TAB_WIDTH;
+}
 
 UTEST(editor, line_pos_ptr) {
     TAB_WIDTH = 4;
