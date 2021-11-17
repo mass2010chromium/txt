@@ -84,6 +84,8 @@ EditorAction* make_ESC_action(int control) {
             return make_j_action(0);
         case BYTE_UPARROW:
             return make_k_action(0);
+        case CODE_DELETE:
+            return make_x_action(0);
         default:
             ret = make_DefaultAction("<esc>");
             ret->resolve = &ESC_action_resolve;

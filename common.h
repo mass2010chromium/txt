@@ -68,6 +68,7 @@ struct Buffer {
     Deque /*Edit* */ undo_buffer;
     Vector /*Edit* */ redo_buffer;
     ssize_t top_row;            // Index into lines array corresponding to the top corner
+    ssize_t left_col;           // Column position of the leftmost column (default: 0)
     size_t top_left_file_pos;   // TODO: update this...
     size_t last_pos;            // TODO: update this...
     ssize_t cursor_row;         // 0-indexed Y coordinate on screen

@@ -16,6 +16,8 @@
 #define BYTE_DOWNARROW  '\120'
 #define BYTE_DELETE     '\123'
 
+#define CODE_DELETE     2326        // delete, not a char anymore lol
+
 extern String* bottom_bar_info;
 
 extern EditorMode current_mode;
@@ -32,6 +34,7 @@ extern GapBuffer active_insert;
 extern size_t editor_top;
 extern size_t editor_left;
 extern size_t editor_bottom;
+extern size_t editor_width;
 extern bool editor_display;
 extern bool editor_macro_mode;
 

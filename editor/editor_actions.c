@@ -218,7 +218,10 @@ ActionType resolve_action_stack() {
                 String* s = alloc_String(10);
                 char** line_p = Buffer_get_line_abs(buf, ctx.start_row);
                 char* line = *line_p;
-                size_t size = format_respect_tabspace(&s, line, 0, ctx.start_col);
+                size_t p_start = buf->left_col;
+                size_t p_end = editor_width - editor_left + buf->left_col;
+                size_t size = format_respect_tabspace(&s, line, 0,
+                                    ctx.start_col, p_start, p_end);
                 free(s);
                 buf->cursor_col = size;
             }

@@ -65,6 +65,95 @@ UTEST(editor, tab_round_up) {
     TAB_WIDTH = STANDARD_TAB_WIDTH;
 }
 
+UTEST(editor, format_respect_tabspace_init) {
+    TAB_WIDTH = 4;
+    char* test_str = "\tint*\tx =\t8;";
+    char* test_str_newline = "\tint*\tx =\t8;\n";
+    // 01234567890ABCDEF0
+    //[    int*    x = 8;]
+    char* expected_full = "    int*    x = 8;";
+    String* s = alloc_String(0);
+
+    for (int i = 0; i < 8; ++i) {
+        format_respect_tabspace(&s, test_str, i, strlen(test_str), 0, (size_t) -1);
+        ASSERT_STREQ(expected_full+(i % 4), s->data);
+        String_clear(s);
+        format_respect_tabspace(&s, test_str_newline, i, strlen(test_str_newline), 0, (size_t) -1);
+        ASSERT_STREQ(expected_full+(i % 4), s->data);
+        String_clear(s);
+    }
+
+    char* expected_2char = "    i";
+    for (int i = 0; i < 8; ++i) {
+        format_respect_tabspace(&s, test_str, i, 2, 0, (size_t) -1);
+        ASSERT_STREQ(expected_2char+(i % 4), s->data);
+        String_clear(s);
+    }
+
+    free(s);
+    TAB_WIDTH = STANDARD_TAB_WIDTH;
+}
+
+UTEST(editor, format_respect_tabspace_printlimit) {
+    TAB_WIDTH = 4;
+    const char* test_str = "\tint*\tx =\t8;";
+    // 01234567890ABCDEF0
+    //[    int*    x = 8;]
+    char* expected;
+    String* s = alloc_String(0);
+
+    expected = "";
+    for (int i = 0; i < 15; ++i) {
+        format_respect_tabspace(&s, test_str, i, strlen(test_str), 0, 0);
+        ASSERT_STREQ(expected, s->data);
+        String_clear(s);
+    }
+
+    expected = " int";
+    format_respect_tabspace(&s, test_str, 3, 4, 0, 12);
+    ASSERT_STREQ(expected, s->data);
+    String_clear(s);
+
+    expected = " int";
+    format_respect_tabspace(&s, test_str, 2, 4, 3, 12);
+    ASSERT_STREQ(expected, s->data);
+    String_clear(s);
+
+    expected = " int* ";
+    format_respect_tabspace(&s, test_str, 2, 6, 3, 9);
+    ASSERT_STREQ(expected, s->data);
+    String_clear(s);
+
+    free(s);
+    TAB_WIDTH = STANDARD_TAB_WIDTH;
+}
+
+UTEST(editor, format_respect_tabspace_exhaustive) {
+    TAB_WIDTH = 4;
+    const char* test_str = "\tint*\tx =\t8;";
+    const char* expected_full = "    int*    x = 8;";
+    // 01234567890ABCDEF0
+    //[    int*    x = 8;]
+    
+    String* s = alloc_String(0);
+    
+    char expected[20];
+    int len = strlen(expected_full);
+    for (int j = 0; j < len; ++j) {
+        for (int i = j; i < len; ++i) {
+            strncpy(expected, expected_full + j, i-j);
+            expected[i-j] = 0;
+            format_respect_tabspace(&s, test_str, 0, strlen(test_str), j, i);
+            ASSERT_STREQ(expected, s->data);
+            String_clear(s);
+        }
+    }
+    
+    free(s);
+    TAB_WIDTH = STANDARD_TAB_WIDTH;
+}
+
+
 UTEST(editor, line_pos_ptr) {
     TAB_WIDTH = 4;
     char* line;

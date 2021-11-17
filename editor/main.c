@@ -123,6 +123,10 @@ int main(int argc, char** argv) {
                     consume = 3;
                     control = BYTE_LEFTARROW;
                 }
+                else if (strcmp(buf+1, "[3~") == 0) {
+                    consume = 4;
+                    control = CODE_DELETE;
+                }
             }
             print("input %c %d\n", buf[0], buf[0]);
             process_input(buf[0], control);
