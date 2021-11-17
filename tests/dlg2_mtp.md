@@ -86,4 +86,39 @@
 - Press `?` while in `NORMAL` mode to begin a *backwards* search.
 - Enter the full query `?ick` then press `ENTER`. The cursor should move part-way through line 2 of the file to the first (and only) occurrence of this text in the file.
 ![searching for a word backwards](mtp_images/search_backward.png)
+------
 
+### Test 3.0 - Visual Mode Search
+- Close the editor without saving by pressing `Control c` or `:q ENTER`.
+- Re-run the editor using the following command: `./bin/main tests/multi_line_text.txt`.
+- Press `v` (lowercase) to enter `VISUAL` mode.
+- Enter the following query: `/ox` then press `ENTER`.
+- The text displayed in the editor should now be highlighted starting at the cursor's previous position up to the "o" in "fox" on line 3.
+
+### Test 3.1 - Visual Line Search
+- In the same file as the previous test, press `ESCAPE` to enter `NORMAL` mode.
+- Press `gg` to navigate back to the top of the file.
+- Press `V` (uppercase) to enter `VISUAL LINE` mode.
+- Enter the following query: `/ox` then press `ENTER`.
+- The text displayed in the editor should now be highlighted up to line 3, with the *entire line highlighted*.
+
+### Test 3.2 - Visual Mode Delete
+- With the same selection as in the previous test, press `x`.
+- The contents of the file up until line 3 should have been deleted, leaving 5 remaining lines.
+
+### Test 3.3 - Navigate using gt
+- Press `u` to undo the deletion performed in the previous test.
+- Enter the following command: `:tabnew common.h` to open another file in the editor.
+- The top bar in the display should create another tab and the file contents on screen should display the contents of common.h.
+- In `NORMAL` mode, press `gt` and the editor should move one tab forwards, wrapping around to the first tab if needed.
+
+### Test 3.4 - Navigate using gT
+- Using the same configuration as the previous test with multiple files open, press `gT` in `NORMAL` mode.
+- The editor's selected tab should move *backwards*, wrapping around to the last open tab if needed.
+
+### Test 3.5 - Navigate using <num>gt
+- Using the same configuration as the previous 2 tests, use the `:tabnew` command to open a few more files.
+- In `NORMAL` mode, enter a number between 1 and the number of currently open tabs, then `gt`.
+- The editor should switch to that tab and display its file contents.
+- In `NORMAL` mode, enter a number *greater* than the number of currently open tabs, then `gt`.
+- The editor should switch to the last tab and display its file contents.

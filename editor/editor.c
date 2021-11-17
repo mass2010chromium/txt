@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <libgen.h>
 
 #include "editor.h"
 #include "editor_actions.h"
@@ -637,16 +638,13 @@ void display_bottom_bar(char* left, char* right) {
     }
 }
 
-char* truncate_filename(char* path) {
-    char* filename = strchr(path, '/');
-    if (filename == NULL) {
-        filename = path;
+void truncate_filename(char* path, char* buf) {
+    if (strlen(path) <= TRUNCATE_SIZE) {
+        strcpy(buf, path);
     } else {
-        filename += 1;
+        char* base = basename(path);
+        strncpy(buf, base, TRUNCATE_SIZE);
     }
-    char* trunc = malloc(TRUNCATE_SIZE);
-    memcpy(trunc, filename, TRUNCATE_SIZE);
-    return trunc;
 }
 
 
@@ -655,16 +653,18 @@ void format_tabs_higlighted(String** buf) {
     size_t counter = 0;
     for (size_t i = 0; i < buffers.size; i++) {
         Buffer* current_buf = buffers.elements[i];
-        char filename[TRUNCATE_SIZE + 2];
-        size_t tab_len = sprintf(filename, " %s ", truncate_filename(current_buf->name));
+        char filename[TRUNCATE_SIZE];
+        char tabname[TRUNCATE_SIZE + 2];
+        truncate_filename(current_buf->name, filename);
+        size_t tab_len = sprintf(tabname, " %s ", filename);
         if (tab_len + counter > window_size.ws_col) {
             break;
         } else if (i == current_buffer_idx) {
             Strcats(buf, RESET_HIGHLIGHT);
-            Strcats(buf, filename);
+            Strcats(buf, tabname);
             Strcats(buf, SET_HIGHLIGHT);
         } else {
-            Strcats(buf, filename);
+            Strcats(buf, tabname);
         }
         counter += tab_len;
     }

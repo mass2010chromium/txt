@@ -17,7 +17,7 @@ Like vim I guess. Command line text editor.
 
 ## Building `txt`
 
-Requirements: gcc 9.3, valgrind 
+Requirements: gcc 9.3, valgrind, POSIX OS
 
 - `make` or `make all`: Builds the editor, in `./bin/main`
 - `make test`: Run test cases

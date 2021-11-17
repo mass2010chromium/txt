@@ -515,15 +515,17 @@ int Buffer_find_str_inline(Buffer* buf, EditorContext* ctx, char* str, size_t li
             if (search_full || pattern_loc > offset) {
                 ctx->jump_col = pattern_loc;
                 ctx->jump_row = line_num;
+                regfree(&regex);
                 return 0;
             }
         }
         search_offset += pmatch.rm_eo;
         status = regexec(&regex, line + search_offset, 1, &pmatch, REG_NOTBOL);
     }
+    regfree(&regex);
     //After loop finishes, non-negative prev_loc indicates location of last match before cursor offset
     if (!direction) {
-        if (search_full || (prev_loc >= 0 && prev_loc < offset)) {
+        if (prev_loc >= 0 && (search_full || prev_loc < offset)) {
             ctx->jump_col = prev_loc;
             ctx->jump_row = line_num;
             return 0;
