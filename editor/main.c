@@ -62,7 +62,15 @@ void signal_handler(int signum) {
         case SIGCONT:
             print("sigcont\n");
             display_altscreen();
-            tcsetattr(STDIN_FILENO, TCSANOW, &set_settings);
+
+            int n = 10;
+            // A signal may cause tcsetattr() to fail (e.g., SIGCONT).
+            // Retry a few times. (Source: Vim)
+            while (tcsetattr(STDIN_FILENO, TCSANOW, &set_settings) == -1
+                    && errno == EINTR && n > 0) {
+                --n;
+            }
+
             force_repaint = true;
             return;
     }

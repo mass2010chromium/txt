@@ -923,6 +923,9 @@ void editor_move_down() {
     }
 }
 
+/**
+ * TODO: just remove this in favor of move_to, probably...
+ */
 void editor_move_EOL() {
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     int max_char = strlen(line) - 1;
