@@ -47,6 +47,8 @@ const char* EDITOR_MODE_STR[5] = {
     "VISUAL LINE",
 };
 
+RepaintType editor_fix_view_h();
+
 void process_input(char input, int control) {
     if (current_mode == EM_INSERT) {
         if (current_recording_macro != NULL) {
@@ -215,8 +217,10 @@ void move_cursor(size_t y, size_t x) {
  */
 void move_to_current() {
     if (SCREEN_WRITE && editor_display) {
-        print("move current %ld %ld\n", current_buffer->cursor_row, current_buffer->cursor_col);
-        move_cursor(current_buffer->cursor_row + editor_top, current_buffer->cursor_col + editor_left);
+        print("move current %ld %ld\n", current_buffer->cursor_row,
+                                        current_buffer->cursor_col - current_buffer->left_col);
+        move_cursor(current_buffer->cursor_row + editor_top,
+                    current_buffer->cursor_col + editor_left - current_buffer->left_col);
     }
 }
 
@@ -543,9 +547,14 @@ int editor_backspace() {
     current_buffer->cursor_col = strlen_tab(active_insert.content);
     current_buffer->natural_col = current_buffer->cursor_col;
     move_to_current();
-    clear_line();
-    // TODO: +1??
-    write_respect_tabspace(current_ptr, current_buffer->cursor_col, strlen(current_ptr) + 1);
+    if (editor_fix_view_h() == RP_ALL) {
+        display_current_buffer();
+    }
+    else {
+        clear_line();
+        // TODO: +1??
+        write_respect_tabspace(current_ptr, current_buffer->cursor_col, strlen(current_ptr) + 1);
+    }
     return 1;
 }
 
@@ -598,6 +607,9 @@ void add_chr(char c) {
     _format_respect_tabspace(&write_line_buffer, active_insert.content + active_insert.gap_end, pos,
                             active_insert.total_size - active_insert.gap_end);
     _write(write_line_buffer->data, Strlen(write_line_buffer));
+    if (editor_fix_view_h() == RP_ALL) {
+        display_current_buffer();
+    }
     move_to_current();
 }
 
@@ -914,6 +926,9 @@ void editor_move_EOL() {
         }
     }
     current_buffer->natural_col = current_buffer->cursor_col;
+    if (editor_fix_view_h() == RP_ALL) {
+        display_current_buffer();
+    }
 }
 
 void editor_move_left() {
@@ -943,6 +958,9 @@ void editor_move_left() {
         free(line);
     }
     current_buffer->natural_col = current_buffer->cursor_col;
+    if (editor_fix_view_h() == RP_ALL) {
+        display_current_buffer();
+    }
 }
 void editor_move_right() {
     int max_char = -1;
@@ -978,10 +996,15 @@ void editor_move_right() {
         free(line);
     }
     current_buffer->natural_col = current_buffer->cursor_col;
+    if (editor_fix_view_h() == RP_ALL) {
+        display_current_buffer();
+    }
 }
 
-RepaintType editor_fix_view() {
-    //TODO more than 1
+/**
+ * Scrolls vertically until the cursor is in the window.
+ */
+RepaintType editor_fix_view_v() {
     ssize_t bottom_limit = ((ssize_t) editor_bottom) - (editor_top + 1);
     ssize_t buffer_limit = (ssize_t) current_buffer->lines.size - 1;
     bool display = false;
@@ -1022,11 +1045,35 @@ RepaintType editor_fix_view() {
         }
     }
     if (display) {
-        print("Fix view repaint\n");
-        display_current_buffer();
         return RP_ALL;
     }
     return RP_NONE;
+}
+
+RepaintType editor_fix_view_h() {
+    print("fixview col: %ld\n", current_buffer->cursor_col);
+    if (current_buffer->cursor_col < current_buffer->left_col) {
+        current_buffer->left_col = current_buffer->cursor_col;
+        print("Fixview move left, %ld\n", current_buffer->left_col);
+        return RP_ALL;
+    }
+    else if (current_buffer->cursor_col - current_buffer->left_col + 1 > editor_width - editor_left) {
+        current_buffer->left_col = current_buffer->cursor_col + 1 - (editor_width - editor_left);
+        print("Fixview move right, %ld\n", current_buffer->left_col);
+        return RP_ALL;
+    }
+    return RP_NONE;
+}
+
+RepaintType editor_fix_view() {
+    RepaintType ret1 = editor_fix_view_v();
+    RepaintType ret2 = editor_fix_view_h();
+    if (ret1 == RP_NONE && ret2 == RP_NONE) {
+        return RP_NONE;
+    }
+    print("Fixview repaint\n");
+    display_current_buffer();
+    return RP_ALL;
 }
 
 void editor_align_tab() {
@@ -1052,7 +1099,7 @@ RepaintType editor_move_to(ssize_t row, ssize_t col) {
     ssize_t delta = row - current_row;
     current_buffer->cursor_row += delta;
     current_buffer->cursor_col = 0;
-    RepaintType ret = editor_fix_view();
+    RepaintType ret1 = editor_fix_view_v();
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
     if (col > strlen(line)) col = strlen(line);
     col = line_pos_ptr(line, line+col);
@@ -1061,11 +1108,17 @@ RepaintType editor_move_to(ssize_t row, ssize_t col) {
     if (col > max_col) col = max_col;
     current_buffer->cursor_col = col;
     right_align_tab(line);
+    RepaintType ret2 = editor_fix_view_h();
     if (delta == 0) {
         current_buffer->natural_col = current_buffer->cursor_col;
     }
     move_to_current();
-    return ret;
+    if (ret1 == RP_NONE && ret2 == RP_NONE) {
+        return RP_NONE;
+    }
+    print("move_to repaint\n");
+    display_current_buffer();
+    return RP_ALL;
 }
 
 /**
