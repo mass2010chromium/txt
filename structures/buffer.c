@@ -482,7 +482,7 @@ int Buffer_find_str(Buffer* buf, EditorContext* ctx, char* str, bool cross_lines
         offset = -1;
     }
     int col_offset = ctx->jump_col;
-    for (int i = (int) ctx->jump_row; i != boundary; i += offset) {
+    for (size_t i = ctx->jump_row; i != boundary; i += offset) {
         int result = Buffer_find_str_inline(buf, ctx, str, i, col_offset, direction);
         if (result == 0) {
             return result;

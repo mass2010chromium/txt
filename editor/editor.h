@@ -80,7 +80,8 @@ char* line_pos(char* buf, ssize_t x);
  * Return:
  *      New "effective screen position" (for tabbing purpoises)
  */
-size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count);
+size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count,
+                                size_t print_start, size_t print_end);
 
 /**
  * Creates a buffer for the given file and pushes it to the vector of buffers.

@@ -337,9 +337,8 @@ void format_left_bar(String** write_buffer, size_t i) {
  * Return:
  *      New "effective screen position" (for tabbing purpoises)
  */
-size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count
-            /*size_t print_start, size_t print_end*/) {
-    size_t zero_size = Strlen(*write_buffer);
+size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t start, size_t count,
+            size_t print_start, size_t print_end) {
     size_t column = start;
     for (size_t i = 0; i < count; ++i) {
         if (buf[i] == BYTE_TAB) {
@@ -365,9 +364,11 @@ size_t format_respect_tabspace(String** write_buffer, const char* buf, size_t st
  * Drops newlines.
  */
 String* write_line_buffer = NULL;
-size_t write_respect_tabspace(const char* buf, size_t start, size_t count) {
+size_t write_respect_tabspace(const char* buf, size_t start, size_t count,
+                              size_t print_start, size_t print_end) {
     String_clear(write_line_buffer);
-    size_t ret = format_respect_tabspace(&write_line_buffer, buf, start, count);
+    size_t ret = format_respect_tabspace(&write_line_buffer, buf,
+                                         start, count, print_start, print_end);
     _write(write_line_buffer->data, Strlen(write_line_buffer));
     return ret;
 }
@@ -504,7 +505,8 @@ int editor_backspace() {
             current_buffer->natural_col = current_buffer->cursor_col;
             --current_buffer->cursor_row;
             move_to_current();
-            write_respect_tabspace(content, current_buffer->cursor_col, content_len);
+            write_respect_tabspace(content, current_buffer->cursor_col, content_len,
+                                   0, (size_t) -1);
             gapBuffer_insertN(&active_insert, content, content_len);
             gapBuffer_move_gap(&active_insert, -content_len);
 
@@ -524,7 +526,7 @@ int editor_backspace() {
     move_to_current();
     clear_line();
     // TODO: +1??
-    write_respect_tabspace(current_ptr, current_buffer->cursor_col, strlen(current_ptr) + 1);
+    write_respect_tabspace(current_ptr, current_buffer->cursor_col, strlen(current_ptr) + 1, 0, (size_t) -1);
     return 1;
 }
 
@@ -544,7 +546,7 @@ void add_chr(char c) {
 
         // Make new line.
         editor_newline(1, content, rest);
-        write_respect_tabspace(rest, 0, rest_len);
+        write_respect_tabspace(rest, 0, rest_len, 0, (size_t) -1);
         free(content);
 
         print("newline fixview call\n");
@@ -568,13 +570,14 @@ void add_chr(char c) {
     }
     String_clear(write_line_buffer);
     Strcats(&write_line_buffer, CLEAR_LINE);
-    size_t pos = format_respect_tabspace(&write_line_buffer, current_ptr, current_buffer->cursor_col, n_insert);
+    size_t pos = format_respect_tabspace(&write_line_buffer, current_ptr,
+                                         current_buffer->cursor_col, n_insert, 0, (size_t) -1);
     // add might realloc. no need to null terminate the string though
     current_ptr = active_insert.content + active_insert.gap_start;
     current_buffer->cursor_col = pos;
     current_buffer->natural_col = current_buffer->cursor_col;
     format_respect_tabspace(&write_line_buffer, active_insert.content + active_insert.gap_end, pos,
-                            active_insert.total_size - active_insert.gap_end);
+                            active_insert.total_size - active_insert.gap_end, 0, (size_t) -1);
     _write(write_line_buffer->data, Strlen(write_line_buffer));
     move_to_current();
 }
@@ -690,7 +693,7 @@ void format_line_highlight(String** buf, const char* line) {
 void display_line_highlight(const char* line) {
     static_String(buf, 10);
     format_line_highlight(&buf, line);
-    write_respect_tabspace(buf->data, 0, Strlen(buf));
+    write_respect_tabspace(buf->data, 0, Strlen(buf), 0, (size_t) -1);
 }
 
 /**
@@ -740,7 +743,7 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
             if (active_insert.content != NULL && current_buffer->cursor_row == i) {
                 format_left_bar(&output_buffer, i);
                 str = gapBuffer_get_content(&active_insert);
-                format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                format_respect_tabspace(&output_buffer, str, 0, strlen(str), 0, (size_t) -1);
                 free(str);
             }
             else {
@@ -749,7 +752,8 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                     if (visual_bounds.start_col == -1) {
                         Strcats(&output_buffer, SET_HIGHLIGHT);
                         format_left_bar(&output_buffer, i);
-                        format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                        format_respect_tabspace(&output_buffer, str,
+                            0, strlen(str), 0, (size_t) -1);
                         if (line_idx == visual_bounds.jump_row) {
                             Strcats(&output_buffer, RESET_HIGHLIGHT);
                         }
@@ -759,22 +763,24 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                     }
                     else {
                         format_left_bar(&output_buffer, i);
-                        size_t pos = format_respect_tabspace(&output_buffer,
-                                                    str, 0, visual_bounds.start_col);
+                        size_t pos = format_respect_tabspace(&output_buffer, str,
+                            0, visual_bounds.start_col, 0, (size_t) -1);
                         Strcats(&output_buffer, SET_HIGHLIGHT);
                         if (line_idx == visual_bounds.jump_row) {
                             pos = format_respect_tabspace(&output_buffer,
-                                        str + visual_bounds.start_col, pos, 
-                                        visual_bounds.jump_col - visual_bounds.start_col + 1);
+                                str + visual_bounds.start_col, pos, 
+                                visual_bounds.jump_col - visual_bounds.start_col + 1, 0, (size_t) -1);
                             Strcats(&output_buffer, RESET_HIGHLIGHT);
                             format_respect_tabspace(&output_buffer,
                                         str + visual_bounds.jump_col + 1, pos, 
-                                        strlen(str + visual_bounds.jump_col + 1));
+                                        strlen(str + visual_bounds.jump_col + 1),
+                                        0, (size_t) -1);
                         }
                         else {
                             format_respect_tabspace(&output_buffer,
                                         str + visual_bounds.start_col, pos, 
-                                        strlen(str + visual_bounds.start_col));
+                                        strlen(str + visual_bounds.start_col),
+                                        0, (size_t) -1);
                             highlight_mode = true;
                         }
                     }
@@ -782,23 +788,25 @@ char* display_buffer_rows(ssize_t start, ssize_t end) {
                 else if (line_idx == visual_bounds.jump_row) {
                     if (visual_bounds.jump_col == -1) {
                         format_left_bar(&output_buffer, i);
-                        format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                        format_respect_tabspace(&output_buffer, str, 0, strlen(str), 0, (size_t) -1);
                         Strcats(&output_buffer, RESET_HIGHLIGHT);
                         highlight_mode = false;
                     }
                     else {
                         format_left_bar(&output_buffer, i);
                         size_t pos = format_respect_tabspace(&output_buffer,
-                                                str, 0, visual_bounds.jump_col + 1);
+                                                str, 0, visual_bounds.jump_col + 1,
+                                                0, (size_t) -1);
                         Strcats(&output_buffer, RESET_HIGHLIGHT);
                         format_respect_tabspace(&output_buffer,
                                                 str + visual_bounds.jump_col + 1, pos, 
-                                                strlen(str + visual_bounds.jump_col + 1));
+                                                strlen(str + visual_bounds.jump_col + 1),
+                                                0, (size_t) -1);
                     }
                 }
                 else {
                     format_left_bar(&output_buffer, i);
-                    format_respect_tabspace(&output_buffer, str, 0, strlen(str));
+                    format_respect_tabspace(&output_buffer, str, 0, strlen(str), 0, (size_t) -1);
                 }
             }
         }
