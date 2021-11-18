@@ -4,6 +4,7 @@
  *  0       Start of line
  *  $       End of line
  *  o       Create a line below, and enter insert mode.
+ *  O       Create a line above, and enter insert mode.
  *  A       Go to end of line and enter insert mode.
  *  g       "Go" command. (`gg` goes to start, `gt` / `gT` move between tabs)
  *  G       Go to end of buffer. (first col)
@@ -59,6 +60,22 @@ void o_action_resolve(EditorAction* this, EditorContext* ctx) {
 EditorAction* make_o_action(int control) {
     EditorAction* ret = make_DefaultAction("o");
     ret->resolve = &o_action_resolve;
+    return ret;
+}
+
+void O_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_OVERRIDE;
+    editor_new_action();
+    ctx->buffer->cursor_col = 0;
+    current_mode = EM_INSERT;
+    begin_insert();
+    add_chr('\n');
+    editor_move_up();
+}
+
+EditorAction* make_O_action(int control) {
+    EditorAction* ret = make_DefaultAction("O");
+    ret->resolve = &O_action_resolve;
     return ret;
 }
 

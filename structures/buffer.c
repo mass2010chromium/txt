@@ -18,12 +18,15 @@ Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_con
     return ret;
 }
 
+/**
+ * Takes ownership of old_content!!!
+ */
 Edit* make_Delete(size_t undo, size_t start_row, size_t start_col, char* old_content) {
     Edit* ret = malloc(sizeof(Edit));
     ret->undo_index = undo;
     ret->start_row = start_row;
     ret->start_col = start_col;
-    ret->old_content = strdup(old_content);
+    ret->old_content = old_content;
     ret->new_content = NULL;
     return ret;
 }
@@ -225,17 +228,56 @@ void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data) {
  * Paste a copy operation at `start_row, start_col` of ctx.
  */
 RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
+    size_t n_lines = copy->data.size;
+    if (n_lines == 0) return RP_NONE;
     if (copy->cp_type == CP_LINE) {
-        Vector_create_range(&buf->lines, ctx->start_row+1, copy->data.size);
+        Vector_create_range(&buf->lines, ctx->start_row+1, n_lines);
         size_t undo_idx = ctx->undo_idx;
-        for (int i = 0; i < copy->data.size; ++i) {
+        for (int i = 0; i < n_lines; ++i) {
             String* s = copy->data.elements[i];
             buf->lines.elements[ctx->start_row+1 + i] = strdup(s->data);
             Buffer_push_undo(buf, make_Insert(undo_idx, ctx->start_row+1 + i, -1, s->data));
         }
         return RP_LOWER;
     }
-    // TODO non line mode
+    else if (copy->cp_type == CP_SPLIT) {
+        size_t n_newlines = n_lines - 1;
+        char* line = buf->lines.elements[ctx->start_row];
+        char* rest = line + ctx->start_col;
+        String* first = copy->data.elements[0];
+
+        if (n_newlines == 0) {
+            print("Case single line paste\n");
+            size_t line_len = strlen(line);
+            line = realloc(line, line_len + Strlen(first) + 1);
+            memmove(line + ctx->start_col + Strlen(first),
+                    line + ctx->start_col,
+                    line_len - ctx->start_col + 1);
+            strncpy(line + ctx->start_col, first->data, Strlen(first));
+            buf->lines.elements[ctx->start_row] = line;
+            // TODO signal lines for RP_LINES
+            return RP_ALL;
+        }
+
+        Vector_create_range(&buf->lines, ctx->start_row+1, n_newlines);
+
+        for (size_t i = 1; i < n_newlines; ++i) {
+            String* s = copy->data.elements[i];
+            buf->lines.elements[ctx->start_row + n_newlines] = strdup(s->data);
+        }
+
+        String* last_line_start = Strdup(copy->data.elements[n_newlines]);
+        Strcats(&last_line_start, rest);
+        buf->lines.elements[ctx->start_row + n_newlines] = String_to_cstr(last_line_start);
+
+        // Fix the first line.
+        line = realloc(line, ctx->start_col + Strlen(first) + 1);
+        strcpy(line + ctx->start_col, first->data);
+        buf->lines.elements[ctx->start_row] = line;
+
+        // TODO signal lines for RP_LINES
+        return RP_ALL;
+    }
     return RP_NONE;
 }
 
@@ -257,8 +299,9 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         for (ssize_t i = first_row; i <= last_row; ++i) {
             char* line = *Buffer_get_line_abs(buf, i);
             Vector_push(&copy->data, make_String(line));
+
+            // Ownership transfer (line)
             Buffer_push_undo(buf, make_Delete(undo_idx, first_row, -1, line));
-            free(line);
         }
         Vector_delete_range(&buf->lines, first_row, last_row+1);
         if (buf->lines.size == 0) {
@@ -266,17 +309,17 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         }
         return RP_LOWER;
     }
-    if (last_row == first_row) {
-        size_t start_c = range->start_col;
-        size_t end_c = range->jump_col + 1;
 
-        char** line_p = Buffer_get_line_abs(buf, first_row);
-        Edit* edit = malloc(sizeof(Edit));
-        edit->undo_index = undo_idx;
-        edit->start_row = first_row;
-        edit->start_col = start_c;
-        edit->old_content = strndup(*line_p + start_c, end_c - start_c);
-        edit->new_content = NULL;
+    copy->cp_type = CP_SPLIT;
+    size_t start_c = range->start_col;
+    size_t end_c = range->jump_col + 1;
+    char** line_p = Buffer_get_line_abs(buf, first_row);
+    char* old_content;
+
+    if (last_row == first_row) {
+        old_content = strndup(*line_p + start_c, end_c - start_c);
+        Vector_push(&copy->data, make_String(old_content));
+        Edit* edit = make_Delete(undo_idx, first_row, start_c, old_content);
         Buffer_push_undo(buf, edit);
 
         char* line = *line_p;
@@ -285,43 +328,63 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
         memmove(line + start_c, line + end_c, rest+1);
         return RP_LINES;
     }
-    Edit* modify_first_row = make_Edit(undo_idx, first_row, -1, *Buffer_get_line_abs(buf, first_row));
-    Buffer_push_undo(buf, modify_first_row);
-    String_delete_range(modify_first_row->new_content, range->start_col, Strlen(modify_first_row->new_content));
 
-    print("end: %ld %ld\n", last_row, Buffer_get_num_lines(buf));
+    old_content = strdup(*line_p + start_c);
+    Vector_push(&copy->data, make_String(old_content));
+    Edit* modify_first_row = make_Delete(undo_idx, first_row, start_c, old_content);
+    Buffer_push_undo(buf, modify_first_row);
+
+    String* final_copy_add = NULL;
     if (last_row < Buffer_get_num_lines(buf)) {
+        modify_first_row->new_content = NULL;
         // Remove last row, merge with first row
-        Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, *Buffer_get_line_abs(buf, last_row));
-        Buffer_push_undo(buf, delete_last_row);
+
         // Delete to jump col, inclusive.
-        size_t target_len = strlen(delete_last_row->old_content);
+        char* old_content = *Buffer_get_line_abs(buf, last_row);
+        size_t target_len = strlen(old_content);
         size_t delete_to = range->jump_col + 1;
         if (target_len < delete_to) {
             delete_to = target_len;
         }
+        final_copy_add = alloc_String(delete_to);
+        Strncats(&final_copy_add, old_content, delete_to);
+
+        // Ownership transfer.
+        Edit* delete_last_row = make_Delete(undo_idx, last_row, -1, old_content);
+        Buffer_push_undo(buf, delete_last_row);
+
         String* last_row_fragment = make_String(delete_last_row->old_content + delete_to);
 
-        free(*Buffer_get_line_abs(buf, last_row));
         Vector_delete(&buf->lines, last_row);
 
-        Strcat(&modify_first_row->new_content, last_row_fragment);
+        // Ownership transfer.
+        modify_first_row->new_content = last_row_fragment;
         print("Save end: %ld %ld %s\n", target_len, delete_to, last_row_fragment->data);
-        free(last_row_fragment);
     }
-
-    Buffer_set_line_abs(buf, first_row, modify_first_row->new_content->data);
+    size_t new_len = start_c + 1;
+    if (modify_first_row->new_content != NULL) {
+        new_len += Strlen(modify_first_row->new_content);
+    }
+    char* new_line = realloc(*line_p, new_len);
+    new_line[start_c] = 0;
+    strcat(new_line, modify_first_row->new_content->data);
+    *line_p = new_line;
 
     if (last_row > first_row + 1) {
         for (size_t i = last_row - 1; i > first_row; --i) {
             char* line = *Buffer_get_line_abs(buf, i);
+            Vector_push(&copy->data, make_String(line));
+
+            // Ownership transfer (line)
             Buffer_push_undo(buf, make_Delete(undo_idx, i, -1, line));
-            free(line);
         }
         Vector_delete_range(&buf->lines, first_row+1, last_row);
         if (buf->lines.size == 0) {
             Vector_push(&buf->lines, strdup(""));
         }
+    }
+    if (final_copy_add != NULL) {
+        Vector_push(&copy->data, final_copy_add);
     }
     return RP_LOWER;
 }
@@ -395,7 +458,7 @@ void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
         }
         size_t current_len = strlen(lineptr);
         size_t remove_len = Strlen(ed->new_content);
-        size_t ending = current_len - ed->start_col - remove_len;
+        size_t ending = current_len - ed->start_col - remove_len + 1; // +1 null byte
         memmove(lineptr + ed->start_col, lineptr + ed->start_col + remove_len, ending);
     }
     else if (ed->new_content == NULL) {
@@ -409,7 +472,7 @@ void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
         char** lineptr = (char**) &(buf->lines.elements[index]);
         size_t current_len = strlen(*lineptr);
         *lineptr = realloc(*lineptr, current_len + insert_len + 1);
-        size_t ending = current_len - ed->start_col;
+        size_t ending = current_len - ed->start_col + 1; // +1 null byte
         memmove(*lineptr + insert_len + ed->start_col, *lineptr + ed->start_col, ending);
         memcpy(*lineptr + ed->start_col, to_insert, insert_len);
     }
@@ -426,9 +489,10 @@ void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
         String* to_remove = ed->new_content;
         size_t remove_len = Strlen(to_remove);
         if (insert_len > remove_len) {
-            *lineptr = realloc(*lineptr, current_len + insert_len - remove_len);
+            size_t line_size = current_len + insert_len - remove_len;
+            *lineptr = realloc(*lineptr, line_size + 1);
         }
-        size_t ending = current_len - ed->start_col - remove_len;
+        size_t ending = current_len - ed->start_col - remove_len + 1; // +1 null byte
         memmove(*lineptr + insert_len + ed->start_col, *lineptr + remove_len + ed->start_col, ending);
         memcpy(*lineptr + ed->start_col, to_insert, insert_len);
     }

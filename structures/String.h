@@ -49,6 +49,8 @@ String* realloc_String(String*, size_t);
  */
 size_t Strlen(const String* s);
 
+String* Strdup(const String* s);
+
 /*
  * Might modify the first pointer (length extend).
  * Append string b to string a.

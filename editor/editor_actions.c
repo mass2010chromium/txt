@@ -21,6 +21,7 @@ EditorAction* make_0_action(int control);  // Go to start of line.
 EditorAction* make_DOLLAR_action(int control); // Go to end of line.
 
 EditorAction* make_o_action(int control);  // Create a line below, and enter insert mode.
+EditorAction* make_O_action(int control);  // Create a line above, and enter insert mode.
 EditorAction* make_A_action(int control);  // Go to end of line and enter insert mode.
 
 EditorAction* make_g_action(int control);  // "Go" command. (`gg` goes to start, `gt` / `gT` move between tabs)
@@ -92,6 +93,8 @@ void init_actions() {
     action_type_table['$'] = AT_MOVE;
     action_jump_table['o'] = &make_o_action;
     action_type_table['o'] = AT_OVERRIDE;
+    action_jump_table['O'] = &make_O_action;
+    action_type_table['O'] = AT_OVERRIDE;
     action_jump_table['A'] = &make_A_action;
     action_type_table['A'] = AT_OVERRIDE;
     action_jump_table['x'] = &make_x_action;
@@ -232,6 +235,7 @@ ActionType resolve_action_stack(Buffer* buf) {
         }
         else if (ctx.action == AT_PASTE) {
             editor_new_action();
+            // Oof
             editor_repaint(RP_ALL, &ctx);
         }
         else if (ctx.action == AT_UNDO) {

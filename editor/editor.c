@@ -616,11 +616,20 @@ void add_chr(char c) {
     current_ptr = active_insert.content + active_insert.gap_start;
     current_buffer->cursor_col = pos;
     current_buffer->natural_col = current_buffer->cursor_col;
-    _format_respect_tabspace(&write_line_buffer, active_insert.content + active_insert.gap_end, pos,
-                            active_insert.total_size - active_insert.gap_end);
-    _write(write_line_buffer->data, Strlen(write_line_buffer));
     if (editor_fix_view_h() == RP_ALL) {
         display_current_buffer();
+    }
+    else {
+        size_t line_size = _format_respect_tabspace(&write_line_buffer,
+                                active_insert.content + active_insert.gap_end, pos,
+                                active_insert.total_size - active_insert.gap_end);
+        if (line_size > current_buffer->left_col + 1 + editor_width - editor_left) {
+            String_push(&write_line_buffer, ' ');
+            Strcats(&write_line_buffer, SET_HIGHLIGHT);
+            String_push(&write_line_buffer, '+');
+            Strcats(&write_line_buffer, RESET_HIGHLIGHT);
+        }
+        _write(write_line_buffer->data, Strlen(write_line_buffer));
     }
     move_to_current();
 }
@@ -686,8 +695,9 @@ void format_tabs_higlighted(String** buf) {
     size_t counter = 0;
     for (size_t i = 0; i < buffers.size; i++) {
         Buffer* current_buf = buffers.elements[i];
-        char filename[TRUNCATE_SIZE];
-        char tabname[TRUNCATE_SIZE + 2];
+        char filename[TRUNCATE_SIZE + 1];
+        filename[TRUNCATE_SIZE] = 0;
+        char tabname[TRUNCATE_SIZE + 3];
         truncate_filename(current_buf->name, filename);
         size_t tab_len = sprintf(tabname, " %s ", filename);
         if (tab_len + counter > window_size.ws_col) {

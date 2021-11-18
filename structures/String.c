@@ -59,6 +59,13 @@ size_t Strlen(const String* s) {
     return s->length;
 }
 
+String* Strdup(const String* s) {
+    size_t data_size = sizeof(String) + s->max_length + 1;
+    String* ret = malloc(data_size);
+    memcpy(ret, s, data_size);
+    return ret;
+}
+
 /*
  * Might modify the first pointer (length extend).
  * Append string b to string a.
