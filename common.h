@@ -62,7 +62,8 @@ struct Mark {
 typedef struct Mark Mark;
 
 struct Buffer {
-    char* name;
+    String* name;
+    String* swapfile_name;
     FILE* file;
     FILE* swapfile;
     Deque /*Edit* */ undo_buffer;

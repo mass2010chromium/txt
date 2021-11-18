@@ -8,7 +8,7 @@ void close_buffer() {
         display_current_buffer();
         String_clear(bottom_bar_info);
         Strcats(&bottom_bar_info, "-- Editing: ");
-        Strcats(&bottom_bar_info, current_buffer->name);
+        Strcat(&bottom_bar_info, current_buffer->name);
         Strcats(&bottom_bar_info, " --");
         display_bottom_bar(bottom_bar_info->data, NULL);
     }
@@ -18,7 +18,7 @@ void save_buffer() {
     Buffer_save(current_buffer);
     String_clear(bottom_bar_info);
     Strcats(&bottom_bar_info, "-- File saved: ");
-    Strcats(&bottom_bar_info, current_buffer->name);
+    Strcat(&bottom_bar_info, current_buffer->name);
     Strcats(&bottom_bar_info, " --");
     display_bottom_bar(bottom_bar_info->data, NULL);
 }
@@ -53,7 +53,7 @@ void process_command(char* command, EditorContext* ctx) {
         display_current_buffer();
         String_clear(bottom_bar_info);
         Strcats(&bottom_bar_info, "-- Opened file: ");
-        Strcats(&bottom_bar_info, current_buffer->name);
+        Strcat(&bottom_bar_info, current_buffer->name);
         Strcats(&bottom_bar_info, " --");
         display_bottom_bar(bottom_bar_info->data, NULL);
         // display_top_bar();

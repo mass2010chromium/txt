@@ -680,11 +680,11 @@ void display_bottom_bar(char* left, char* right) {
     }
 }
 
-void truncate_filename(char* path, char* buf) {
-    if (strlen(path) <= TRUNCATE_SIZE) {
-        strcpy(buf, path);
+void truncate_filename(String* path, char* buf) {
+    if (Strlen(path) <= TRUNCATE_SIZE) {
+        strcpy(buf, path->data);
     } else {
-        char* base = basename(path);
+        char* base = basename(path->data);
         strncpy(buf, base, TRUNCATE_SIZE);
     }
 }

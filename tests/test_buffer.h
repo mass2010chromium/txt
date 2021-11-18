@@ -30,7 +30,7 @@ UTEST(Buffer, create_destroy) {
     inplace_make_Buffer(&buf, "./tests/testfile");
     inplace_make_VS(&expected, infile_dat);
 
-    ASSERT_STREQ("./tests/testfile", buf.name);
+    ASSERT_STREQ("./tests/testfile", buf.name->data);
     ASSERT_EQ(0, buf.top_row);
     ASSERT_EQ(0, buf.cursor_row);
     ASSERT_EQ(0, buf.cursor_col);

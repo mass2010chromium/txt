@@ -92,7 +92,9 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
         (void) n_read;
     }
     buf->swapfile = NULL;
-    buf->name = strdup(filename);
+    buf->name = make_String(filename);
+    buf->swapfile_name = Strdup(buf->name);
+    Strcats(&buf->swapfile_name, ".swp");
     buf->cursor_row = 0;
     buf->cursor_col = 0;
     buf->natural_col = 0;
@@ -130,19 +132,14 @@ void Buffer_destroy(Buffer* buf) {
     }
     Vector_destroy(&buf->lines);
     free(buf->name);
+    free(buf->swapfile_name);
     Buffer_close_files(buf);
 }
 
 void Buffer_open_files(Buffer* buf, const char* mode_infile, const char* mode_swapfile) {
-    if (mode_infile != NULL) { buf->file = fopen(buf->name, mode_infile); }
+    if (mode_infile != NULL) { buf->file = fopen(buf->name->data, mode_infile); }
     if (mode_swapfile != NULL) {
-        char* end = ".swp";
-        char* dest = malloc(strlen(buf->name) + strlen(end) + 1);
-        dest[0] = '\0';
-        strcat(dest, buf->name);
-        strcat(dest, end);
-        buf->swapfile = fopen(dest, mode_swapfile);
-        free(dest);
+        buf->swapfile = fopen(buf->swapfile_name->data, mode_swapfile);
     }
 }
 
@@ -230,9 +227,10 @@ void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data) {
 RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
     size_t n_lines = copy->data.size;
     if (n_lines == 0) return RP_NONE;
+    size_t undo_idx = ctx->undo_idx;
+
     if (copy->cp_type == CP_LINE) {
         Vector_create_range(&buf->lines, ctx->start_row+1, n_lines);
-        size_t undo_idx = ctx->undo_idx;
         for (int i = 0; i < n_lines; ++i) {
             String* s = copy->data.elements[i];
             buf->lines.elements[ctx->start_row+1 + i] = strdup(s->data);
@@ -243,17 +241,23 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
     else if (copy->cp_type == CP_SPLIT) {
         size_t n_newlines = n_lines - 1;
         char* line = buf->lines.elements[ctx->start_row];
-        char* rest = line + ctx->start_col;
+        // Extra +1 to emulate vim's paste behavior (paste after).
+        char* rest = line + ctx->start_col + 1;
         String* first = copy->data.elements[0];
 
         if (n_newlines == 0) {
             print("Case single line paste\n");
             size_t line_len = strlen(line);
             line = realloc(line, line_len + Strlen(first) + 1);
-            memmove(line + ctx->start_col + Strlen(first),
-                    line + ctx->start_col,
-                    line_len - ctx->start_col + 1);
-            strncpy(line + ctx->start_col, first->data, Strlen(first));
+            rest = line + ctx->start_col + 1;
+
+            // TODO: Use Strdup
+            Edit* edit = make_Insert(undo_idx, ctx->start_row, ctx->start_col+1, first->data);
+            Buffer_push_undo(buf, edit);
+
+            memmove(rest + Strlen(first), rest,
+                    line_len - ctx->start_col /* + 1 - 1 */);
+            strncpy(rest, first->data, Strlen(first));
             buf->lines.elements[ctx->start_row] = line;
             // TODO signal lines for RP_LINES
             return RP_ALL;
@@ -264,16 +268,26 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx) {
         for (size_t i = 1; i < n_newlines; ++i) {
             String* s = copy->data.elements[i];
             buf->lines.elements[ctx->start_row + n_newlines] = strdup(s->data);
+            Buffer_push_undo(buf, make_Insert(undo_idx, ctx->start_row + i, -1, s->data));
         }
 
         String* last_line_start = Strdup(copy->data.elements[n_newlines]);
         Strcats(&last_line_start, rest);
+        Buffer_push_undo(buf, make_Insert(undo_idx, ctx->start_row + n_newlines, -1,
+                                          last_line_start->data));
         buf->lines.elements[ctx->start_row + n_newlines] = String_to_cstr(last_line_start);
 
         // Fix the first line.
-        line = realloc(line, ctx->start_col + Strlen(first) + 1);
-        strcpy(line + ctx->start_col, first->data);
+        line = realloc(line, ctx->start_col + Strlen(first) + 2);
+        rest = line + ctx->start_col + 1;
+
+        Edit* edit = make_Insert(undo_idx, ctx->start_row, ctx->start_col+1, first->data);
+        edit->old_content = strdup(rest);
+
+        Buffer_push_undo(buf, edit);
+        strcpy(rest, first->data);
         buf->lines.elements[ctx->start_row] = line;
+        print("realloc: %s %ld %lu\n", line, ctx->start_col, Strlen(first));
 
         // TODO signal lines for RP_LINES
         return RP_ALL;
@@ -336,7 +350,6 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
 
     String* final_copy_add = NULL;
     if (last_row < Buffer_get_num_lines(buf)) {
-        modify_first_row->new_content = NULL;
         // Remove last row, merge with first row
 
         // Delete to jump col, inclusive.
@@ -389,6 +402,64 @@ RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range) {
     return RP_LOWER;
 }
 
+/**
+ * Copy a range of chars (from start to end in the given object)
+ * Expects a normalized range.
+ * Slightly redundant with delete_range, but delete_range is optimized
+ * to take ownership whenever possible.
+ */
+void Buffer_copy_range(Buffer* buf, Copy* copy, EditorContext* range) {
+    for (int i = 0; i < copy->data.size; ++i) {
+        free(copy->data.elements[i]);
+    }
+    Vector_clear(&copy->data, 10);
+    ssize_t first_row = range->start_row;
+    ssize_t last_row = range->jump_row;
+    if (range->start_col == -1) {   // Line copy mode.
+        copy->cp_type = CP_LINE;
+        for (ssize_t i = first_row; i <= last_row; ++i) {
+            char* line = *Buffer_get_line_abs(buf, i);
+            Vector_push(&copy->data, make_String(line));
+        }
+        return;
+    }
+
+    copy->cp_type = CP_SPLIT;
+    size_t start_c = range->start_col;
+    size_t end_c = range->jump_col + 1;
+    char** line_p = Buffer_get_line_abs(buf, first_row);
+
+    if (last_row == first_row) {
+        size_t copy_len = end_c - start_c;
+        String* s = alloc_String(copy_len);
+        Vector_push(&copy->data, Strncats(&s, *line_p + start_c, copy_len));
+        return;
+    }
+
+    Vector_push(&copy->data, make_String(*line_p + start_c));
+
+    if (last_row > first_row + 1) {
+        for (size_t i = last_row - 1; i > first_row; --i) {
+            char* line = *Buffer_get_line_abs(buf, i);
+            Vector_push(&copy->data, make_String(line));
+        }
+    }
+
+    if (last_row < Buffer_get_num_lines(buf)) {
+        // Remove last row, merge with first row
+
+        // Delete to jump col, inclusive.
+        char* old_content = *Buffer_get_line_abs(buf, last_row);
+        size_t target_len = strlen(old_content);
+        size_t select_to = range->jump_col + 1;
+        if (target_len < select_to) {
+            select_to = target_len;
+        }
+        String* final_copy_add = alloc_String(select_to);
+        Vector_push(&copy->data, Strncats(&final_copy_add, old_content, select_to));
+    }
+}
+
 int Buffer_save(Buffer* buf) {
     Buffer_open_files(buf, NULL, "w");
     for (int i = 0; i < buf->lines.size; ++i) {
@@ -409,14 +480,16 @@ int Buffer_save(Buffer* buf) {
         bytes -= nbytes;
     }
     Buffer_close_files(buf);
-    char* end = ".swp";
-    char* dest = malloc(strlen(buf->name) + strlen(end) + 1);
-    dest[0] = '\0';
-    strcat(dest, buf->name);
-    strcat(dest, end);
-    remove(dest);
-    free(dest);
+    remove(buf->swapfile_name->data);
     return 0;
+}
+
+void Buffer_rename(Buffer* buf, char* new_name) {
+    String_clear(buf->name);
+    String_clear(buf->swapfile_name);
+    Strcats(&buf->name, new_name);
+    Strcats(&buf->swapfile_name, new_name);
+    Strcats(&buf->swapfile_name, ".swp");
 }
 
 /**
@@ -447,6 +520,7 @@ void Buffer_push_undo(Buffer* buf, Edit* ed) {
  * Undo the application of a given edit to this buffer.
  */
 void Buffer_undo_Edit(Buffer* buf, Edit* ed) {
+    print("Undo edit: %ld, %ld\n", ed->start_row, ed->start_col);
     size_t index = ed->start_row;
     if (ed->old_content == NULL) {
         // Insert action. Undo by deleting.

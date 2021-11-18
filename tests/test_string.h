@@ -288,7 +288,6 @@ UTEST(String, String_clear) {
 UTEST(String, String_delete_range) {
     char* ref;
     String* s;
-    char res;
 
     ref = "asdf1234";
     s = make_String(ref);

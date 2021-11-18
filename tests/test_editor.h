@@ -17,7 +17,7 @@ UTEST(editor, make_buffer) {
     Vector expected;
     inplace_make_VS(&expected, infile_dat);
 
-    ASSERT_STREQ("./tests/scratchfile", current_buffer->name);
+    ASSERT_STREQ("./tests/scratchfile", current_buffer->name->data);
     ASSERT_EQ(0, current_buffer->top_row);
     ASSERT_EQ(0, current_buffer->cursor_row);
     ASSERT_EQ(0, current_buffer->cursor_col);
