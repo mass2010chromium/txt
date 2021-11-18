@@ -51,6 +51,12 @@ char** Buffer_get_line_abs(Buffer* buf, size_t row);
 void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data);
 
 /**
+ * Clip the context to the buffer's bounds.
+ * Only touches jump entries.
+ */
+void Buffer_clip_context(Buffer* buf, EditorContext* ctx);
+
+/**
  * Paste a copy operation at `start_row, start_col` of ctx.
  */
 RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx);

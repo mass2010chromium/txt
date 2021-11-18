@@ -69,16 +69,19 @@ Buffer* make_Buffer(const char* filename) {
 }
 
 void inplace_make_Buffer(Buffer* buf, const char* filename) {
+    // zero initialize fields by default.
+    memset(buf, 0, sizeof(Buffer));
+
     inplace_make_Deque(&buf->undo_buffer, 100);
     inplace_make_Vector(&buf->redo_buffer, 100);
     inplace_make_Vector(&buf->lines, 100);
-    buf->file = NULL;
     if (filename == NULL) {
         filename = "__tmp__";
         Vector_push(&buf->lines, strdup(""));
     }
     else {
         FILE* infile = fopen(filename, "r+");
+        // TODO use n_read
         size_t n_read;
         if (infile != NULL)  {
             //TODO buffer/read not the whole file
@@ -91,22 +94,10 @@ void inplace_make_Buffer(Buffer* buf, const char* filename) {
         }
         (void) n_read;
     }
-    buf->swapfile = NULL;
     buf->name = make_String(filename);
     buf->swapfile_name = Strdup(buf->name);
     Strcats(&buf->swapfile_name, ".swp");
-    buf->cursor_row = 0;
-    buf->cursor_col = 0;
-    buf->natural_col = 0;
-    buf->top_row = 0;
-    buf->left_col = 0;
-    buf->top_left_file_pos = 0;
-    buf->last_pos = 0;
-    buf->undo_index = 0;
-    buf->visual_row = 0;
-    buf->visual_col = 0;
     buf->buffer_mode = EM_NORMAL;
-    memset(buf->marks, 0, sizeof(buf->marks));
 }
     
 void Buffer_destroy(Buffer* buf) {
@@ -219,6 +210,31 @@ void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data) {
     char** line_p = Buffer_get_line_abs(buf, row);
     free(*line_p);
     *line_p = strdup(data);
+}
+
+/**
+ * Clip the context to the buffer's bounds.
+ * Only touches jump entries.
+ */
+void Buffer_clip_context(Buffer* buf, EditorContext* ctx) {
+    if (ctx->jump_col < 0) {
+        ctx->jump_col = 0;
+    }
+    if (ctx->jump_row < 0) {
+        ctx->jump_row = 0;
+    }
+    if (ctx->jump_row >= Buffer_get_num_lines(buf)) {
+        ctx->jump_row = Buffer_get_num_lines(buf) - 1;
+    }
+    char* line = *Buffer_get_line_abs(buf, ctx->jump_row);
+    size_t max_char = strlen(line);
+    // Save newlines, but don't count them towards line length for cursor purposes.
+    if (max_char > 0 && line[strlen(line) - 1] == '\n') {
+        max_char -= 1;
+    }
+    if (ctx->jump_col > max_char) {
+        ctx->jump_col = max_char;
+    }
 }
 
 /**

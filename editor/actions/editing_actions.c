@@ -12,6 +12,7 @@
  *  r       Replace character(s) under cursor.
  *  d       'dd' to delete line (repeatable), or delete based on the result of a move command.
  *  D       Shortcut for `d$`.
+ *  <       Unindent
  */
 
 void _0_action_resolve(EditorAction* this, EditorContext* ctx) {
@@ -233,12 +234,10 @@ void r_action_resolve(EditorAction* this, EditorContext* ctx) {
         }
         else {
             editor_new_action();
-            Edit* edit = malloc(sizeof(Edit));
             char** line_p = Buffer_get_line_abs(buf, ctx->start_row);
-            edit->undo_index = ctx->undo_idx;
-            edit->start_row = ctx->start_row;
-            edit->start_col = ctx->start_col;
-            edit->old_content = strndup(*line_p + ctx->start_col, 1);
+            Edit* edit = make_Delete(ctx->undo_idx,
+                                     ctx->start_row, ctx->start_col,
+                                     strndup(*line_p + ctx->start_col, 1));
             edit->new_content = alloc_String(1);
             *(*line_p + ctx->start_col) = replace_ch;
             String_push(&edit->new_content, replace_ch);
@@ -341,5 +340,87 @@ void D_action_resolve(EditorAction* this, EditorContext* ctx) {
 EditorAction* make_D_action(int control) {
     EditorAction* ret = make_DefaultAction("D");
     ret->resolve = &D_action_resolve;
+    return ret;
+}
+
+int LEFTARROW_action_update(EditorAction* this, char input, int control) {
+    // lol can't accept any characters but needs a move.
+    return 0;
+}
+
+void _LEFTARROW_action_resolve(EditorAction* this, EditorContext* ctx, size_t arg) {
+    Buffer* buf = ctx->buffer;
+    EditorMode mode = Buffer_get_mode(buf);
+    if (this->child != NULL) {
+        (*this->child->resolve)(this->child, ctx);
+        if (is_stop(ctx->action)) return;
+        if (ctx->action != AT_MOVE) return; // ERROR
+    }
+    else {
+        if (mode != EM_VISUAL && mode != EM_VISUAL_LINE) {
+            return;
+        }
+        ctx->jump_row = buf->visual_row;
+        Buffer_exit_visual(buf);
+    }
+    ctx->action = AT_OVERRIDE;
+
+    Buffer_clip_context(buf, ctx);
+    EditorContext_normalize(ctx);
+
+    size_t shift_amount = TAB_WIDTH * arg;
+
+    editor_new_action();
+    for (size_t i = ctx->start_row; i <= ctx->jump_row; ++i) {
+        char** line_p = Buffer_get_line_abs(buf, i);
+        char* line = *line_p;
+        if (is_whitespace(line[0])) {
+            String* removed_content = alloc_String(TAB_WIDTH);
+            size_t pos = 0;
+            size_t length = 0;
+            while (is_whitespace(line[pos]) && length < shift_amount) {
+                if (line[pos] == '\t') {
+                    length = tab_round_up(length);
+                }
+                else {
+                    ++length;
+                }
+                String_push(&removed_content, line[pos]);
+                ++pos;
+            }
+            char* line_new = line + pos;
+            Edit* edit = make_Delete(ctx->undo_idx, i, 0,
+                                     String_to_cstr(removed_content));
+            Buffer_push_undo(buf, edit);
+            memmove(line, line_new, strlen(line_new) + 1);
+        }
+    }
+    editor_repaint(RP_LINES, ctx);
+}
+
+void LEFTARROW_action_resolve(EditorAction* this, EditorContext* ctx) {
+    _LEFTARROW_action_resolve(this, ctx, 1);
+}
+
+int LEFTARROW_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (n > 0) {
+        _LEFTARROW_action_resolve(this, ctx, n);
+        return 1;
+    }
+    return 0;
+}
+
+EditorAction* make_LEFTARROW_action(int control) {
+    EditorAction* ret = make_DefaultAction("<");
+    Buffer* buf = current_buffer;
+    EditorMode mode = Buffer_get_mode(buf);
+    if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+        // resolve immediately.
+    }
+    else {
+        ret->update = &LEFTARROW_action_update;
+    }
+    ret->resolve = &LEFTARROW_action_resolve;
+    ret->repeat = &LEFTARROW_action_repeat;
     return ret;
 }

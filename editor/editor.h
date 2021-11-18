@@ -40,6 +40,7 @@ extern size_t editor_bottom;
 extern size_t editor_width;
 extern bool editor_display;
 extern bool editor_macro_mode;
+extern int TAB_WIDTH;
 
 /**
  * Process one keypress from the user.
@@ -70,9 +71,21 @@ void move_to_current();     /** Calls move_cursor with the current cursor positi
 void move_cursor(size_t y, size_t x);   /** Prints an escape code to move the location of the cursor to the given coordinates. */
 
 /**
+ * Suppose I am at position <start>, and I press tab.
+ * Where should I end up?
+ */
+size_t tab_round_up(size_t start);
+
+/**
  * Pointer corresponding to the spot in buf at screen pos x. (0 indexed)
  */
 char* line_pos(char* buf, ssize_t x);
+
+/**
+ * Compute the 'screen length' of a buffer. Accounts for tabs.
+ * TODO: unify this with `format_respect_tabspace`.
+ */
+size_t strlen_tab(const char* buf);
 
 /**
  * Prepare a buffer to write out to the screen, respecting tab width.

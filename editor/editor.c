@@ -938,11 +938,6 @@ void editor_move_down() {
  */
 void editor_move_EOL() {
     char* line = *get_line_in_buffer(current_buffer->cursor_row);
-    int max_char = strlen(line) - 1;
-    // Save newlines, but don't count them towards line length for cursor purposes.
-    if (strlen(line) != 0 && line[strlen(line) - 1] == '\n') {
-        max_char -= 1;
-    }
     current_buffer->cursor_col = strlen_tab(line);
     current_buffer->natural_col = current_buffer->cursor_col;
     if (editor_fix_view_h() == RP_ALL) {

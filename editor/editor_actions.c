@@ -32,6 +32,8 @@ EditorAction* make_r_action(int control);  // Replace character(s) under cursor.
 EditorAction* make_d_action(int control);  // 'dd' to delete line (repeatable), or delete based on the result of a move command.
 EditorAction* make_D_action(int control);  // Shortcut for `d$`.
 
+EditorAction* make_LEFTARROW_action(int control);   // Unindent
+
 
 // visual_actions.c
 EditorAction* make_v_action(int control);  // Enter visual select mode (char).
@@ -39,7 +41,7 @@ EditorAction* make_V_action(int control);  // Enter visual select mode (line).
 
 
 EditorAction* make_u_action(int control);  // Undo an action. (repeatable)
-EditorAction* make_p_action(int control);  // Paste copied/cut text. (repeatable, only partially implemented)
+EditorAction* make_p_action(int control);  // Paste copied/cut text.
 
 
 // search_actions.c
@@ -105,6 +107,8 @@ void init_actions() {
     action_type_table['d'] = AT_DELETE;
     action_jump_table['D'] = &make_D_action;
     action_type_table['D'] = AT_DELETE;
+    action_jump_table['<'] = &make_LEFTARROW_action;
+    action_type_table['<'] = AT_OVERRIDE;
 
     action_jump_table['v'] = &make_v_action;
     action_type_table['v'] = AT_OVERRIDE;
@@ -167,26 +171,16 @@ ActionType resolve_action_stack(Buffer* buf) {
         return ctx.action;
     }
 
-    if (ctx.jump_col < 0) {
-        ctx.jump_col = 0;
-    }
-    if (ctx.jump_row < 0) {
-        ctx.jump_row = 0;
-    }
-    if (ctx.jump_row >= Buffer_get_num_lines(buf)) {
-        ctx.jump_row = Buffer_get_num_lines(buf);
-    }
-    else {
-        char* linep = *Buffer_get_line_abs(buf, ctx.jump_row);
-        size_t max_col = strlen(linep);
-        if (ctx.jump_col > max_col) {
-            ctx.jump_col = max_col;
-        }
-    }
+    Buffer_clip_context(buf, &ctx);
 
     //interpret result
     if (ctx.action == AT_MOVE) {
         //TODO jank
+        if (ctx.sharp_move) {
+            buf->marks['`'].set = true;
+            buf->marks['`'].row = ctx.start_row;
+            buf->marks['`'].col = ctx.start_col;
+        }
         RepaintType repaint = editor_move_to(ctx.jump_row, ctx.jump_col, ctx.sharp_move);
         if (repaint == RP_NONE) {
             // if not RP_NONE, the repaint was already requested. Maybe this code should be moved
@@ -647,7 +641,7 @@ EditorAction* make_m_action(int control) {
 
 int BACKTICK_action_update(EditorAction* this, char input, int control) {
     if (input == BYTE_ESC || input == BYTE_BACKSPACE
-            || input == BYTE_ENTER || input == '`') {
+            || input == BYTE_ENTER) {
         return 3;
     }
     String_push(&this->value, input);
