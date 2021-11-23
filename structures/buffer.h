@@ -66,6 +66,14 @@ RepaintType Buffer_insert_copy(Buffer* buf, Copy* copy, EditorContext* ctx);
  */
 RepaintType Buffer_delete_range(Buffer* buf, Copy* copy, EditorContext* range);
 
+/**
+ * Copy a range of chars (from start to end in the given object)
+ * Expects a normalized range.
+ * Slightly redundant with delete_range, but delete_range is optimized
+ * to take ownership whenever possible.
+ */
+void Buffer_copy_range(Buffer* buf, Copy* copy, EditorContext* range);
+
 int Buffer_save(Buffer* buf);
 
 /**

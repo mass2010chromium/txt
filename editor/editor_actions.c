@@ -41,6 +41,7 @@ EditorAction* make_V_action(int control);  // Enter visual select mode (line).
 
 
 EditorAction* make_u_action(int control);  // Undo an action. (repeatable)
+EditorAction* make_y_action(int control);  // Copy text.
 EditorAction* make_p_action(int control);  // Paste copied/cut text.
 
 
@@ -120,6 +121,8 @@ void init_actions() {
     action_type_table['W'] = AT_MOVE;
     action_jump_table['u'] = &make_u_action;
     action_type_table['u'] = AT_UNDO;
+    action_jump_table['y'] = &make_y_action;
+    action_type_table['y'] = AT_OVERRIDE;
     action_jump_table['p'] = &make_p_action;
     action_type_table['p'] = AT_PASTE;
     action_jump_table['g'] = &make_g_action;
@@ -452,6 +455,79 @@ void u_action_resolve(EditorAction* this, EditorContext* ctx) {
 EditorAction* make_u_action(int control) {
     EditorAction* ret = make_DefaultAction("u");
     ret->resolve = &u_action_resolve;
+    return ret;
+}
+
+int y_action_update(EditorAction* this, char input, int control) {
+    if (Strlen(this->value) == 1) {
+        if (input == 'y') {
+            String_push(&this->value, input);
+            return 2;
+        }
+    }
+    // lol can't accept any characters but needs a move.
+    return 0;
+}
+
+void y_action_resolve(EditorAction* this, EditorContext* ctx) {
+    ctx->action = AT_OVERRIDE;
+    if (Strlen(this->value) == 2 && this->value->data[1] == 'y') {
+        ctx->start_col = -1;
+        EditorContext_normalize(ctx);
+        Buffer_copy_range(ctx->buffer, &active_copy, ctx);
+    }
+    EditorMode mode = Buffer_get_mode(ctx->buffer);
+    if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+        ctx->jump_row = ctx->buffer->visual_row;
+        ctx->jump_col = ctx->buffer->visual_col;
+        if (mode == EM_VISUAL_LINE) {
+            ctx->start_col = -1;
+        }
+        EditorContext_normalize(ctx);
+        Buffer_copy_range(ctx->buffer, &active_copy, ctx);
+        Buffer_exit_visual(ctx->buffer);
+    }
+    else if (this->child != NULL) {
+        (*this->child->resolve)(this->child, ctx);
+        if (is_stop(ctx->action)) return;
+        if (ctx->action != AT_MOVE) return; // ERROR
+        EditorContext_normalize(ctx);
+        Buffer_copy_range(ctx->buffer, &active_copy, ctx);
+    }
+}
+
+int y_action_repeat(EditorAction* this, EditorContext* ctx, size_t n) {
+    if (Strlen(this->value) == 1) {
+        // Repeated normal 'y' is nothing.
+        y_action_resolve(this, ctx);
+        return 1;
+    }
+    if (n > 0) {
+        if (this->child == NULL) {
+            if (Strlen(this->value) == 2 && this->value->data[1] == 'y') {
+                ctx->action = AT_OVERRIDE;
+                ctx->start_col = -1;
+                ctx->jump_row += n - 1;
+                EditorContext_normalize(ctx);
+                Buffer_copy_range(ctx->buffer, &active_copy, ctx);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+EditorAction* make_y_action(int control) {
+    EditorAction* ret = make_DefaultAction("y");
+    ret->resolve = &y_action_resolve;
+    ret->repeat = &y_action_repeat;
+    EditorMode mode = Buffer_get_mode(current_buffer);
+    if (mode == EM_VISUAL || mode == EM_VISUAL_LINE) {
+        // resolve immediately.
+    }
+    else {
+        ret->update = &y_action_update;
+    }
     return ret;
 }
 

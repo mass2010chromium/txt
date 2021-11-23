@@ -41,6 +41,8 @@ extern size_t editor_width;
 extern bool editor_display;
 extern bool editor_macro_mode;
 extern int TAB_WIDTH;
+extern bool PRESERVE_INDENT;
+extern bool EXPAND_TAB;
 
 /**
  * Process one keypress from the user.
