@@ -50,6 +50,12 @@ String* realloc_String(String*, size_t);
 size_t Strlen(const String* s);
 
 String* Strdup(const String* s);
+String* Strndup(const String* s, size_t count);
+
+/**
+ * Make substring. (allocates on heap)
+ */
+String* Strsub(const String* s, size_t start, size_t end);
 
 /*
  * Might modify the first pointer (length extend).
@@ -104,6 +110,11 @@ char String_delete(String* s, size_t index);
  * Does not resize (maxlen) string.
  */
 void String_delete_range(String* s, size_t a, size_t b);
+
+/**
+ * Truncate string.
+ */
+void Strtrunc(String* s, size_t length);
 
 /**
  * Postcondition: (*s)->data[index] == c

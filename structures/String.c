@@ -1,5 +1,6 @@
 #include "String.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -63,6 +64,28 @@ String* Strdup(const String* s) {
     size_t data_size = sizeof(String) + s->max_length + 1;
     String* ret = malloc(data_size);
     memcpy(ret, s, data_size);
+    return ret;
+}
+
+String* Strndup(const String* s, size_t count) {
+    assert(count <= s->length);
+    String* ret = alloc_String(count);
+    memcpy(ret->data, s->data, count+1);
+    ret->length = count;
+    return ret;
+}
+
+/**
+ * Make substring. (allocates on heap)
+ */
+String* Strsub(const String* s, size_t start, size_t end) {
+    assert(end >= start);
+    assert(start < s->length);
+    size_t count = end - start;
+    String* ret = alloc_String(count);
+    memcpy(ret->data, s->data + start, count);
+    ret->length = count;
+    ret->data[ret->length] = 0;
     return ret;
 }
 
@@ -159,10 +182,21 @@ char String_delete(String* s, size_t index) {
  * Does not resize (maxlen) string.
  */
 void String_delete_range(String* s, size_t a, size_t b) {
+    assert(b >= a);
+    assert(b <= s->length);
     size_t line_len = s->length;
     size_t rest = line_len - b;
     s->length -= (b-a);
     memmove(s->data + a, s->data + b, rest+1);
+}
+
+/**
+ * Truncate string.
+ */
+void Strtrunc(String* s, size_t length) {
+    assert(length <= s->length);
+    s->data[length] = 0;
+    s->length = length;
 }
 
 /**

@@ -19,14 +19,14 @@ NULL
 do { \
     ASSERT_EQ((a)->size, (b)->size); \
     for (size_t i = 0; i < (a)->size; ++i) { \
-        ASSERT_STREQ((char*) (a)->elements[i], (char*) (b)->elements[i]); \
+        ASSERT_STREQ(((String*) (a)->elements[i])->data, ((String*) (b)->elements[i])->data); \
     } \
 } while (0);
 
 void inplace_make_VS(Vector* ret, char** data) {
     inplace_make_Vector(ret, 10);
     while (*data) {
-        Vector_push(ret, *data);
+        Vector_push(ret, make_String(*data));
         ++data;
     }
 }

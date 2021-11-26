@@ -1,5 +1,6 @@
 #include "Vector.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,6 +44,16 @@ void Vector_push(Vector* v, void* element) {
 }
 
 /**
+ * Vector pop from end. (O(1) end)
+ */
+void* Vector_pop(Vector* v) {
+    assert(v->size > 0);
+    void* ret = v->elements[v->size-1];
+    --v->size;
+    return ret;
+}
+
+/**
  * Vector insert into middle.
  * Postcondition: v[idx] = element
  */
@@ -63,9 +74,14 @@ void Vector_insert(Vector* v, size_t idx, void* element) {
  * Postcondition: v[idx ... idx+count-1] = undefined
  */
 void Vector_create_range(Vector* v, size_t idx, size_t count) {
-    if (v->size + count > v->max_size) {
+    size_t new_size = v->size + count;
+    if (new_size > v->max_size) {
         // TODO error handling
-        v->elements = realloc(v->elements, v->max_size*2 * sizeof(void*));
+        size_t target_size = v->max_size * 2;
+        if (target_size < new_size) {
+            target_size = new_size;
+        }
+        v->elements = realloc(v->elements, new_size * sizeof(void*));
         v->max_size *= 2;
     }
     memmove(v->elements + idx + count, v->elements + idx, (v->size - idx) * sizeof(void*));
@@ -82,8 +98,10 @@ void Vector_delete(Vector* v, size_t idx) {
 
 /**
  * Vector delete element in range [a, b). Shift everything >=b left.
+ * Zero length ranges allowed (as long as b <= v.size).
  */
 void Vector_delete_range(Vector* v, size_t a, size_t b) {
+    assert(v->size > b - a);
     memmove(v->elements + a, v->elements + b, (v->size - b) * sizeof(void*));
     v->size -= b-a;
 }

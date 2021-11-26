@@ -29,11 +29,11 @@ EditorAction* make_0_action(int control) {
 void DOLLAR_action_resolve(EditorAction* this, EditorContext* ctx) {
     ctx->action = AT_MOVE;
     Buffer* buf = ctx->buffer;
-    char* line = *Buffer_get_line_abs(buf, ctx->jump_row);
-    size_t line_len = strlen(line);
+    String* line = *Buffer_get_line_abs(buf, ctx->jump_row);
+    size_t line_len = Strlen(line);
     size_t max_char = line_len;
     // Save newlines, but don't count them towards line length for cursor purposes.
-    if (line_len > 0 && line[line_len - 1] == '\n') {
+    if (line_len > 0 && line->data[line_len - 1] == '\n') {
         max_char -= 1;
     }
     if (max_char >= 0) {
@@ -234,12 +234,12 @@ void r_action_resolve(EditorAction* this, EditorContext* ctx) {
         }
         else {
             editor_new_action();
-            char** line_p = Buffer_get_line_abs(buf, ctx->start_row);
+            String** line_p = Buffer_get_line_abs(buf, ctx->start_row);
             Edit* edit = make_Delete(ctx->undo_idx,
                                      ctx->start_row, ctx->start_col,
-                                     strndup(*line_p + ctx->start_col, 1));
+                                     Strsub(*line_p, ctx->start_col, ctx->start_col + 1));
             edit->new_content = alloc_String(1);
-            *(*line_p + ctx->start_col) = replace_ch;
+            *((*line_p)->data + ctx->start_col) = replace_ch;
             String_push(&edit->new_content, replace_ch);
             Buffer_push_undo(buf, edit);
             editor_repaint(RP_LINES, ctx);
@@ -372,8 +372,8 @@ void _LEFTARROW_action_resolve(EditorAction* this, EditorContext* ctx, size_t ar
 
     editor_new_action();
     for (size_t i = ctx->start_row; i <= ctx->jump_row; ++i) {
-        char** line_p = Buffer_get_line_abs(buf, i);
-        char* line = *line_p;
+        String** line_p = Buffer_get_line_abs(buf, i);
+        char* line = (*line_p)->data;
         if (is_whitespace(line[0])) {
             String* removed_content = alloc_String(TAB_WIDTH);
             size_t pos = 0;
@@ -388,11 +388,9 @@ void _LEFTARROW_action_resolve(EditorAction* this, EditorContext* ctx, size_t ar
                 String_push(&removed_content, line[pos]);
                 ++pos;
             }
-            char* line_new = line + pos;
-            Edit* edit = make_Delete(ctx->undo_idx, i, 0,
-                                     String_to_cstr(removed_content));
+            Edit* edit = make_Delete(ctx->undo_idx, i, 0, removed_content);
             Buffer_push_undo(buf, edit);
-            memmove(line, line_new, strlen(line_new) + 1);
+            String_delete_range(*line_p, 0, pos);
         }
     }
     editor_repaint(RP_LINES, ctx);

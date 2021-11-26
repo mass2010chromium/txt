@@ -158,8 +158,8 @@ ActionType resolve_action_stack(Buffer* buf) {
     EditorAction* source = action_stack->elements[0];
     EditorContext ctx;
     ctx.start_row = Buffer_get_line_index(buf, buf->cursor_row);
-    char* start_line = *Buffer_get_line(buf, buf->cursor_row);
-    ctx.start_col = line_pos(start_line, buf->cursor_col) - start_line;
+    String* start_line = *Buffer_get_line(buf, buf->cursor_row);
+    ctx.start_col = line_pos(start_line->data, buf->cursor_col) - start_line->data;
     ctx.jump_row = ctx.start_row;
     ctx.jump_col = ctx.start_col;
     ctx.undo_idx = buf->undo_index+1;
@@ -216,8 +216,8 @@ ActionType resolve_action_stack(Buffer* buf) {
             RepaintType repaint = Buffer_delete_range(buf, &active_copy, &ctx);
             if (ctx.start_col != -1) {
                 String* s = alloc_String(10);
-                char** line_p = Buffer_get_line_abs(buf, ctx.start_row);
-                char* line = *line_p;
+                String** line_p = Buffer_get_line_abs(buf, ctx.start_row);
+                char* line = (*line_p)->data;
                 size_t p_start = buf->left_col;
                 size_t p_end = editor_width - editor_left + buf->left_col;
                 size_t size = format_respect_tabspace(&s, line, 0,

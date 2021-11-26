@@ -39,7 +39,7 @@ struct Edit {
     size_t undo_index;
     size_t start_row;
     ssize_t start_col;  // -1 means entire row modification
-    char* old_content;
+    String* old_content;
     String* new_content;
 };
 typedef struct Edit Edit;
@@ -68,8 +68,7 @@ struct Buffer {
     String* swapfile_name;
     FILE* file;
     FILE* swapfile;
-    Deque /*Edit* */ undo_buffer;
-    Vector /*Edit* */ redo_buffer;
+    History undo_history;
     ssize_t top_row;            // Index into lines array corresponding to the top corner
     ssize_t left_col;           // Column position of the leftmost column (default: 0)
     size_t top_left_file_pos;   // TODO: update this...
@@ -78,7 +77,7 @@ struct Buffer {
     ssize_t cursor_col;         // 0-indexed X coordinate on screen
     int natural_col;            // This is int because.. if you have more than int cols, I can't save you
     ssize_t undo_index;
-    Vector/*char* */ lines; //TODO: Cache/load buffered
+    Vector/*String* */ lines; //TODO: Cache/load buffered
     size_t visual_row;      // Visual mode anchors.
     size_t visual_col;
     EditorMode buffer_mode;

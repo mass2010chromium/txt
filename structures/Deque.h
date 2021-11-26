@@ -30,6 +30,11 @@ bool Deque_full(Deque* this);
 bool Deque_empty(Deque* this);
 
 /**
+ * Resize the Deque. WARNING: CAN DELETE ELEMENTS IMPLICITLY!
+ */
+void Deque_resize(Deque* this, size_t new_capacity);
+
+/**
  * Push onto the end of the deque.
  */
 int Deque_push(Deque* this, void* element);
@@ -52,11 +57,11 @@ void* Deque_pop_r(Deque* this);
 /**
  * Get right side element without removing it.
  */
-void* Deque_peek_r(Deque* this);
+void** Deque_peek_r(Deque* this);
 
 /**
  * Get left side element without removing it.
  */
-void* Deque_peek_l(Deque* this);
+void** Deque_peek_l(Deque* this);
 
 void Deque_destroy(Deque* v);

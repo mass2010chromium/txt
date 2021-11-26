@@ -133,7 +133,7 @@ int editor_get_buffer_idx();
 /**
  * Returns a pointer to the line at position y in the current buffer.
  */
-char** get_line_in_buffer(size_t y);
+String** get_line_in_buffer(size_t y);
 
 /**
  * Creates an Edit object to prepare for changes made to the current row.

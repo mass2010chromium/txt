@@ -5,6 +5,7 @@
 #include "debugging.h"
 #include "../structures/Deque.h"
 #include "../structures/Vector.h"
+#include "../structures/History.h"
 #include "../structures/String.h"
 #include "../structures/gap_buffer.h"
 

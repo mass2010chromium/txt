@@ -25,6 +25,7 @@ UTEST(editor, make_buffer) {
     ASSERT_VS_EQ(&expected, &current_buffer->lines);
 
     editor_close_buffer(1);
+    Vector_clear_free(&expected, 10);
     Vector_destroy(&expected);
 }
 

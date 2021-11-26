@@ -6,13 +6,13 @@
 #include "../editor/utils.h"
 #include "../common.h"
 
-Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, char* new_content);
+Edit* make_Insert(size_t undo, size_t start_row, size_t start_col, String* new_content);
 /**
  * Takes ownership of old_content!!!
  */
-Edit* make_Delete(size_t undo, size_t start_row, size_t start_col, char* old_content);
-Edit* make_Edit(size_t undo, size_t start_row, size_t start_col, char* old_content);
-void inplace_make_Edit(Edit*, size_t, size_t, size_t, char*);
+Edit* make_Delete(size_t undo, size_t start_row, size_t start_col, String* old_content);
+Edit* make_Edit(size_t undo, size_t start_row, size_t start_col, String* old_content);
+void inplace_make_Edit(Edit*, size_t, size_t, size_t, String*);
 void Edit_destroy(Edit*);
 
 Buffer* make_Buffer(const char* filename);
@@ -38,17 +38,12 @@ void Buffer_exit_visual(Buffer* buf);
  * These two get relative to screen pos.
  */
 ssize_t Buffer_get_line_index(Buffer* buf, ssize_t y);
-char** Buffer_get_line(Buffer* buf, ssize_t y);
+String** Buffer_get_line(Buffer* buf, ssize_t y);
 
 /**
  * This gets relative to document pos.
  */
-char** Buffer_get_line_abs(Buffer* buf, size_t row);
-
-/**
- * Write a line in this buffer. Copies data into the buffer.
- */
-void Buffer_set_line_abs(Buffer* buf, size_t row, const char* data);
+String** Buffer_get_line_abs(Buffer* buf, size_t row);
 
 /**
  * Clip the context to the buffer's bounds.
@@ -89,7 +84,7 @@ void Buffer_push_undo(Buffer*, Edit*);
  * Saves the location of the last undo in ctx jump entries
  */
 int Buffer_undo(Buffer*, size_t undo_index, EditorContext* ctx);
-int Buffer_redo(Buffer*, size_t undo_index);
+int Buffer_redo(Buffer*, size_t undo_index, EditorContext* ctx);
 
 /**
  * Find a string in this buffer.

@@ -34,6 +34,11 @@ Vector* Vector_copy(Vector* v);
 void Vector_push(Vector* v, void* element);
 
 /**
+ * Vector pop from end. (O(1) end)
+ */
+void* Vector_pop(Vector* v);
+
+/**
  * Vector insert into middle.
  * Postcondition: v[idx] = element
  */
@@ -53,6 +58,7 @@ void Vector_delete(Vector* v, size_t idx);
 
 /**
  * Vector delete element in range [a, b). Shift everything >=b left.
+ * Zero length ranges allowed (as long as b <= v.size).
  */
 void Vector_delete_range(Vector* v, size_t a, size_t b);
 
