@@ -101,7 +101,8 @@ void Vector_delete(Vector* v, size_t idx) {
  * Zero length ranges allowed (as long as b <= v.size).
  */
 void Vector_delete_range(Vector* v, size_t a, size_t b) {
-    assert(v->size > b - a);
+    assert(b >= a);
+    assert(v->size >= b);
     memmove(v->elements + a, v->elements + b, (v->size - b) * sizeof(void*));
     v->size -= b-a;
 }
