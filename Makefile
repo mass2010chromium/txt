@@ -48,6 +48,6 @@ install: release
 .PHONY: debug-install
 debug-install: all
 	sudo rm -f /usr/local/bin/txt
-	sudo rm -f /usr/local/bin/t
-	sudo ln -sfT $(CURRENT_DIR)/debug /usr/local/bin/txt
-	sudo ln -sfT $(CURRENT_DIR)/debug /usr/local/bin/t
+	sudo sh -c 'echo "__tmp=\"\$$(realpath \$$1)\"; cd \"$(CURRENT_DIR)\"; ./debug \"\$$__tmp\"" > /usr/local/bin/txt'
+	sudo chmod +x /usr/local/bin/txt
+	sudo ln -sfT /usr/local/bin/txt /usr/local/bin/t
