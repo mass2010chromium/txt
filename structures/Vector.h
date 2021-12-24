@@ -14,7 +14,6 @@ typedef struct Vector Vector;
  * Allocates space for a newly created Vector,
  * initializes it using inplace_make_Vector, then returns it.
  */
-
 Vector* make_Vector(size_t init_size);
 
 /**

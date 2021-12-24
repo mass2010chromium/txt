@@ -124,17 +124,24 @@ String* Strncats(String** _a, const char* b, size_t blen) {
     return ret;
 }
 
-void Strcpys(String** _s, char* dat) {
-    size_t length = strlen(dat);
+void Strcpy(String** _s, String* src) {
+    Strncpys(_s, src->data, src->length);
+}
+
+void Strncpys(String** _s, char* dat, size_t length) {
     String* s = *_s;
     if (s->length < length) {
         free(s);
         *_s = make_String(dat);
     }
     else {
-        strcpy(s->data, dat);
+        strncpy(s->data, dat, length+1);
         s->length = length;
     }
+}
+
+void Strcpys(String** _s, char* dat) {
+    Strncpys(_s, dat, strlen(dat));
 }
 
 

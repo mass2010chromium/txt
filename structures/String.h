@@ -78,6 +78,8 @@ String* Strncats(String**, const char*, size_t);
  * Set the content of this string.
  * May realloc.
  */
+void Strcpy(String**, String*);
+void Strncpys(String**, char*, size_t);
 void Strcpys(String**, char*);
 
 /**

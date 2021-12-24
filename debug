@@ -1,0 +1,2 @@
+#!/bin/bash
+valgrind --vgdb-error=1 ./bin/main $1 2> >(tee err)
