@@ -93,8 +93,8 @@ void gapBuffer_move_gap(GapBuffer* buf, ssize_t offset) {
         return;
     }
     if (buf->gap_start + offset < 0 || buf->gap_end + offset > buf->total_size) {
-        //Out of bounds, raise segfault to prevent weirdness from happening later
-        *((int*)0) = 0;
+        //Out of bounds, trap to prevent weirdness from happening later
+        __builtin_trap();
         return;
     }
     size_t new_start = buf->gap_start + offset;
