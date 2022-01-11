@@ -451,15 +451,15 @@ int Buffer_save(Buffer* buf) {
     Buffer_open_files(buf, "w", "r");
 #ifdef __APPLE__
     char* tmp_buf = calloc(bytes, 1);
-    size_t read_bytes = fread(tmp_buf, 1, bytes, buf->file);
-    if (ferror(buf->file)) {
+    size_t read_bytes = fread(tmp_buf, 1, bytes, buf->swapfile);
+    if (ferror(buf->swapfile)) {
     fail:
         free(tmp_buf);
         Buffer_close_files(buf);
         return -1;
     }
-    size_t written_bytes = fwrite(tmp_buf, 1, read_bytes, buf->swapfile);
-    if (written_bytes < read_bytes || ferror(buf->swapfile)) { goto fail; }
+    size_t written_bytes = fwrite(tmp_buf, 1, read_bytes, buf->file);
+    if (written_bytes < read_bytes || ferror(buf->file)) { goto fail; }
     free(tmp_buf);
 #else
     while (bytes > 0) {
