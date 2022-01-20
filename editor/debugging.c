@@ -5,7 +5,7 @@
 #include <stdarg.h>
 FILE* __of;
 void __debug_init() {
-    __of = fopen("log.txt", "w");
+    __of = fopen(".editor_log.txt", "w");
 }
 void print(const char* format, ...) {
     va_list ptr;
