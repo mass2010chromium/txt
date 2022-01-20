@@ -2,7 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#ifndef __APPLE__
 #include <sys/sendfile.h>
+#endif
 
 #include "buffer.h"
 #include "../editor/utils.h"
@@ -447,6 +449,19 @@ int Buffer_save(Buffer* buf) {
     size_t bytes = ftell(buf->swapfile);
     Buffer_close_files(buf);
     Buffer_open_files(buf, "w", "r");
+#ifdef __APPLE__
+    char* tmp_buf = calloc(bytes, 1);
+    size_t read_bytes = fread(tmp_buf, 1, bytes, buf->swapfile);
+    if (ferror(buf->swapfile)) {
+    fail:
+        free(tmp_buf);
+        Buffer_close_files(buf);
+        return -1;
+    }
+    size_t written_bytes = fwrite(tmp_buf, 1, read_bytes, buf->file);
+    if (written_bytes < read_bytes || ferror(buf->file)) { goto fail; }
+    free(tmp_buf);
+#else
     while (bytes > 0) {
         // TODO: sendfile isn't portable at all.
         ssize_t nbytes = sendfile(fileno(buf->file), fileno(buf->swapfile), NULL, bytes);
@@ -457,6 +472,7 @@ int Buffer_save(Buffer* buf) {
         }
         bytes -= nbytes;
     }
+#endif
     Buffer_close_files(buf);
     remove(buf->swapfile_name->data);
     return 0;
